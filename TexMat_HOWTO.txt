@@ -1,0 +1,48 @@
+This document is a guide on how to change texture names in maps to ones with desired material types using BSPTexRemap.
+
+
+STEP-BY-STEP INSTRUCTIONS
+-------------------------
+
+1.  Run BspTexRemap with the following command:
+        BspTexRemap -dump_texinfo uniquegrouped "<path_to_bsp_file>"
+
+    If your BSP file is not in a game's maps folder, use this command instead:
+        BspTexRemap -dump_texinfo uniquegrouped -materials_path "<path_to_materials.txt>" "<path_to_bsp_file>"
+
+2.  Find the file <mapname>_texinfo.txt created alongside your map. Open the file.
+    The section of the file under "Unique texture groups" lists texture group names that currently don't have an entry in materials.txt.
+    Copy all lines under that section.
+
+3.  Create a file named "<mapname>_custommat.txt" in the same place as the map file and the file created earlier.
+    Paste the lines copied from the previous section.
+	
+4.  Add material types to the list, and format it as you would a materials.txt file. The materials.txt lists the available material codes to be used.
+
+    To help you make sense of the names, you can use other tools that let you view embedded textures inside the map file.
+
+    Note that the entries omit special texture prefixes such as ~, -0, +0, +a, {, etc.
+
+    IMPORTANT: 
+    Line order matters. Put the most important names at the top.
+
+    Save and close the file when you're done.
+	
+5.  Run BspTexRemap again with the following command:
+        BspTexRemap -backup "<path to bsp file>"
+		
+    If your BSP file is not in a game's maps folder, use this command instead:
+        BspTexRemap -backup -materials_path "<path_to_materials.txt>" "<path_to_bsp_file>"
+
+6.  BspTexRemap will read the "<mapname>_custommat.txt" file and try and rename as many textures as it can, to a similar texture name with the same material type as in materials.txt. 
+
+    Due to how the engine matches texture names for material sounds, not all names in materials.txt are suitable for this exercise, and some material types would have no suitable texture names at all.
+
+    Again, the order of the entries in "<mapname>_custommat.txt" determines the order of renamings, and if the list of suitable names have been exhausted for a material type, the rest of the texture entries will be left as is.
+	
+7.  DONE. Test the map with a crowbar.
+
+
+F.A.Q. (Fairly Anticipated Questions)
+-------------------------------------
+See the section of the same name in README.txt

@@ -1,0 +1,64 @@
+// BspTexRemap.fgd
+// by kimilil
+// 2023-02-28
+// 
+// This FGD defines the info_texture_remap entity, for use by the 
+// BspTexRemap.exe program.
+// 
+// The goal is to rename embedded textures to those defined in materials.txt
+// so that you get the proper materisl sounds without having to add entries 
+// to that file, increasing portability of your maps.
+// 
+// USAGE
+// to define textures, turn off SmartEdit and add keyvalues in this form:
+// 		unprefixed_texture_name = target material type
+// eg.	PRAXFLOOR = T
+// unprefixed_texture_name means the prefixes must not be used as the engine
+// ignores them when checking for material sounds. These are the characters:
+//      { ! @ ~
+// as well as the following sequences (for animated/tiling textures):
+//      -0 to -9, +0 to +9, +A to +J
+// 
+// if match_method = "prefix" or "regexp", textures whose name starts with
+// given entry, or matches in regular expressions, will be replaced
+// 
+// you can also define specific prefixes to use for replacement by having these keyvalues
+// 		X = replacement_prefix
+// where, 
+//	  X is the material type letter
+// 	  replacement_prefix must be exactly 12 characters (longer gets stripped)
+// if any of these are provided, it will be used regardless of whether such 
+// entries actually exist in materials.txt
+//
+// should the enumeration of replaced names exceed what fits the radix
+// (100 for radix 10, 256 for radix 16) (very unlikely)
+// you can define multiple values, the same way multi_manager does
+//
+// If the given materials.txt has no entries that are at least 12 characters long
+// for the specified type, the program switches to exact replacement 
+// regardless of setting.
+// 
+// the order of entries matter. if the tool has exhausted all possible 
+// replacement names, the rest will be left intact
+
+// NOTE TO SELF: materials ignores prefixes !|-\d|+\d|~ from the names
+
+@PointClass = info_texture_remap : "Renames embedded textures"
+[
+	materials_path(string) : "Location of reference materials.txt"
+	// UNUSED PROPERTIES. PLEASE DO NOT USE THEM AS THEY MAY BE UNIMPLEMENTED 
+	// OR THE SPECIFICS MAY CHANGE IN THE FUTURE
+	// match_method(choices) : "Name matching method" : "exact" =
+	// [
+	// 	"exact"		: "Exact"
+	// 	"prefix"	: "Prefixed"
+	// 	"regExp"	: "Regular expression"
+	// ]
+	// replace_method(choices) : "Replacement matching method" =
+	// [
+	// 	"prefix"	: "Uses first 12 characters as prefix"
+	// 	"exact"		: "Use exact names (Counter-Strike)"
+	// ]
+	// custommat_path(string) : "Location of custom materials.txt"
+	// enumeration_radix(integer) : "Radix (for enumeration)" : 16
+]

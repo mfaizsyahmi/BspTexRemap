@@ -1,0 +1,58 @@
+This document is a guide on how to incorporate the texture remapping of BSPTexRemap into a mapping work flow.
+
+The map editor used for this guide is JACK. For Valve Hammer Editor 3.x, adapt the steps as necessary. For other map editors not derived from WorldCraft, consult the respective editor's manuals on how to add FGD files and compile executables. 
+
+The target outcomes are:
+1) BspTexRemap.fgd added to the game configurartion.
+2) BSPTexRemap.exe added to the compile step, after QRAD/HLRAD.
+
+
+STEP-BY-STEP INSTRUCTIONS
+-------------------------
+A) SETTING UP IN JACK
+1. In JACK, add BspTexRemap.fgd to your game configuration.
+
+   i)   Open Tools > Options... > Game Profiles
+   ii)  Choose a profile you want to add this FGD file to.
+   iii) In Configuration Settings > Game > Game Data Files, add BspTexRemap.fgd
+   iv)  Press OK.
+
+
+B) USING IT ON YOUR MAP
+1. In your map, add the info_texture_remap entity.
+
+2. For "Location of reference materials.txt", enter location of said file. this can be either absolute or relative to the map file. Do not enclose in quotes.
+   If the file was moved to the target game or mod's maps folder in an earlier compile step, you can omit this property and let the program auto-load the game or mod's materials.txt file.
+
+3. Turn off smartedit and add new entries in this way:
+    Key:    The texture group name to rename, without the prefixes (no ~, {, +0, -0, etc.)
+    Value:  The target material type. This is one character long. See materials.txt for a list of valid values.
+
+4. Repeat for as many textures need replacing. 
+
+
+C) COMPILING IN JACK
+This guide assumes you already have an advanced compilation configuration set up.
+For more information, see:
+https://twhl.info/wiki/page/VERC%3A_The_Advanced_Compile_Dialogue
+
+1. Open the advanced compile dialog. (File > Run..., or press F9). 
+   If the normal compile dialog appears, press the Expert button.
+
+2. Add a new command. The command name should point to the path to BSPTexRemap.exe.
+   i)   Under Compile/Run commands, press the New button.
+   ii)  Under Command Properties, press Cmds > Executable...
+   iii) In the file browse dialog, select BSPTexRemap.exe.
+
+3. The arguments should follow standard arguments for the other compilers e.g.:
+     "$bspdir/$file"
+   (Include the quotes)
+
+4. IMPORTANT: Move the command to run AFTER the RAD program (qrad/hlrad).
+   Your RAD compilation would fail if BSPTexRemap.exe is run before it, as the texture names would have changed.
+   i)   Select the list entry for BSPTexRemap.exe.
+   ii)  Press the Up button until it's placed just under the $light_exe entry.
+
+5. Check that the command is checked, if you want to run it. Uncheck if you want to skip it.
+
+6. Run the compile.

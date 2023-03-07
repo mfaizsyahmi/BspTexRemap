@@ -1,0 +1,9 @@
+v0.1a
+=====
+- Added icon
+- Moved script files and its compiler under /src
+- Added TexMat_mapper_HOWTO.txt
+
+v0.1
+====
+- Initial release

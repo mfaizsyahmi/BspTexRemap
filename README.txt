@@ -1,0 +1,93 @@
+BspTexRemap.exe
+ version 0.1
+ (c) M Faiz Syahmi @ kimilil, 2023
+
+ABOUT
+=====
+This program patches a BSP file, replacing names of embedded textures to those
+in a given materials.txt, to try and eliminate the need to edit or ship a
+modified materials.txt, thus increasing map portability.
+The match and replacement textures are defined in a info_texture_remap entity
+placed in the map, or in a "<mapname>_custommat.txt" alongside the map file,
+or supplied in an external file.
+
+
+USAGE
+=====
+  BspTexRemap [options] filePath
+
+  Arguments:
+    -h | -help      show this help menu and exit
+    -log LEVEL      logging level (off|error|warn|info|verbose) (default:error)
+    -low | -high    set process priority level
+    -backup         makes backup of BSP file
+    -dump_texinfo VAL1+VAL2+...+VALN
+                    creates a file with names of textures used in the map
+                    (embedded|external|all|grouped|uniquegrouped)
+    -materials_path FILE
+                    defines path to materials.txt for reference
+    -custommat_path FILE
+                    file with custom texture's materials
+                    (used if info_texture_remap is absent)
+    filePath        file to operate
+
+
+LICENSE
+=======
+  see BspTexRemap_license.txt
+
+
+F.A.Q. (Fairly Anticipated Questions)
+=====================================
+Q: Why would I want to do this?
+A: So that you can try to avoid having to touch your materials.txt file to add texture materials.
+
+
+Q: Why not edit materials.txt? Is it that bad?
+A: Because while it may work on your computer, it might not work on someone else's computer. You're asking someone who wants to play your map to replace their [possibly customized] materials.txt with your own materials.txt. Or you can ask them to add entries at the end, which is just more work for other people. Maybe their materials.txt already reached the maximum number of entries.
+
+
+Q: How does this work, exactly?
+A: 
+   Texture names have a maximum length of 15 characters. However the game engine matches only the first 12 characters of the names in the materials.txt file, in order to discount texture prefixes that have special meanings, and group together such prefixed textures as one texture entry.. So if custom textures in the map has the first 12 characters of its name matching that of an entry in materials.txt, it'll inherit the texture's material type.
+   
+   BspTexRemap exploits this fact by renaming textures already in the map to such names, after the map is compiled. The program can read entries from info_texture_remap entities in the map (for use by mappers) or from the "<mapname>_custommat.txt" file (for use by anybody.)
+
+   To avoid duplicate names, BspTexRemap adds suffix characters to the ends of the renamed textures to fill the maximum texture name length of 15 characters. However, if there are prefix characters, it subtracts from the number of characters BspTexRemap can suffix at the end, hence why textures with prefixes 3 characters or longer cannot be renamed (15-3=12, which is already the length of the base texture name.)
+   
+
+Q: This doesn't work. The textures still sound the same when I bang them with my crowbar.
+A: 
+   Barring errors in parsing the "<mapname>_custommat.txt" or the info_texture_remap entities, or write errors, a possible cause is that BspTexRemap cannot rename all requested texture names for several reasons:
+    - The textures are not embedded in the map.
+    - The textures are already in materials.txt in which case it's sounding as intended.
+    - The original texture has too long of a prefix (three or more characters) e.g. +0~.
+    - The original texture simply cannot be renamed or not currently supported (sky, black, scroll*).
+    - None of the texture names in materials.txt with the requested material type is 12 characters or longer.
+    - BspTexRemap runs out of such texture names after so many different permutations of name suffixes.
+	
+   Additionally, the game engine might not like several of the suffix characters BspTexRemap uses to make the names unique, in which case you can contact me at Github.
+
+
+Q: In what circumstance would this be useful?
+A: Off the top of my head:
+    - Shipping a multiplayer map for Half-Life or most GoldSrc mods, most of which don't support per-map materials.txt like, say, Sven Co-op.
+    - Likewise, shipping singleplayer "mission packs" that drops into a "valve_addon" folder or something of the sorts, though in most cases you'll be distributing it as a custom mod, and those can use materials.txt as normal.
+
+
+Q: Why not have the texture names in the WAD files match entries in materials.txt to begin with?
+A: 
+   That's a viable alternative to exploit the materials sound system, but it's not for everyone. There are considerably more steps involved to get the same effect, both for mappers and map rippers. Not to mention it's not helpful for you, the mapper, to have 36 textures of all sorts having the same undescriptive name from Half-Life.
+
+   BspTexRemap can get you mostly there, without having to change how you work on texturing your map. You can worry about the texture material sounds towards the end of the project, not at the start.
+
+
+Q: Would this work on <insert_mod_name>?
+A: As far as I know, this system would work on any mod that doesn't modify the materials code or extended it for per-map use.
+   This is confirmed to NOT work on the following games/mods:
+    - Counter-Strike 1.6 (matches the texture names precisely)
+    - Sven-Coop (uses a per-map materials.txt file, so this workaround is not needed)
+
+
+Q: Can I run this program on Linux/OSX?
+A: This program has not been tested on those platforms, but you can try running it with an Windows environment emulator such as WINE.
