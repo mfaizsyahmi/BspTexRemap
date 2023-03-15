@@ -1,0 +1,26 @@
+# ref: https://github.com/nekocodeX/GitHub-Action-Ahk2Exe
+name: Compile AHK to EXE
+
+on: push
+
+jobs:
+  Example:
+    name: Example
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Ahk2Exe
+        uses: nekocodeX/GitHub-Action-Ahk2Exe@main
+        with:
+          in : src/BspTexRemap.ahk
+          out: BspTexRemap.exe
+          
+#      - name: Release
+#        uses: softprops/action-gh-release@v1
+#        if: startsWith(github.ref, 'refs/tags/')
+#        with:
+#          files: example.exe
+#        env:
+#          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}         
