@@ -1,5 +1,5 @@
 BspTexRemap.exe
- version 0.1
+ version 0.1b
  (c) M Faiz Syahmi @ kimilil, 2023
 
 ABOUT
