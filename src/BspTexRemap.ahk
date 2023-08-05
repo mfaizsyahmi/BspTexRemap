@@ -1,4 +1,4 @@
-﻿GLOBAL APPNAME := A_ScriptName, VERSION := "0.1a"
+﻿GLOBAL APPNAME := A_ScriptName, VERSION := "0.1b"
 ;@Ahk2Exe-Let U_version = %A_PriorLine~U)^(.+"){1}(.+)".*$~$2%
 ;@Ahk2Exe-SetVersion %U_version%
 GLOBAL BANNER := Format("

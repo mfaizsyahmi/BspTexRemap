@@ -27,7 +27,7 @@ Class Materials {
 		
 		; 1 - entities' materials_path entry
 		If (IsObject(texRemapEntities) && texRemapEntities.length()) {
-			For _, entTexRemap in texRemapEntities {
+			For _, texRemapEntity in texRemapEntities {
 				If (texRemapEntity.materials_path) {
 					Console.Info("Read materials_path property from info_texture_remap entity")
 					candidatePathObj := new Path(texRemapEntity.materials_path)
