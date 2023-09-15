@@ -4,7 +4,7 @@
 ;	Console class
 
 Class Materials {
-	static MATCHARS := "MVDSTGWPY"
+	static MATCHARS := "MVDSTGWPYF"
 	, TEXNAMEPARTS_RE := "Oi)(?P<prefix>[!@{]?(?:-\d|\+[0-9a-z])?~?)?(?P<texname>.*)"
 	, IGNOREPATTERN := "i)^(sky|{blue|{invisible|black|aaatrigger|scroll.*)"
 	, CHARSEQUENCE := "~}|{``_^]\[@?>=<;:/.-,+*)(&%$#!ZYXWVUTSRQPONMLKJIHGFEDCBA9876543210"

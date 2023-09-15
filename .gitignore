@@ -1,3 +1,8 @@
-src/compiler/*
+src_legacy/compiler/*
+__pycache__
+src/venv
+src/build
+src/dist
 *.xcf
 wtf.txt
+*_x.py

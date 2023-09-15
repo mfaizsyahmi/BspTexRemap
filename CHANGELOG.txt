@@ -1,5 +1,9 @@
+v0.2 [2023-09-15]
+=================
+- Rewrote the program in Python 3.11
+
 v0.1b
-====
+=====
 - fixed bug that caused program not to read materials_path from info_texture_remap.
 
 v0.1a

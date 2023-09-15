@@ -53,6 +53,8 @@ https://twhl.info/wiki/page/VERC%3A_The_Advanced_Compile_Dialogue
    i)   Select the list entry for BSPTexRemap.exe.
    ii)  Press the Up button until it's placed just under the $light_exe entry.
 
-5. Check that the command is checked, if you want to run it. Uncheck if you want to skip it.
+5. IMPORTANT: Check the "Use Process Window" option, otherwise your compile log won't include output from this tool.
 
-6. Run the compile.
+6. Check that the command is checked, if you want to run it. Uncheck if you want to skip it.
+
+7. Run the compile.

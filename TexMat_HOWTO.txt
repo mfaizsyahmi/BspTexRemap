@@ -45,4 +45,4 @@ STEP-BY-STEP INSTRUCTIONS
 
 F.A.Q. (Fairly Anticipated Questions)
 -------------------------------------
-See the section of the same name in README.txt
+See FAQ.txt
