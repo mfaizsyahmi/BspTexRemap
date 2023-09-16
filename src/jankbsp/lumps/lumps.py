@@ -1,7 +1,7 @@
 from .base import BspLump, BspDataLump
 from itertools import pairwise, accumulate # for texturelump
 from math import ceil # vislump
-from operator import itemgetter
+from operator import itemgetter, attrgetter
 from struct import Struct
 from collections.abc import MutableSequence # for lightmap view
 from jankbsp.types import *
@@ -166,6 +166,15 @@ class BspMarksurfacesLump(BspDataLump):
 class BspEdgesLump(BspDataLump):
     ''' edges lump '''
     DATATYPE = BspEdge
+    def get_edge_vertices(self, index):
+        ''' negative index reverses the edge order
+            basically surfedges translates to this.
+        '''
+        indices = self._parent.edges[abs(index)].astuple()
+        values = itemgetter(*indices)(self._parent.vertices)
+        if index < 0:
+            values = reversed(values)
+        return values
 
 class BspSurfedgesLump(BspDataLump):
     ''' surfedges lump '''
@@ -174,4 +183,9 @@ class BspSurfedgesLump(BspDataLump):
 class BspModelsLump(BspDataLump):
     ''' models lump '''
     DATATYPE = BspModel
-
+    
+    def get_faces_of(self, item:BspModel|int):
+        ''' return faces of given model index '''
+        item = self.entries[item] if isinstance(item,int) else item
+        start,count = attrgetter("face_index","face_count")(item)
+        return self._parent.faces[start:start+count]

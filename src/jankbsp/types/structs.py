@@ -213,6 +213,11 @@ class BspEdge(StructData):
     index1: int
     index2: int
     STRUCT = Struct("<2H")
+    def reversed(self):
+        ''' surfedges pointing to a negative index is asking for edge where the 
+            two indices were flipped
+        '''
+        return BspEdge(self.index2,self.index1)
 
 @dataclass
 class BspLeaf(StructData):
