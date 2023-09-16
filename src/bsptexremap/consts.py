@@ -1,6 +1,6 @@
 ''' consts.py
     all constants go here
-    
+
     to use it in other files:
     >>> import .consts
     >>> consts.CHARSEQUENCE
@@ -18,7 +18,7 @@ APP_HEADER = f"{APPNAME} {VERSION}\n{COPYRIGHT}\n\n{APPDESC}"
 TEXNAME_MAX_LEN = 15
 # min/max mength for workable material names
 MATNAME_MIN_LEN = 12
-MATNAME_MAX_LEN = 15
+MATNAME_MAX_LEN = 14
 
 TEXREMAP_ENTITY_CLASSNAME = "info_texture_remap"
 TEXREMAP_MATPATH_KEY = "materials_path"
@@ -60,7 +60,7 @@ class MATCHARS_BY_MOD:
     CZERO  = "CMDVGTSWPYFNX"
     CZEROR = "CMDVGTSWPYFNEAR"
     def __getitem__(self, item): # support for instance[mattype]
-        return getattr(self, item)    
+        return getattr(self, item)
 
 # dump_texinfo
 class TEXINFO:

@@ -17,12 +17,12 @@ class TextureRemapper:
         target_set being the texnames that wanted to be the specified material,
         choice_Set being the set with the valid entries from materials.txt,
         map_dict being direct map, no questions asked
-        
+
         sample usage:
         >>> tm = TextureRemapper(wannabe_set, choice_set)
         >>> for miptex in bsp.miptexes:
         >>>     miptex.name = tm(miptex.name)
-        or 
+        or
         >>> newnames = list(map(tm, oldnames))
     '''
     def __init__(self, target_set, choice_set, map_dict={}):
@@ -31,7 +31,7 @@ class TextureRemapper:
         self.map_dict = map_dict
         self.groupmap = {} # tracks group names, so it returns the same remapped names
         self.iterators = dict({m:{} for m in MaterialSet.MATCHARS})
-        
+
     def get_iterator(self, mat:str, targetlen:int):
         ''' returns the appropriate iter_padded_names for specified mat and len
             (creating the iterators on the fly as needed)
@@ -42,34 +42,34 @@ class TextureRemapper:
             targetlen,
             self.choice_set.iter_padded_names(mat,targetlen)
         )
-    
+
     def __call__(self, texname:str) -> str:
-        ''' returns 
+        ''' returns
         '''
         parts = re.match(consts.TEX_PARTS_RE, texname)
         # IMPORTANT: material set consistently populated with uppercase values
         texgroupname = parts["texname"].upper()
-        
+
         if parts["texname"] in self.map_dict:
             return parts["prefix"] + self.map_dict[parts["texname"]]
-        
+
         elif texgroupname not in self.target_set \
         or re.match(consts.TEX_IGNORE_RE, texname) \
         or len(parts["prefix"]) > 2:
             return texname
-        
+
         elif parts["texname"] in self.groupmap:
             return parts["prefix"] + self.groupmap[texgroupname]
-            
+
         targetmat = self.target_set.get_mattype_of(texgroupname)
         targetlen = consts.TEXNAME_MAX_LEN - len(parts["prefix"])
         result = next(self.get_iterator(targetmat,targetlen), None)
         if not result: # exhausted available names for this mattype+len combo
             return texname # unchanged
-            
+
         if parts["grouped"]:
             self.groupmap[texgroupname] = result
-        
+
         return parts["prefix"] + result
 
 @dataclass
@@ -92,8 +92,12 @@ class MaterialSet:
     # new in CZDS
     E : set = field(init=False,default_factory=lambda:set()) # Carpet
     A : set = field(init=False,default_factory=lambda:set()) # Grass
-    R : set = field(init=False,default_factory=lambda:set()) # Gravel    
+    R : set = field(init=False,default_factory=lambda:set()) # Gravel
+    # new in CZ
+    X : set = field(init=False,default_factory=lambda:set()) # Grass
 
+    # change this value if working with CZ|CZDS 
+    # (though they probably don't support the hack anyway)
     MATCHARS = "CMDVGTSWPYFN"
 
     @classmethod
@@ -113,87 +117,99 @@ class MaterialSet:
             for line in f.readlines():
                 parts = line.split("//", 1)[0].split(" ",2)
                 if len(parts) < 2: continue
-                
+
                 matchar, matname = parts[0].strip(), cls.strip(parts[1])
                 if not len(matchar) or matchar not in cls.MATCHARS:
                     continue
                 # matname not matching read entry indicates prefixes in entries
                 if matname != parts[1].strip():
                     report_incompat += 1
-                
+
                 self[matchar.upper()].add(matname.upper())
-        
+
         if report_incompat:
             log.warn(f"{report_incompat} entries found with prefixes. This may mean that the mod doesn't support the texture name hack, and the texture remappings may not work.")
-        
+
         return self
-        
+
     @classmethod
     def from_entity(cls, ent):
         self = cls()
-        
+
         for k, v in ent:
             if re.match(consts.ENT_PROPS_RE, k) \
             or re.match(consts.TEX_IGNORE_RE,k) \
             or len(v) != 1: continue
-            
+
             self[v.upper()].add(cls.strip(k.upper()))
-            
+
         return self
-    
+
     def get_mattype_of(self, texgroupname:str) -> str:
         ''' returns the name of the material set containing texgroupname '''
         texgroupname = MaterialSet.strip(texgroupname)
         for m in MaterialSet.MATCHARS:
             if texgroupname in self[m]:
                 return m
-    
+
     def iter_padded_names(self, mat:str, targetlen:int) -> str:
-        ''' generator that yields a name from the target material padded with 
+        ''' generator that yields a name from the target material padded with
             random chars of given length.
             client code should account for different lengths of the textures
             they're replacing.
             also, only call this on a choice cut instance of the class
             usage:
                 g = MaterialSet.iter_padded_names(mat, len)
-                next(g,None)
+                newname = next(g,None)
         '''
         for texgroupname in sorted(self[mat]):
             for padstr in char_padder(targetlen - len(texgroupname)):
                 yield texgroupname + padstr
-                
-    def __getitem__(self, item): # support for instance[mattype]
+
+    def __getitem__(self, item): 
+        ''' support for instance[mattype] '''
         return getattr(self, item)
-    
+
     def __contains__(self, texgroupname:str):
         ''' check if texgroupname is in any of the material sets '''
         return True if self.get_mattype_of(texgroupname) else False
-    
-    def __len__(self): 
-        ''' reports the combined number of entries across all material sets
-        '''
+
+    def __len__(self):
+        ''' reports the combined number of entries across all material sets '''
         sum = 0
         for m in self.__class__.MATCHARS:
             sum += len(self[m])
         return sum
-    
+
     def asdict(self):
-        ''' this purposefully enumerates by the class internal MATCHARS
-            so that we don't over-report sets in CZDS otherwise not supported
-            in vanilla
+        ''' this purposefully enumerates by the class internal MATCHARS so that
+            we don't over-report sets in CZDS otherwise not supported in vanilla
         '''
         return {m:self[m] for m in self.__class__.MATCHARS}
     def astuple(self):
         return astuple(self)
-    
+
     @property
     def sets(self):
-        ''' used in cases where the type of material doesn't matter, only that
-            it's here somewhere. example is to remove texture names already in
-            given materials.txt
+        ''' iterates through all sets in this object where the type of material
+            doesn't matter, only that it's here somewhere.
+            an example is to remove texture names already in given materials.txt
         '''
         return [*astuple(self)]
-    
+
+    def choice_cut(self):
+        ''' returns a subset with suitable names (length between 12 and 14)
+            special case for "C": add "__CONCRETE" to it
+        '''
+        concrete_admix = {"__CONCRETE"}
+        cutfn = lambda tex: consts.MATNAME_MIN_LEN <= len(tex) <= consts.TEXNAME_MAX_LEN-1
+        mapfn = lambda mat,vals: concrete_admix | vals if mat == "C" \
+                                 else set(filter(cutfn,vals))
+
+        return MaterialSet(**{
+                m:mapfn(m,self[m]) for m in MaterialSet.MATCHARS
+        })
+
     ''' ARITHMETIC OPERATION SUPPORT
         this allows us to use arithmetic operations between two instances of MaterialSet
         NOTE: since we're dealing with set we use set operations (union/diff)
@@ -204,35 +220,24 @@ class MaterialSet:
     def __or__(self, other): # self | other
         ''' union of two instances into a third '''
         return MaterialSet(**{m:self[m] | other[m] for m in MaterialSet.MATCHARS})
-        
+
     def __sub__(self, other): # self - other
         ''' diff two instances into a third
             e.g. removing map entries already in materials.txt
         '''
         return MaterialSet(**{m:self[m] - other[m] for m in MaterialSet.MATCHARS})
-        
-        
+
     def __ior__(self, other): # self |= other
         ''' unite other to self '''
         for m in MaterialSet.MATCHARS: self[m].update(other[m])
         return self
-        
+
     def __isub__(self, other): # self -= other
         ''' diff other from self '''
         for m in MaterialSet.MATCHARS: self[m].difference_update(other[m])
         return self
-            
-    def __pos__(self): # +self 
-        ''' returns a subset with suitable names (length between 12 and 14)
-            special case for "C": add "__CONCRETE" to it
-        '''
-        concrete_admix = {"__CONCRETE"}
-        cutfn = lambda tex: consts.MATNAME_MIN_LEN <= len(tex) <= consts.TEXNAME_MAX_LEN
-        mapfn = lambda mat,vals: concrete_admix | vals if mat == "C" \
-                                 else set(filter(cutfn,vals))
-        
-        return MaterialSet(**{
-                m:mapfn(m,self[m]) for m in MaterialSet.MATCHARS
-        })
-        
-    def choice_cut(self): return +self
+
+    def __pos__(self): # +self
+        ''' alias to choice_cut '''
+        return self.choice_cut()
+

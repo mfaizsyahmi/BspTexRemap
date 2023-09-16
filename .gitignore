@@ -6,3 +6,6 @@ src/dist
 *.xcf
 wtf.txt
 *_x.py
+*.ORIGIN
+build
+dist

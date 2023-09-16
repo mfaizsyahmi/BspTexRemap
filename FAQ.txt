@@ -10,7 +10,7 @@ A: Because while it may work on your computer, it might not work on someone else
 
 Q: How does this work, exactly?
 A: 
-   Texture names have a maximum length of 15 characters. However the game engine matches only the first 12 characters of the names in the materials.txt file, in order to discount texture prefixes that have special meanings, and group together such prefixed textures as one texture entry.. So if custom textures in the map has the first 12 characters of its name matching that of an entry in materials.txt, it'll inherit the texture's material type.
+   Texture names have a maximum length of 15 characters. However the game engine matches only the first 12 characters of the names in the materials.txt file, in order to discount texture prefixes that have special meanings, and group together such prefixed textures as one texture entry. So if custom textures in the map has the first 12 characters of its name matching that of an entry in materials.txt, it'll inherit the texture's material type.
    
    BspTexRemap exploits this fact by renaming textures already in the map to such names, after the map is compiled. The program can read entries from info_texture_remap entities in the map (for use by mappers) or from the "<mapname>_custommat.txt" file (for use by anybody.)
 
@@ -47,8 +47,10 @@ Q: Would this work on <insert_mod_name>?
 A: As far as I know, this system would work on any mod that doesn't modify the materials code or extended it for per-map use.
    This is confirmed to NOT work on the following games/mods:
     - Counter-Strike 1.6 (matches the texture names precisely)
+	- Day of Defeat (same reason)
     - Sven-Coop (uses a per-map materials.txt file, so this workaround is not needed)
 
 
 Q: Can I run this program on Linux/OSX?
-A: This program has not been tested on those platforms, but you can try running it with an Windows environment emulator such as WINE.
+A: 
+   If you have a recent-ish version of python 3 installed, you can run the provided python source script directly. Please find it at the src/ subfolder. Make sure you have all the dependencies listed in requirements.txt (pip install -r requirements.txt to install those dependencies).

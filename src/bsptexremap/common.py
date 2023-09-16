@@ -1,6 +1,6 @@
 ''' common.py
     all common functions go here.
-    basically whatever functionality a command shell program and a compiler 
+    basically whatever functionality a command shell program and a compiler
     program would have in common.
 '''
 from . import consts
@@ -8,8 +8,7 @@ from .enums import DumpTexInfoParts, MaterialEnum # dump_texinfo
 from .utils import *
 from .bsputil import *
 from .materials import MaterialSet, TextureRemapper
-import re
-from itertools import product
+import re, sys
 from pathlib import Path, PurePath
 from shutil import copy2 as filecopy # backup_bsp
 from logging import getLogger
@@ -51,7 +50,7 @@ def modpath_fallbacks(modpath:Path) -> Path:
 
 def search_materials_file(bsp_path, bsp_entities=[], args_matpath=None):
     ''' search for materials file in this order of precedence:
-		1 - entity's materials_path entry
+		1 - entity's materials_path entry (relative to bsp_path or absolute)
 		2 - cmd line entry
 		3 - mod's, if map is in maps folder
 		4 - fallback's, if liblist.gam can be found and read
@@ -65,7 +64,7 @@ def search_materials_file(bsp_path, bsp_entities=[], args_matpath=None):
         has_remap_entities = True
         if TEXREMAP_MATPATH_KEY in ent:
             log.info("Reading materials_path property from info_texture_remap entity")
-            
+
             candidate_paths = [Path(ent[TEXREMAP_MATPATH_KEY])]
             if not candidate_path.is_absolute():
                 candidate_paths.append(bsp_path / candidate_paths[0])
@@ -93,7 +92,7 @@ def search_materials_file(bsp_path, bsp_entities=[], args_matpath=None):
             candidate = modpath / "sound/materials.txt"
             if candidate.exists():
                 return candidate
-                
+
     log.warn("No materials.txt file found.")
 
 
@@ -105,10 +104,10 @@ def load_wannabe_sets(bsp,bsppath,arg_val,first_found=True):
         if first_found, will stop loading as soon as the set has entries
     '''
     wannabe_set = MaterialSet()
-    
+
     for step in range(3):
         match step:
-            case 0:            
+            case 0:
                 for texremap_ent in iter_texremap_entities(bsp.entities):
                     wannabe_set |= MaterialSet.from_entity(texremap_ent)
             case 1:
@@ -120,7 +119,7 @@ def load_wannabe_sets(bsp,bsppath,arg_val,first_found=True):
                     wannabe_set |= MaterialSet.from_materials_file(arg_val)
 
         if first_found and len(wannabe_set): break
-        
+
     return wannabe_set
 
 
@@ -134,24 +133,24 @@ def dump_texinfo(bsppath, parts: DumpTexInfoParts|int, bsp, material_set=None, *
         2048 - material names
     '''
     if not parts: return
-    
+
     def get_unique_grouped(bsp,matset):
         uniquetexgroups = list_texgroups(bsp.textures_m)
         uniquetexgroups.difference_update(*matset.sets)
         return uniquetexgroups
-        
+
     valuegetter = {
         1:lambda bsp,matset:list_textures(bsp.textures_m),
         2:lambda bsp,matset:list_textures(bsp.textures_x),
         4:lambda bsp,matset:list_texgroups(bsp.textures), # all texgroups in map
         8:lambda bsp,matset:get_unique_grouped(bsp,matset)
     }
-    
-    e = DumpTexInfoParts # shorthand 
+
+    e = DumpTexInfoParts # shorthand
     me = MaterialEnum # ditto
     mode = "w" if parts&1024 else "a"
     outpath = bsp_texinfo_path(bsppath)
-    
+
     with open(outpath, mode) as f:
         log.info(f"Dumping texture info for {bsppath.name} --> {outpath.name}")
         if parts&1024:
@@ -162,11 +161,12 @@ def dump_texinfo(bsppath, parts: DumpTexInfoParts|int, bsp, material_set=None, *
         if parts&2048:
             f.write("\n// Material types: \n")
             f.write("\n".join([f"//  {m} - {me(m).name}" for m in MaterialSet.MATCHARS]) + "\n")
-            
+
         for thispart in filter(lambda f:parts&f, [1,2,4,8]):
             log.info(f"Dumping texture list {e(thispart).value}: {e(thispart).name}")
             f.write(consts.TEXINFO.SECTION.format(e(thispart).name.upper()))
             f.write("\n".join(sorted(valuegetter[thispart](bsp,material_set))) + "\n")
+
 
 def backup_file(filepath:Path|str):
     ''' backup given file by giving it the ".bak" extension '''

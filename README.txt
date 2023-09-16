@@ -47,8 +47,12 @@ options:
 
 LICENSE
 =======
-  see BspTexRemap_license.txt
+ The MIT License (MIT)
+
+  see BspTexRemap_license.txt for full license text.
 
 SPECIAL THANKS
 ==============
-- TODO
+- Bernhard Manfred Gruber for the format specs at the hlbsp project: https://hlbsp.sourceforge.net/index.php
+- @nein_ at Discord for daring to test my broken af program
+- The TWHL community
