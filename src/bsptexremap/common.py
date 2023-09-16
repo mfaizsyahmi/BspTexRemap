@@ -62,11 +62,18 @@ def search_materials_file(bsp_path, bsp_entities=[], args_matpath=None):
     has_remap_entities = False # init
     for ent in filter(ent_filter_fn, bsp_entities):
         has_remap_entities = True
-        if TEXREMAP_MATPATH_KEY in ent:
+        if consts.TEXREMAP_MATPATH_KEY in ent:
+            # skip entities where this key has empty value
+            if not len(ent[consts.TEXREMAP_MATPATH_KEY].strip()): continue
             log.info("Reading materials_path property from info_texture_remap entity")
-
-            candidate_paths = [Path(ent[TEXREMAP_MATPATH_KEY])]
-            if not candidate_path.is_absolute():
+            
+            try:
+                candidate_paths = [Path(ent[consts.TEXREMAP_MATPATH_KEY])]
+            except: # error reading value from entity
+                log.warn("Error reading materials_path value from this entity. skipping.")
+                continue # skip
+            
+            if not candidate_paths[0].is_absolute():
                 candidate_paths.append(bsp_path / candidate_paths[0])
             for candidate in candidate_paths:
                 if candidate.exists():

@@ -136,7 +136,7 @@ class MaterialSet:
     def from_entity(cls, ent):
         self = cls()
 
-        for k, v in ent:
+        for k, v in ent.items():
             if re.match(consts.ENT_PROPS_RE, k) \
             or re.match(consts.TEX_IGNORE_RE,k) \
             or len(v) != 1: continue
