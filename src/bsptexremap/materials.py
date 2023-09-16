@@ -50,15 +50,15 @@ class TextureRemapper:
         # IMPORTANT: material set consistently populated with uppercase values
         texgroupname = parts["texname"].upper()
 
-        if parts["texname"] in self.map_dict:
-            return parts["prefix"] + self.map_dict[parts["texname"]]
+        if texgroupname in self.map_dict:
+            return parts["prefix"] + self.map_dict[texgroupname]
 
         elif texgroupname not in self.target_set \
         or re.match(consts.TEX_IGNORE_RE, texname) \
         or len(parts["prefix"]) > 2:
             return texname
 
-        elif parts["texname"] in self.groupmap:
+        elif texgroupname in self.groupmap:
             return parts["prefix"] + self.groupmap[texgroupname]
 
         targetmat = self.target_set.get_mattype_of(texgroupname)
