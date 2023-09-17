@@ -5,22 +5,31 @@ on:
     branches: [ "main-py" ]
   pull_request:
     branches: [ "main-py" ]
-
+    
+# adapted from https://github.com/pyinstaller/pyinstaller/issues/6296#issuecomment-943620645
 jobs:
   build:
-
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ['windows-latest', 'ubuntu-latest']
 
     steps:
     - uses: actions/checkout@v2
-
-    - name: Package Application
-      uses: JackMcKew/pyinstaller-action-windows@main
+    - uses: actions/setup-python@v2
       with:
-        path: src
+        python-version: 3.11
 
+    - run: |
+        pip install -r requirements.txt pyinstaller
+        pyinstaller src/bsptexremap.spec
+    # Optionally verify that it works (provided that it does not need user interaction)
+    # - run: ./dist/your-code/your-code
     - uses: actions/upload-artifact@v2
       with:
-        name: latest
-        path: src/dist/windows
-        
+        path: |
+          *.txt
+          *.fgd
+          dist/*
+          
