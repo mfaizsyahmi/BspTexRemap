@@ -28,7 +28,7 @@ class TextureRemapper:
     def __init__(self, target_set, choice_set, map_dict={}):
         self.target_set = target_set
         self.choice_set = choice_set
-        self.map_dict = map_dict
+        self.map_dict = {k.upper():v for k,v in map_dict.items()}
         self.groupmap = {} # tracks group names, so it returns the same remapped names
         self.iterators = dict({m:{} for m in MaterialSet.MATCHARS})
 
@@ -44,7 +44,7 @@ class TextureRemapper:
         )
 
     def __call__(self, texname:str) -> str:
-        ''' returns
+        ''' the call method of the instance 
         '''
         parts = re.match(consts.TEX_PARTS_RE, texname)
         # IMPORTANT: material set consistently populated with uppercase values
