@@ -51,6 +51,12 @@ LICENSE
 
   see BspTexRemap_license.txt for full license text.
 
+
+F.A.Q. (Fairly Anticipated Questions)
+=====================================
+See FAQ.txt
+
+
 SPECIAL THANKS
 ==============
 - Bernhard Manfred Gruber for the format specs at the hlbsp project: https://hlbsp.sourceforge.net/index.php
