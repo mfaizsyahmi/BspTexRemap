@@ -58,3 +58,8 @@ https://twhl.info/wiki/page/VERC%3A_The_Advanced_Compile_Dialogue
 6. Check that the command is checked, if you want to run it. Uncheck if you want to skip it.
 
 7. Run the compile.
+
+F.A.Q. (Fairly Anticipated Questions)
+-------------------------------------
+See FAQ.txt
+

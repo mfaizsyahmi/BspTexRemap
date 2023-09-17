@@ -1,6 +1,9 @@
-v0.2 [2023-09-15]
+v0.2 [2023-09-17]
 =================
 - Rewrote the program in Python 3.11
+- old ahk code moved to src_legacy
+- added option to output changed BSP file in a different location
+- added option to choose how custom material entries are loaded (first found vs all)
 
 v0.1b
 =====
