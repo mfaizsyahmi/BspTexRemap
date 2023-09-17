@@ -44,10 +44,11 @@ class TestApp(unittest.TestCase):
             try: deleteme.unlink()
             except FileNotFoundError: pass
     
-    def subTestTexgroup(self):
+    def subTestTexgroup(self, target_bsp=None):
         ''' subtest to check that every +A names has at least the +0 equivalent
         '''
-        with open(self.bsppath, "r+b") as f:
+        if not target_bsp: target_bsp = self.bsppath
+        with open(target_bsp, "r+b") as f:
             bsp = BspFile(f)
         texnames = [miptex.name.lower() for miptex in bsp.textures_m]
         for plus_a_name in filter(lambda n: n[0:2] == "+a",texnames):
@@ -100,7 +101,7 @@ class TestApp(unittest.TestCase):
         self.assertEqual(result.returncode, 0)
         
         # check that texture groups are preserved
-        self.subTestTexgroup()        
+        self.subTestTexgroup(self.bsppath_other)        
 
     # @unittest.skip
     @unittest.skipIf(not ALLTESTS & 8, "skip flag")
@@ -126,7 +127,7 @@ class TestApp(unittest.TestCase):
         self.assertEqual(result.returncode, 0)
         
         # part 3: check that texture groups are preserved
-        self.subTestTexgroup()
+        self.subTestTexgroup(self.bsppath_other)
 
 if __name__=="__main__":
     unittest.main()
