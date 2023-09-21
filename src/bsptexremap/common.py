@@ -9,10 +9,82 @@ from .utils import *
 from .bsputil import *
 from .materials import MaterialSet, TextureRemapper
 import re, sys
+from argparse import ArgumentParser
 from pathlib import Path, PurePath
 from shutil import copy2 as filecopy # backup_bsp
 from logging import getLogger
 log = getLogger(__name__)
+
+def parse_arguments(gui=False):
+    ''' parse command line arguments and returns the parsed data
+    '''
+    parser = ArgumentParser(add_help=False)
+    
+    # flags and switches (takes no value)
+    parser.add_argument(
+        "-h", "-help", action="help",
+        help="show this help message and exit",
+    )
+    
+#    parser.add_argument(
+#        "-low", action="store_const", dest="priority", const="low",
+#        help="set process priority level to low",
+#    )
+#    parser.add_argument(
+#        "-high", action="store_const", dest="priority", const="high",
+#        help="set process priority level to high",
+#    )
+    parser.add_argument(
+        "-backup", action="store_true",
+        help="makes backup of BSP file",
+    )
+    
+    # arguments that take value
+    loglevels = ["off"]+[l.lower() for l in logging.getLevelNamesMapping().keys()]
+    loglevels.remove("notset")
+    parser.add_argument(
+        "-log", choices=loglevels, default="warning", # metavar="LEVEL",
+        help="set logging level (default: %(default)s)",
+    )
+    # texinfo_type = flag_str_parser(DumpTexInfoParts)
+    texinfo_meta = f"{{{','.join([e.name.lower() for e in DumpTexInfoParts])}}}"
+    parser.add_argument(
+        "-dump_texinfo", metavar=texinfo_meta, default=0,
+        # type=texinfo_type,
+        help="creates a file with names of textures used in the map (you can mix the values with + sign, no spaces)",
+    )
+    parser.add_argument(
+        f"-{consts.CMDLINE_MATPATH_KEY}", # use the const to standardize it
+        help="target game/mod's materials.txt file",
+    )
+    parser.add_argument(
+        f"-{consts.CUSTOMMAT_ARG}", 
+        help="file with custom texture material remappings",
+    )
+    parser.add_argument(
+        f"-custommat_read_all", action="store_true",
+        help=f"""
+combine all given/available custom texture material remappings, otherwise stops when found entries from a source, in this order:\n{consts.TEXREMAP_ENTITY_CLASSNAME} -> bspname{consts.CUSTOMMAT_SUFFIX}{consts.CUSTOMMAT_FMT} -> {consts.CUSTOMMAT_ARG}
+        """.strip(),
+    )
+    parser.add_argument(
+        "-out", metavar="OUTPATH", dest="outpath",
+        # type=texinfo_type,
+        help="outputs the edited BSP file here instead of overwriting",
+    )
+    
+    # bsp path
+    if gui: # optional for GUIs
+        parser.add_argument("bsppath", nargs="?",
+                help="BSP file to operate on",
+        )
+    else: # required for CLI
+        parser.add_argument("bsppath", 
+                help="BSP file to operate on",
+        )
+        
+    return parser.parse_args()
+
 
 def setup_logger(level:str):
     formatter = logging.Formatter(fmt='%(levelname)-8s: %(message)s')
