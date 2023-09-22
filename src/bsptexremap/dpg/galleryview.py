@@ -21,7 +21,10 @@ class GalleryView(UserList):
         if not first: dpg.add_separator()
         return dpg.add_group(horizontal=True, horizontal_spacing=self.spacing)
         
-    def render(self, *args, **kwargs):
+    def render(self, data=None, datafilter=None, *args, **kwargs):
+        if not data: data=self.data
+        if datafilter: data = filter(datafilter,data)
+    
         dpg.delete_item(self.parent, children_only=True)
 
         #win_w = dpg.get_item_width(self.parent)
@@ -31,7 +34,7 @@ class GalleryView(UserList):
         dpg.push_container_stack(self.parent)
         row = self._new_row(True); 
         row_w, row_items = 0, 0
-        for i, item in enumerate(self.data):
+        for i, item in enumerate(data):
             item_w = item.estimate_group_width(self.scale, self.max_width)
             #print(f"img{i:03d} row_w/win_w:{row_w + self.spacing + item_w:-4d}/{win_w:-4d}")
             if row_items \

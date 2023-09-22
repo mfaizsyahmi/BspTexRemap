@@ -71,7 +71,7 @@ def _sort_table(sender, sort_specs):
     
     dpg.reorder_items(sender, 1, new_order)
 
-def _toggle_prop(sender,app_data,user_data):
+def _toggle_prop(sender,app_data,user_data,app=None):
     app.togglers.add(sender)
     dpg.set_value(user_data, app_data)
     app.update()    

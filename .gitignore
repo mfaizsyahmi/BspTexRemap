@@ -9,3 +9,4 @@ wtf.txt
 *.ORIGIN
 build
 dist
+src/cmd venv.lnk

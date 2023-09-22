@@ -5,11 +5,13 @@ from pathlib import Path
 from jankbsp import BspFileBasic as BspFile
 from jankbsp.types import EntityList
 from bsptexremap.common import parse_arguments
+from bsptexremap.enums import MaterialEnum as ME
 from bsptexremap.materials import MaterialSet # matchars
 from bsptexremap.dpg.modelcontroller import AppModel
 from bsptexremap.dpg.galleryview import GalleryView
 from bsptexremap.dpg.textureview import TextureView
-from bsptexremap.dpg  import gui_utils
+from bsptexremap.dpg import gui_utils
+from bsptexremap.dpg import mappings
 
 # imported funcs apparently can't be called because they're sunders, 
 # so these pass them through
@@ -17,13 +19,14 @@ def _help(message):
     return gui_utils._help(message)
 def _sort_table(sender, sort_specs): 
     return gui_utils._sort_table(sender, sort_specs)
-def _toggle_prop(sender,app_data,user_data): 
-    return gui_utils._toggle_prop(sender,app_data,user_data)
 
 dpg.create_context(); dpg_dnd.initialize()
 args = parse_arguments(gui=True)
-app = AppModel(dpg)
+app = AppModel() #dpg)
 dpg_dnd.set_drop(app.do_drop)
+# needs to be after app is instantiated
+def _toggle_prop(sender,app_data,user_data): 
+    return gui_utils._toggle_prop(sender,app_data,user_data,app=app)
 
 file_dlg_cfg = [{
     "tag" : "dlgBspFileOpen",
@@ -52,7 +55,7 @@ for item in file_dlg_cfg:
 app.insert_bindings()
 #app.reflect()
 
-with dpg.window(tag="Primary Window"):
+with dpg.window(tag="Primary Window",no_scrollbar=True):
     with dpg.menu_bar():
         with dpg.menu(label="BSP"):
             dpg.add_menu_item(label="Open", callback=app.do_show_open_file)
@@ -110,25 +113,48 @@ with dpg.window(tag="Primary Window"):
                                    sortable=True, 
                                    callback=_sort_table): pass
                 app.render_material_tables()
-                    
             
             # textures pane
-            with dpg.child_window(
-                    label="Textures",
-                    autosize_x=True,
-                    horizontal_scrollbar=True,
-                    menubar=True
-            ) as winTextures:
+            with dpg.child_window(autosize_y=False,menubar=True) as winTextures: 
                 with dpg.menu_bar():
-                    with dpg.menu(label="Show"):
-                        dpg.add_menu_item(label="Embedded",check=True)
-                        dpg.add_menu_item(label="WADs"    ,check=True)
+                    with dpg.menu(label="Show") as mnuTexShow:
+                        dpg.add_radio_button(mappings.gallery_show,horizontal=True)
+                        dpg.add_separator()
+                        with dpg.group(tag="grpWadlist"): pass
+                        
+                        def _select_all_wads(value=True):
+                            for child in dpg.get_item_children("grpWadlist", 1):
+                                dpg.set_value(child,value)
+                                
+                        with dpg.group(horizontal=True):
+                            dpg.add_checkbox(label="All",
+                                             callback=lambda s,a,u:_select_all_wads(a))
+                            dpg.add_button(label="load selected")
+                        
+                    with dpg.menu(label="Size:Stuff"):
+                        dpg.add_combo(mappings.gallery_sizes, 
+                                      source="app:gallery_size_text",
+                                      callback=app.update)
+                    with dpg.menu(label="Filter:ON"):
+                        dpg.add_input_text(label="filter")
+                        dpg.add_checkbox(label="Textures without materials only")
+                    with dpg.menu(label="Selection"):
+                        dpg.add_menu_item(label="Select all")
+                        dpg.add_menu_item(label="Select none")
+                        dpg.add_separator()
+                        with dpg.menu(label="Set material to"):
+                            for mat in app.matchars:
+                                dpg.add_menu_item(label=f"{ME(mat).value} - {ME(mat).name}")
+                    
+                with dpg.group() as gallery_root: pass
 
-                    with dpg.menu(label="Filter"):
-                        pass
-                with dpg.group() as grpTextures: pass
-                app.gallery_view.submit(grpTextures, winTextures)
-                dpg.bind_item_handler_registry("Primary Window", app.gallery_view._handler)
+            def _center_resize():
+                app.gallery_view.render() # reflow the gallery view
+            with dpg.item_handler_registry() as resize_handler:
+                dpg.add_item_resize_handler(callback=_center_resize)
+
+            app.gallery_view.submit(gallery_root,winTextures)
+            dpg.bind_item_handler_registry("Primary Window", resize_handler)
             
             # options/actions pane
             with dpg.child_window(border=False):
@@ -168,7 +194,7 @@ if args.bsppath:
     app.load_bsp(args.bsppath)
 dpg.set_frame_callback(1,callback=lambda:app.set_viewport_ready())
 
-#dpg.show_item_registry()
+dpg.show_item_registry()
 
 dpg.create_viewport(title='BspTexRemap GUI', width=1200, height=800)
 dpg.setup_dearpygui()

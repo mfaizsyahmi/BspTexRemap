@@ -4,8 +4,16 @@
 from . import consts
 from .materials import MaterialSet
 from jankbsp import BspFile
+from jankbsp.enums import Lumps, BlueShiftLumps
 from pathlib import Path
 
+def guess_lumpenum(bsppath):
+    ''' if path is in blue shift, return the blue shift enum
+        else the regular enum
+    '''
+    if Path(bsppath).parents[1].name.lower().startswith("bshift"):
+        return BlueShiftLumps
+    else: return Lumps
 
 def iter_texremap_entities(bsp_entities) -> list:
     fn = lambda ent: ent["classname"] == consts.TEXREMAP_ENTITY_CLASSNAME
@@ -23,5 +31,6 @@ def remap_texnames(func, miptexlist):
 
 def wadlist(bsp_entities, strip_paths=False) -> list[str]:
     wads = bsp_entities[0]["wad"].split(";")
+    wads = list(filter(lambda x:len(x),wads)) # removes empty item at the end
     wads = [Path(item).name if strip_paths else item for item in wads]
     return wads

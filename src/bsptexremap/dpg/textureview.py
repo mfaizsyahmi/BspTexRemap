@@ -46,7 +46,7 @@ class TextureView:
         ''' make sure item is freed '''
         if self.uuid: dpg.delete_item(self.uuid)
 
-    def update(self, miptex, source_name):
+    def update_miptex(self, miptex, source_name):
         ''' if found wad that has this texture, update here
         '''
         if self.name != miptex.name \
@@ -82,5 +82,8 @@ class TextureView:
                     dpg.draw_line((w,0),(0,h))
 
             dpg.add_text(f"{self.width}x{self.height}")
+            if self.is_external:
+                dpg.add_text(f"external")
+            
 
         return galleryItem
