@@ -1,11 +1,12 @@
 
 # map of target tags
 target = {
-    "tblMatSummary"     :"tblMatSummary",
     "dlgBspFileOpen"    :"dlgBspFileOpen",
     "dlgBspFileSaveAs"  :"dlgBspFileSaveAs",
     "dlgMatFileOpen"    :"dlgMatFileOpen",
     "dlgMatFileExport"  :"dlgMatFileExport",
+    "tblMatSummary"     :"tblMatSummary",
+    "tblMatEntries"     :"tblMatEntries",
 }
 bindings = [
     # [0]: dpg input type
@@ -13,6 +14,8 @@ bindings = [
     # [3]: read only
     # [0]           app prop              [2]
     ("input_text", "matpath",             None, False),
+    ("input_text", "filter_matchars",     None, False),
+    ("input_text", "filter_matnames",     None, False),
     ("checkbox",   "auto_load_materials", None, False),
     ("checkbox",   "auto_load_wads",      None, False),
     ("checkbox",   "insert_remap_entity", None, False),

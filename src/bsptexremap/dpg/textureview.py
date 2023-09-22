@@ -4,6 +4,9 @@ from itertools import chain
 
 def flatten_imgdata(imgdata):
     return list(chain(*imgdata))
+    
+def img_to_dpg(img):
+    return [n/256.0 for n in flatten_imgdata(img.convert("RGBA").getdata())]
 
 @dataclass
 class TextureView:
@@ -13,25 +16,20 @@ class TextureView:
     channels:any        = None
     data:any            = None
     is_external:bool    = True
-    # mat:str             = None
+    external_src:str    = None # holds name of wad file
+    mat:str             = None # assigned material
     uuid:int            = None
 
     @classmethod
     def from_img(cls, img, name):
-        return cls(name, *img.size, 4, [n/256.0 for n in flatten_imgdata(miptex.to_image().convert("RGBA").getdata())] )
+        return cls(name, *img.size, 4, img_to_dpg(miptex.to_image()) )
     
     @classmethod
     def from_miptex(cls, miptex):
-        data = None
-        if not miptex.is_external:
-            data = flatten_imgdata(miptex.to_image().convert("RGBA").getdata())
-            data = [n/256.0 for n in data]
+        data = None if miptex.is_external else img_to_dpg(miptex.to_image())
         return cls(
-                miptex.name,
-                miptex.width,
-                miptex.height,
-                4 if not miptex.is_external else 0,
-                data,
+                miptex.name, miptex.width, miptex.height,
+                4 if not miptex.is_external else 0, data,
                 miptex.is_external
         )
 
@@ -47,6 +45,19 @@ class TextureView:
     def __del__(self):
         ''' make sure item is freed '''
         if self.uuid: dpg.delete_item(self.uuid)
+
+    def update(self, miptex, source_name):
+        ''' if found wad that has this texture, update here
+        '''
+        if self.name != miptex.name \
+        or self.width != miptex.width \
+        or self.height != miptex.height:
+            raise ValueError("WAD miptex doesn't match BSP's miptex")
+        
+        self.external_src = source_name
+        self.channels = 4
+        self.data = img_to_dpg(miptex.to_image())
+        self.__post_init__() # run this again now that we have data
 
     def estimate_group_width(self, scale=1.0, max_width=float('inf')):
         return max( int(min(self.width*scale,max_width)),

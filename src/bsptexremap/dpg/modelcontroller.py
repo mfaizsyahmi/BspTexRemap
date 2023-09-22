@@ -5,6 +5,7 @@
 from .mappings import target, bindings, gallery_view_map
 from .textureview import TextureView
 from .galleryview import GalleryView
+from .. import consts
 from ..enums import MaterialEnum
 from ..common import search_materials_file
 from ..bsputil import wadlist
@@ -13,6 +14,7 @@ from jankbsp import BspFileBasic as BspFile
 from jankbsp.types import EntityList
 from pathlib import Path
 from dataclasses import dataclass, field
+import re
 
 @dataclass
 class AppModel:
@@ -30,6 +32,8 @@ class AppModel:
     gallery_view_opt = 1 # full size. refer to gallery_view_map
     texview_show = [0]
     matchars = MaterialSet.MATCHARS # edit if loading CZ/CZDS
+    filter_matchars = matchars
+    filter_matnames = ""
     # set that hods tags of togglers to update their values
     togglers : set = field(default_factory=lambda:set())
     _viewport_ready=False
@@ -39,6 +43,10 @@ class AppModel:
     auto_load_wads=True # try find wads
     insert_remap_entity=False
     backup=True # creates backup file if saving in same file
+    
+    @property
+    def filter_matname_list(self):
+        return re.split("\s", self.filter_matnames)
 
     def insert_bindings(self,show=False):
         ''' inserts hidden controls that are linked to this entity
@@ -121,8 +129,15 @@ class AppModel:
     def do_export_custommat(self, sender, app_data): pass
     
     def do_drop(self, data, keys): # DearPyGui_DragAndDrop
-        if isinstance(data, list):
+        if not isinstance(data, list): return
+        suffix = Path(data[0]).suffix.lower()
+        if suffix == ".bsp":
             self.load_bsp(data[0])
+        elif suffix == ".txt":
+            self.load_materials(data[0])
+    
+    def do_filter_mat_entries(self,*args):
+        pass
 
     def load_bsp(self, bsppath):
         self.bsppath = bsppath
@@ -142,17 +157,22 @@ class AppModel:
         self.matpath = matpath
         self.mat_set = MaterialSet.from_materials_file(self.matpath)
         self.reflect()
-        self.render_material_summary()
+        self.render_material_tables()
 
-    def render_material_summary(self):
+    def render_material_tables(self):
         choice_set = self.mat_set.choice_cut()
         avail_colors = lambda n: (0,255,0) if n else (255,0,0)
+        is_suitable = lambda name: \
+                consts.MATNAME_MIN_LEN <= len(name) <= consts.MATNAME_MAX_LEN
+        suitable_mark = lambda name: "Y" if is_suitable(name) else "N"
+        suitable_colors = lambda name: (0,255,0) if is_suitable(name) else (255,0,0)
 
+        # SUMMARY TABLE
         self.dpg.delete_item(target["tblMatSummary"], children_only=True)
         self.dpg.push_container_stack(target["tblMatSummary"])
 
         weights = [0.4,1.8,1,1]
-        for i, label in enumerate(("","Material","Total","Usable")):
+        for i, label in enumerate(("","Material","Count","Usable")):
             self.dpg.add_table_column(label=label,init_width_or_weight=weights[i])
 
         for mat in self.mat_set.MATCHARS:
@@ -171,3 +191,22 @@ class AppModel:
             self.dpg.add_text(len(choice_set))
 
         self.dpg.pop_container_stack()
+        
+        # ENTRIES TABLE
+        self.dpg.delete_item(target["tblMatEntries"], children_only=True)
+        self.dpg.push_container_stack(target["tblMatEntries"])
+
+        weights = [0.4,3,1]
+        for i, label in enumerate(("Mat","Name","Usable")):
+            self.dpg.add_table_column(label=label,init_width_or_weight=weights[i])
+            
+        for mat in self.filter_matchars:
+            if mat not in self.mat_set.MATCHARS: continue
+            for name in self.mat_set[mat]:
+                with self.dpg.table_row():
+                    self.dpg.add_text(mat)
+                    self.dpg.add_text(name)
+                    self.dpg.add_text(suitable_mark(name),color=suitable_colors(name))
+
+        self.dpg.pop_container_stack()
+
