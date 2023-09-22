@@ -51,11 +51,13 @@ class TextureRemapper:
         texgroupname = parts["texname"].upper()
 
         if texgroupname in self.map_dict:
+            log.debug(f"{texgroupname} found in dict")
             return parts["prefix"] + self.map_dict[texgroupname]
 
         elif texgroupname not in self.target_set \
         or re.match(consts.TEX_IGNORE_RE, texname) \
         or len(parts["prefix"]) > 2:
+            log.debug(f"{texgroupname}//{texname} fails check")
             return texname
 
         elif texgroupname in self.groupmap:

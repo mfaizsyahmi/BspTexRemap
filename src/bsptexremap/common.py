@@ -202,7 +202,12 @@ def load_wannabe_sets(bsp,bsppath,arg_val,first_found=True):
     return wannabe_set
 
 
-def dump_texinfo(bsppath, parts: DumpTexInfoParts|int, bsp, material_set=None, **kwargs):
+def dump_texinfo(bsppath, 
+                 parts: DumpTexInfoParts|int, 
+                 bsp, 
+                 material_set=None, 
+                 outpath=None,
+                 **kwargs):
     ''' parts:
         1 - embedded
         2 - external
@@ -210,6 +215,10 @@ def dump_texinfo(bsppath, parts: DumpTexInfoParts|int, bsp, material_set=None, *
         8 - uniquegrouped (i.e. all texture group names not in materials.txt)
         1024 - header
         2048 - material names
+        4096 - material_set
+        
+        parts & 8 uses material_set to get the unique groups
+        parts & 4096 dumps the material_set (useful to dump wannabe_set)
     '''
     if not parts: return
 
@@ -228,22 +237,30 @@ def dump_texinfo(bsppath, parts: DumpTexInfoParts|int, bsp, material_set=None, *
     e = DumpTexInfoParts # shorthand
     me = MaterialEnum # ditto
     mode = "w" if parts&1024 else "a"
-    outpath = bsp_texinfo_path(bsppath)
+    if not outpath: 
+        outpath = bsp_texinfo_path(bsppath)
 
     with open(outpath, mode) as f:
         log.info(f"Dumping texture info for {bsppath.name} --> {outpath.name}")
-        if parts&1024:
+        if parts&1024: # header
             f.write(consts.TEXINFO.HEADER.format(
                     bsppath.name,
                     f"{consts.APPNAME} {consts.VERSION}"
             ))
-        if parts&2048:
+        if parts&2048: # list of materials
             f.write("\n// Material types: \n")
             f.write("\n".join([f"//  {m} - {me(m).name}" for m in MaterialSet.MATCHARS]) + "\n")
+        if parts&4096: # material set
+            f.write("\n// Material entries: \n")
+            for m in material_set.MATCHARS:
+                if not len(material_set[m]): continue # skip empty sets
+                f.write(f"//  {m} - {me(m).name}\n")
+                f.write("\n".join([f"{m.upper()} {item.upper()}" \
+                        for item in material_set[m]]))
 
         for thispart in filter(lambda f:parts&f, [1,2,4,8]):
             log.info(f"Dumping texture list {e(thispart).value}: {e(thispart).name}")
-            f.write(consts.TEXINFO.SECTION.format(e(thispart).name.upper()))
+            f.write(consts.TEXINFO.SECTION.format( e(thispart).name.upper() ))
             f.write("\n".join(sorted(valuegetter[thispart](bsp,material_set))) + "\n")
 
 

@@ -17,8 +17,8 @@ class GalleryView(UserList):
             dpg.add_item_resize_handler(callback=self.render)
         self._handler = resize_handler
     
-    def _new_row(self):
-        dpg.add_separator()
+    def _new_row(self, first=False):
+        if not first: dpg.add_separator()
         return dpg.add_group(horizontal=True, horizontal_spacing=self.spacing)
         
     def render(self, *args, **kwargs):
@@ -29,7 +29,7 @@ class GalleryView(UserList):
         win_w = dpg.get_available_content_region(self.measureme)[0]
         
         dpg.push_container_stack(self.parent)
-        row = self._new_row(); 
+        row = self._new_row(True); 
         row_w, row_items = 0, 0
         for i, item in enumerate(self.data):
             item_w = item.estimate_group_width(self.scale, self.max_width)
