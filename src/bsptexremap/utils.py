@@ -10,6 +10,7 @@ import re # modpath_fallbacks
 from itertools import product # char_padder
 from jankbsp import BspFile
 from pathlib import Path
+from functools import reduce # filterstring_to_filter
 import logging
 log = logging.getLogger(__name__)
 
@@ -58,4 +59,12 @@ def flag_str_parser(flagenum):
         log.debug(result)
         return result
     return callfn
+
+def filterstring_to_filter(filter_str):
+    fragments = filter_str.split(" ")
+    fragfn=lambda name,frag: 1 if frag in name else 0
+    namefn=lambda name,list: True if not len(list) \
+                             else reduce(lambda x,y:x+y, \
+                                         [fragfn(name,frag) for frag in list])
+    return lambda name: namefn(name,fragments)
 

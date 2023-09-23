@@ -1,5 +1,7 @@
 import dearpygui.dearpygui as dpg
-from collections import UserList # GalleryView
+from collections import UserList
+from threading import Thread
+
 
 class GalleryView(UserList):
     ''' implementing a left-to-right, top-to-bottom gallery view of textures.
@@ -8,7 +10,8 @@ class GalleryView(UserList):
         - render: called to render the item
     '''
     spacing = 8
-    scale = 1.0
+        
+    scale = 1.0                    # set by gallery_size_val_map
     max_width = float('inf')
     
     def __init__(self):
@@ -20,7 +23,7 @@ class GalleryView(UserList):
     def _new_row(self, first=False):
         if not first: dpg.add_separator()
         return dpg.add_group(horizontal=True, horizontal_spacing=self.spacing)
-        
+
     def render(self, data=None, datafilter=None, *args, **kwargs):
         if not data: data=self.data
         if datafilter: data = filter(datafilter,data)
@@ -50,6 +53,15 @@ class GalleryView(UserList):
             row_items += 1
             
         dpg.pop_container_stack()
+        
+    '''
+    def render(self, data=None, datafilter=None, *args, **kwargs):
+        # run on separate thread. hopefully nothing crashes and burns
+        Thread(target=self._render, args=args,
+               kwargs={"data":data,
+                       "datafilter":datafilter,
+                       **kwargs}).start()
+    '''
 
     def submit(self, parent, measureme=None):
         self.parent = parent

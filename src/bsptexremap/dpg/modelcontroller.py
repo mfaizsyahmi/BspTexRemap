@@ -1,13 +1,19 @@
 ''' combined model+controller for the GUI app
     model being the dataclass
     controller being its methods
+
+    TODO: REDO BINDINGS
+    list and radio buttons don't share source
+    have a dict with key=tag and value=prop
 '''
-from .mappings import *
+from . import mappings # proper way
+from .mappings import BindingType, RemapEntityActions
 from .textureview import TextureView
 from .galleryview import GalleryView
-from .. import consts
+from . import gui_utils
+from .. import consts, utils
 from ..enums import MaterialEnum
-from ..common import search_materials_file
+from ..common import search_materials_file, search_wads, filter_materials
 from ..bsputil import wadlist, guess_lumpenum
 from ..materials import MaterialSet, TextureRemapper
 from jankbsp import BspFileBasic as BspFile
@@ -15,15 +21,18 @@ from jankbsp.types import EntityList
 from pathlib import Path
 from dataclasses import dataclass, field, asdict
 from operator import attrgetter
+from collections import namedtuple
+from typing import NamedTuple, ClassVar
 import dearpygui.dearpygui as dpg
-import re
+import re, logging
 
+log = logging.getLogger(__name__)
 def _debugitem(tag):
-    print("CONFIG: ", dpg.get_item_configuration(tag))
-    print("INFO:   ", dpg.get_item_info(tag))
-    print("STATE:  ", dpg.get_item_state(tag))
-    print("VALUE:  ", dpg.get_value(tag))
-    print()
+    log.debug("CONFIG: {!r}", dpg.get_item_configuration(tag))
+    log.debug("INFO:   {!r}", dpg.get_item_info(tag))
+    log.debug("STATE:  {!r}", dpg.get_item_state(tag))
+    log.debug("VALUE:  {!r}", dpg.get_value(tag))
+    log.debug()
 
 @dataclass
 class WadStatus:
@@ -35,6 +44,7 @@ class WadStatus:
     uuid : any = None
     _found_str = {True:"found",False:"not found"}
     _loaded_str = {True:"loaded",False:""}
+    _parent: ClassVar = None
 
     def _fmt(self):
         parts = None
@@ -46,7 +56,7 @@ class WadStatus:
     def __post_init__(self):
         callback = lambda s,a,u: setattr(self,"selected",dpg.get_value(s))
         self.uuid = dpg.add_selectable(label=self._fmt(),
-                                       parent=target["grpWadlist"],
+                                       parent=self._parent,
                                        disable_popup_close=True,
                                        callback=callback)
 
@@ -63,217 +73,172 @@ class WadStatus:
 
 @dataclass
 class AppModel:
-    # dpg : any # reference to the dearpygui module
-
+    app : any # reference to app
     # primary data
-    bsppath : str           = None
-    bsp     : BspFile       = None
-    matpath : str           = None
-    mat_set : MaterialSet   = field(default_factory=MaterialSet)
-    wannabe_set:MaterialSet = field(default_factory=MaterialSet)
+    bsppath : str     = None
+    bsp     : BspFile = None
+    matpath : str     = None
+    mat_set : MaterialSet     = field(default_factory=MaterialSet)
+    wannabe_set : MaterialSet = field(default_factory=MaterialSet)
 
-    # name, found, loaded, selected
-    wadstats: list[WadStatus] = field(default_factory=list)
-
-    gallery_view : GalleryView = field(default_factory=GalleryView)
-
-    # view settings
-    _viewport_ready=False
-
-    gallery_size_val = 1 # full size. refer to gallery_view_map
-    texview_show = [0]
-    matchars = MaterialSet.MATCHARS # edit if loading CZ/CZDS
-    filter_matchars = matchars
-    filter_matnames = ""
-    _filter_matchars = matchars
-    _filter_matnames = ""
-    # set that holds tags of togglers to update their values
-    togglers : set      = field(default_factory=lambda:set())
-    # set that holds tags of labelled items to format their labels
-    formattables : set  = field(default_factory=lambda:set())
-    # holds the original format of the labels
-    formattables_raw : dict = field(default_factory=lambda:{})
+    matchars : str    = MaterialSet.MATCHARS # edit if loading CZ/CZDS
 
     # settings
-    auto_load_materials=True # try find materials.path
-    auto_load_wads=True # try find wads
-    insert_remap_entity=False
-    backup=True # creates backup file if saving in same file
-
-    @property
-    def filter_matname_list(self):
-        return re.split("\s", self.filter_matnames)
-
-    @property
-    def gallery_size_text(self):
-        return gallery_size_map[self.gallery_size_val][0]
-    @gallery_size_text.setter
-    def gallery_size_text(self,value):
-        item = next((x for x in gallery_size_map if x[0]==value), None)
-        if item:
-            self.gallery_size_val = gallery_size_map.index(item)
-            self.gallery_view.render()
-    @property
-    def filter_matchars(self):
-        return self._filter_matchars
-    @filter_matchars.setter
-    def filter_matchars(self,value):
-        self._filter_matchars = value
-        self.do_filter_mat_entries()
-    @property
-    def filter_matnames(self):
-        return self._filter_matnames
-    @filter_matnames.setter
-    def filter_matnames(self,value):
-        self._filter_matnames = value
-        self.do_filter_mat_entries()
-
-    def insert_bindings(self,show=False):
-        ''' inserts hidden controls that are linked to this entity
-            this provides a single source of truth between the model and the view
-            other controls can reference these controls with the "source" property
-            and update the model by setting callback to app.update
-        '''
-        _bf = BindingFlag # shorthand
-        with dpg.window(tag="app_bindings",show=show):
-            for input_type,prop,data,flags in bindings:
-                tag = "app:" + prop
-                dpg_method = getattr(dpg, f"add_{input_type}")
-                init_val = getattr(self,prop) & data if _bf.Flag in flags \
-                        else getattr(self,prop)
-
-                if _bf.ListValues in flags:
-                    dpg_method(data,tag=tag,label=prop,default_value=init_val)
-                else:
-                    dpg_method(     tag=tag,label=prop,default_value=init_val)
-
-    def update(self,*args):
-        ''' this is called by the gui when it updates a prop linked to the model
-        '''
-        if self.reflecting: return
-        _bf = BindingFlag # shorthand
-
-        for _,prop,data,flags in bindings:
-            if _bf.ReadOnly in flags: continue # don't update these
-            tag = "app:" + prop
-            val = dpg.get_value(tag)
-
-            if _bf.Flag in flags and val:
-                setattr(self, prop, getattr(self,prop) | data)
-            elif _bf.Flag in flags and not val:
-                setattr(self, prop, getattr(self,prop) & ~data)
-            else:
-                setattr(self, prop, val)
-
-        self.reflect()
-
-    def reflect(self):
-        ''' updates the gui to reflect model values '''
-        if not self._viewport_ready: return
-        self.reflecting = True
-
-        if self.bsppath:
-            dpg.set_viewport_title(f"{self.bsppath} - BspTexRemap GUI")
-        else:
-            dpg.set_viewport_title("BspTexRemap GUI")
-
-        for _,prop,data,flags in bindings:
-            tag = "app:" + prop
-            val = getattr(self,prop) & data \
-                    if BindingFlag.Flag in flags \
-                    else getattr(self,prop)
-            dpg.set_value(tag,val)
-
-        for item in self.togglers:
-            source = dpg.get_item_configuration(item)["user_data"]
-            dpg.set_value(item, dpg.get_value(source))
-
-        for item in self.formattables:
-            # user data contains a list/tuple of attrs to format to
-            item_cfg = dpg.get_item_configuration(item)
-            label, attrs = item_cfg["label"], item_cfg["user_data"]
-            label = formattables_raw.setdefault(item, label) # set first time values
-            attr_values = attrgetter(*attrs)(self)
-            dpg.configure_item(item, label=label.format(*attr_values))
-
-        self.reflecting = False
-
-    def set_viewport_ready(self):
-        self._viewport_ready = True
-        self.reflect()
-
-    # all the show file dialog stuff
-    def do_show_open_file(self, sender, app_data):
-        dpg.show_item(target["dlgBspFileOpen"])
-    def do_show_save_file_as(self, sender, app_data):
-        dpg.show_item(target["dlgBspFileSaveAs"])
-    def do_show_open_mat_file(self, sender, app_data):
-        dpg.show_item(target["dlgMatFileOpen"])
-    def do_show_save_mat_file(self, sender, app_data):
-        dpg.show_item(target["dlgMatFileExport"])
-
-
-    def do_open_file(self, sender, app_data):
-        self.load_bsp(app_data["file_path_name"])
-
-    def do_reload(self, sender, app_data):
-        if self.bsppath: self.load_bsp(self.bsppath)
-    def do_save_file(self, sender, app_data): pass
-    def do_save_file_as(self, sender, app_data): pass
-    def do_load_mat_file(self, sender, app_data):
-        self.load_materials(app_data["file_path_name"])
-
-    def do_export_custommat(self, sender, app_data): pass
-
-    def do_drop(self, data, keys): # DearPyGui_DragAndDrop
-        if not isinstance(data, list): return
-        suffix = Path(data[0]).suffix.lower()
-        if suffix == ".bsp":
-            self.load_bsp(data[0])
-        elif suffix == ".txt":
-            self.load_materials(data[0])
-
-    def do_filter_mat_entries(self,*args):
-        def matfilter(mat):
-            return mat.upper() in self._filter_matchars.upper() \
-                    if len(self._filter_matchars) else True
-        def namefilter(name):
-            if not len(self._filter_matnames): return True
-            fragment = self._filter_matnames.split(" ")
-            found = [" " if f.upper() in name.upper() else ""  for f in fragment]
-            return len("".join(found))
-
-        for row in dpg.get_item_children(target["tblMatEntries"],1):
-            mat = dpg.get_value(dpg.get_item_children(row,1)[0])
-            name = dpg.get_value(dpg.get_item_children(row,1)[1])
-            
-            if matfilter(mat):
-                if namefilter(name):
-                    dpg.configure_item(row,show=True)
-                    continue
-            dpg.configure_item(row,show=False)
-
-
+    auto_load_materials : bool = True # try find materials.path
+    auto_load_wads      : bool = True # try find wads
+    remap_entity_action : RemapEntityActions = RemapEntityActions.Insert
+    backup              : bool = True # creates backup file if saving in same file
 
     def load_bsp(self, bsppath):
         self.bsppath = bsppath
         with open(self.bsppath, "rb") as f:
             self.bsp = BspFile(f, lump_enum=guess_lumpenum(self.bsppath))
 
-        self.load_textures(self.bsp.textures)
+        self.app.view.load_textures(self.bsp.textures)
 
         if self.auto_load_materials:
             matpath = search_materials_file(self.bsppath)
             if matpath:
                 self.load_materials(matpath)
 
-        print(wadlist(self.bsp.entities,True))
-        self.wadstats = [WadStatus(w) for w in wadlist(self.bsp.entities,True)]
-        self.reflect()
+        self.app.view.update_wadlist()
 
-    def load_textures(self,miptexes,update=False):
+    def load_materials(self, matpath):
+        self.matpath = matpath
+        self.mat_set = MaterialSet.from_materials_file(self.matpath)
+        self.app.view.reflect()
+        self.app.do.render_material_tables()
+
+
+
+@dataclass(frozen=True)
+class BindingEntry:
+    type: BindingType
+    prop: namedtuple = None
+    data: any = None
+
+@dataclass
+class AppView:
+    # the parent app
+    app : any
+    # dict of bound items
+    bound_items : dict           = field(default_factory=dict)
+
+    # list of wadstatus
+    wadstats: list[WadStatus]    = field(default_factory=list)
+    # all textures in the bsp
+    textures : list[TextureView] = field(default_factory=list)
+    # gallery view (only store the filtered items in its data)
+    gallery : GalleryView        = field(default_factory=GalleryView)
+
+    # check against issuing dpg commands when viewport isn't ready
+    _viewport_ready : bool       = False
+
+    # material entry filter settings
+    filter_matchars : str        = ""
+    filter_matnames : str        = ""
+
+    # texture gallery view settings
+    gallery_show_val : int       = 2 # all  -> mappings.gallery_show_map
+    gallery_size_val : int       = 1 # full -> mappings.gallery_size_map
+    filter_str : str             = ""
+    filter_unassigned : bool     = False # show only textures without materials
+    filter_radiosity : bool      = False # hide radiosity generated textures
+    selection_mode : bool        = False
+
+    def bind(self, tag, type:BindingType, prop=None, data=None):
+        ''' binds the tag to the prop 
+            prop is a tuple of obj and propname. 
+            - get value using getattr(*prop)
+            - set value using setattr(*prop, value)
+            data is usually passed by value
+        '''
+        self.bound_items[tag] = BindingEntry(type, prop, data)
+        if type in mappings.writeable_binding_types:
+            dpg.configure_item(tag, callback=self.update)
+
+    def update(self,sender,app_data,*_):
+        ''' called by the gui item when it updates a prop linked to the model 
+            prop is a tuple of obj and propname. 
+            - set value using setattr(*prop, value)
+        '''
+        if sender not in self.bound_items: return
+        item = self.bound_items[sender]
+        
+        if item.type == BindingType.Value:
+            setattr(*item.prop, app_data)
+        elif item.type == BindingType.ValueIs:
+            setattr(*item.prop, item.data)
+        elif item.type == BindingType.TextMappedValue:
+            val = self._index_of(item.data,lambda x:x == app_data)
+            if val is not None: setattr(*item.prop, val)
+
+        # updates other bound items with same prop
+        self.reflect(not_tagged=sender,
+                     prop=item.prop,
+                     types=mappings.reflect_all_binding_types)
+
+        # update some other things based on prop
+        if item.prop[0] == self and item.prop[1] in \
+        ["gallery_show_val", "filter_str", "filter_unassigned", "filter_radiosity"]:
+            self.update_gallery()
+        elif tuple(item.prop) == (self,"gallery_size_val"):
+            self.update_gallery(size_only=True)
+
+
+    def reflect(self, not_tagged=None, prop=None, types=mappings.reflect_all_binding_types):
+        ''' updates all bound items (optionally of given prop) 
+            prop is a tuple of obj and propname. 
+            - get value using getattr(*prop)
+        '''
+        for tag,item in self.bound_items.items():
+            if tag == not_tagged: continue
+            if prop and item.prop != prop: continue
+            if item.type not in types: continue
+
+            if item.type == BindingType.Value:
+                dpg.set_value(tag, getattr(*item.prop))
+            elif item.type == BindingType.ValueIs:
+                dpg.set_value(tag, getattr(*item.prop) == item.data)
+            elif item.type == BindingType.TextMappedValue:
+                val = item.data(getattr(*item.prop)) if callable(item.data) \
+                        else item.data[getattr(*item.prop)]
+                dpg.set_value(tag, val)
+            # these are readonly
+            elif item.type in [BindingType.FormatLabel, BindingType.FormatValue]:
+                label, *attrs = item.data
+                attr_values = tuple( x(getattr(*item.prop)) if callable(x) \
+                                else x[getattr(*item.prop)] for x in attrs )
+                if item.type == BindingType.FormatValue:
+                    dpg.set_value(tag,label.format(*attr_values))
+                else:
+                    dpg.configure_item(tag, label=label.format(*attr_values))
+
+    def get_bound_entries(self,prop=None,type:BindingType=None):
+        for k,v in self.bound_items.items():
+            if (prop and v.prop == prop) or v.type == type:
+                yield (k, self.bound_items[k])
+
+    def get_bound_entry(self,prop=None,type:BindingType=None):
+        return next(self.get_bound_entries(prop,type),None)
+
+    def get_dpg_item(self,type:BindingType=None):
+        ''' use this to get only the dpg tag '''
+        return self.get_bound_entry(type=type)[0]
+
+    def _index_of(self, collection, callable):
+        for i, thing in enumerate(collection):
+            if callable(thing):
+                return i
+
+    def set_viewport_ready(self):
+        self._viewport_ready = True
+        self.reflect(types=mappings.reflect_all_binding_types)
+        self.update_gallery()
+
+    def load_textures(self, miptexes, update=False):
         if update:
-            old_list = self.gallery_view.data
+            old_list = self.textures
             for newtex in miptexes:
                 finder = lambda tex:tex.name.lower() == newtex.name.lower()
                 oldtex = next(filter(finder,old_list),None)
@@ -282,18 +247,101 @@ class AppModel:
                 # else:
                 #     old_list.append(TextureView.from_miptex(newtex))
         else:
-            self.gallery_view.data = [TextureView.from_miptex(item) \
-                    for item in miptexes]
-        if self._viewport_ready: self.gallery_view.render()
+            self.textures = [TextureView.from_miptex(item) for item in miptexes]
+        if self._viewport_ready: self.update_gallery()
 
-    def load_materials(self, matpath):
-        self.matpath = matpath
-        self.mat_set = MaterialSet.from_materials_file(self.matpath)
-        self.reflect()
-        self.render_material_tables()
+    def update_wadlist(self):
+        WadStatus._parent = self.get_dpg_item(type=BindingType.WadListGroup)
+        wads = wadlist(self.app.data.bsp.entities,True)
+        self.wadstats = [WadStatus(w) for w in wads]
+        
+        wad_paths = search_wads(self.app.data.bsppath, wads)
+        for item in self.wadstats:
+            item.update(found=bool(wad_paths[item.name]))
+
+        #_propbind = namedtuple("PropertyBinding",["obj","prop"])
+        self.reflect() #prop=_propbind(self, "wadstats"))
+
+    def update_gallery(self, size_only=False):
+        ''' filters the textures list, then passes it off to gallery to render '''
+        # all the filters in modelcontroller assembled
+        log.debug("updating gallery")
+        f_a = mappings.gallery_show_map[self.gallery_show_val].filter_fn
+        f_u = lambda item: MaterialSet.strip(item.name) not in self.app.data.mat_set
+        f_r = lambda item: not item.name.lower().startswith("__rad")
+        f_s = lambda item: utils.filterstring_to_filter(self.filter_str)(item.name)
+        
+        if not size_only:
+            # assemble the filter stack
+            the_list = filter(f_a,self.textures)
+            if self.filter_unassigned:
+                the_list = filter(f_u, the_list)
+            if self.filter_radiosity:
+                the_list = filter(f_r, the_list)
+            if self.filter_str:
+                the_list = filter(f_s, the_list)
+            # finally filter and send it to gallery
+            self.gallery.data = list(the_list)
+        
+        # set gallery scale
+        size_tuple = mappings.gallery_size_map[self.gallery_size_val]
+        log.debug(size_tuple)
+        self.gallery.scale = size_tuple.scale
+        self.gallery.max_width = size_tuple.max_width
+        
+        # render the gallery
+        self.gallery.render()
+    
+class AppActions:
+    def __init__(self,app,view):
+        self.app = app
+        self.view = view
+
+    def show_open_file(self, *_):
+        dpg.show_item(self.view.get_dpg_item(type=BindingType.BspOpenFileDialog))
+    def show_save_file_as(self, *_):
+        dpg.show_item(self.view.get_dpg_item(type=BindingType.BspSaveFileDialog))
+    def show_open_mat_file(self, *_):
+        dpg.show_item(self.view.get_dpg_item(type=BindingType.MatLoadFileDialog))
+    def show_save_mat_file(self, *_):
+        dpg.show_item(self.view.get_dpg_item(type=BindingType.MatExportFileDialog))
+
+    def open_file(self, sender, app_data):
+        ''' called by the open file dialog
+            load bsp, then load wadstats 
+        '''
+        self.app.data.load_bsp(app_data["file_path_name"])
+        
+    def reload(self, sender, app_data):
+        if self.app.data.bsppath:
+            self.app.data.load_bsp(self.app.data.bsppath)
+
+    def save_file(self, sender, app_data): pass
+    def save_file_as(self, sender, app_data): pass
+    def load_mat_file(self, sender, app_data):
+        self.app.data.load_materials(app_data["file_path_name"])
+
+    def export_custommat(self, sender, app_data): pass
+    
+    def load_selected_wads(self, *_): pass
+    def select_textures(self, sender, app_data, user_data): pass
+    def selection_set_material(self, sender, app_data, user_data): pass
+    def selection_embed(self, sender, app_data, user_data): pass
+
+    def handle_drop(self, data, keys): # DearPyGui_DragAndDrop
+        if not isinstance(data, list): return
+        suffix = Path(data[0]).suffix.lower()
+        if suffix == ".bsp":
+            self.app.data.load_bsp(data[0])
+        elif suffix == ".txt":
+            self.app.data.load_materials(data[0])
+
 
     def render_material_tables(self):
-        choice_set = self.mat_set.choice_cut()
+        ME = MaterialEnum
+        mat_set = self.app.data.mat_set
+        choice_set = mat_set.choice_cut()
+
         avail_colors = lambda n: (0,255,0) if n else (255,0,0)
         is_suitable = lambda name: \
                 consts.MATNAME_MIN_LEN <= len(name) <= consts.MATNAME_MAX_LEN
@@ -301,50 +349,39 @@ class AppModel:
         suitable_colors = lambda name: (0,255,0) if is_suitable(name) else (255,0,0)
 
         # SUMMARY TABLE
-        dpg.delete_item(target["tblMatSummary"], children_only=True)
-        dpg.push_container_stack(target["tblMatSummary"])
+        header = (("",0.4), ("Material",1.8), "Count", "Usable")
+        data = []
+        for mat in mat_set.MATCHARS:
+            data.append([ME(mat).value,
+                         ME(mat).name,
+                         len(mat_set[mat]),
+                         (len(choice_set[mat]), {
+                            "color" : avail_colors(len(choice_set[mat]))
+                         }) ])
+        data.append(["", "TOTAL", len(mat_set), len(choice_set)]) # totals row
 
-        weights = [0.4,1.8,1,1]
-        for i, label in enumerate(("","Material","Count","Usable")):
-            dpg.add_table_column(label=label,init_width_or_weight=weights[i])
-
-        for mat in self.mat_set.MATCHARS:
-            with dpg.table_row():
-                dpg.add_text(MaterialEnum(mat).value)
-                dpg.add_text(MaterialEnum(mat).name)
-                dpg.add_text(len(self.mat_set[mat]))
-                dpg.add_text(
-                        len(choice_set[mat]),
-                        color=avail_colors(len(choice_set[mat]))
-                )
-        with dpg.table_row(): # totals row
-            dpg.add_text("")
-            dpg.add_text("TOTAL")
-            dpg.add_text(len(self.mat_set))
-            dpg.add_text(len(choice_set))
-
-        dpg.pop_container_stack()
+        table = self.view.get_dpg_item(type=BindingType.MaterialSummaryTable)
+        gui_utils.populate_table(table, header, data)
 
         # ENTRIES TABLE
-        dpg.delete_item(target["tblMatEntries"], children_only=True)
-        dpg.push_container_stack(target["tblMatEntries"])
+        header = (("Mat",0.4), ("Name",3), "Usable")
+        data = []
+        for mat in self.app.data.matchars:
+            for name in mat_set[mat]:
+                data.append([mat, name,
+                             (suitable_mark(name), {"color":suitable_colors(name)})])
+        table = self.view.get_dpg_item(type=BindingType.MaterialEntriesTable)
+        gui_utils.populate_table(table, header, data)
 
-        weights = [0.4,3,1]
-        for i, label in enumerate(("Mat","Name","Usable")):
-            dpg.add_table_column(label=label,init_width_or_weight=weights[i])
 
-        for mat in self.filter_matchars:
-            if mat not in self.mat_set.MATCHARS: continue
-            for name in self.mat_set[mat]:
-                with dpg.table_row():
-                    dpg.add_text(mat)
-                    dpg.add_text(name)
-                    dpg.add_text(suitable_mark(name),color=suitable_colors(name))
+class App:
+    def __init__(self):
+        self.data = AppModel(self)
+        self.view = AppView(self)
+        self.do = AppActions(self,self.view)
+        dpg.set_frame_callback(1,callback=lambda:self.view.set_viewport_ready())
 
-        dpg.pop_container_stack()
-
-    def render_wadstats(self):
-        dpg.delete_item(target["grpWadlist"], children_only=True)
-        dpg.push_container_stack(target["grpWadlist"])
-
+    def update(self,*args,**kwargs):
+        ''' pass this to self.view.update '''
+        return self.view.update(*args,**kwargs)
 

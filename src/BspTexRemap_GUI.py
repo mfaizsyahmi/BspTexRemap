@@ -2,81 +2,84 @@ import dearpygui.dearpygui as dpg
 import DearPyGui_DragAndDrop as dpg_dnd
 import logging
 from pathlib import Path
+from collections import namedtuple
 from jankbsp import BspFileBasic as BspFile
 from jankbsp.types import EntityList
-from bsptexremap.common import parse_arguments
+from bsptexremap.common import parse_arguments, setup_logger
 from bsptexremap.enums import MaterialEnum as ME
 from bsptexremap.materials import MaterialSet # matchars
-from bsptexremap.dpg.modelcontroller import AppModel
+from bsptexremap.dpg.modelcontroller import App
 from bsptexremap.dpg.galleryview import GalleryView
 from bsptexremap.dpg.textureview import TextureView
 from bsptexremap.dpg import gui_utils
 from bsptexremap.dpg import mappings
+BindingType = mappings.BindingType # puts it onto the main scope
+BT = mappings.BindingType # shorthand
+_propbind = namedtuple("PropertyBinding",["obj","prop"])
 
-# imported funcs apparently can't be called because they're sunders, 
-# so these pass them through
 def _help(message): 
-    return gui_utils._help(message)
+    return gui_utils.add_help_in_place(message)
 def _sort_table(sender, sort_specs): 
-    return gui_utils._sort_table(sender, sort_specs)
+    return gui_utils.sort_table(sender, sort_specs)
 
 dpg.create_context(); dpg_dnd.initialize()
+
 args = parse_arguments(gui=True)
-app = AppModel() #dpg)
-dpg_dnd.set_drop(app.do_drop)
-# needs to be after app is instantiated
-def _toggle_prop(sender,app_data,user_data): 
-    return gui_utils._toggle_prop(sender,app_data,user_data,app=app)
+setup_logger(args.log)
+log = logging.getLogger(__name__)
 
-file_dlg_cfg = [{
-    "tag" : "dlgBspFileOpen",
-    "label": "Open BSP file",
-    "callback": app.do_open_file,
-    "exts": ("bsp","all")
-}, {
-    "tag" : "dlgBspFileSaveAs",
-    "label": "Save BSP file",
-    "callback": app.do_save_file_as,
-    "exts": ("bsp","all")
-}, {
-    "tag" : "dlgMatFileOpen",
-    "label": "Open materials file",
-    "callback": app.do_load_mat_file,
-    "exts": ("txt","all")
-}, {
-    "tag" : "dlgMatFileExport",
-    "label": "Export custom materials file",
-    "callback": app.do_load_mat_file,
-    "exts": ("txt","all")
-}]
-for item in file_dlg_cfg:
-    gui_utils.create_file_dialog(**item)
+app = App()
+dpg_dnd.set_drop(app.do.handle_drop)
 
-app.insert_bindings()
-#app.reflect()
+file_dlg_cfg = {
+    BindingType.BspOpenFileDialog : {
+        "tag" : "dlgBspFileOpen",
+        "label": "Open BSP file",
+        "callback": app.do.open_file,
+        "exts": ("bsp","all")
+    }, 
+    BindingType.BspSaveFileDialog : {
+        "tag" : "dlgBspFileSaveAs",
+        "label": "Save BSP file",
+        "callback": app.do.save_file_as,
+        "exts": ("bsp","all")
+    }, 
+    BindingType.MatLoadFileDialog : {
+        "tag" : "dlgMatFileOpen",
+        "label": "Open materials file",
+        "callback": app.do.load_mat_file,
+        "exts": ("txt","all")
+    }, 
+    BindingType.MatExportFileDialog : {
+        "tag" : "dlgMatFileExport",
+        "label": "Export custom materials file",
+        "callback": app.do.load_mat_file,
+        "exts": ("txt","all")
+    }
+}
+for type, item in file_dlg_cfg.items():
+    app.view.bind(gui_utils.create_file_dialog(**item), type)
+
 
 with dpg.window(tag="Primary Window",no_scrollbar=True):
     with dpg.menu_bar():
         with dpg.menu(label="BSP"):
-            dpg.add_menu_item(label="Open", callback=app.do_show_open_file)
+            dpg.add_menu_item(label="Open", callback=app.do.show_open_file)
             dpg.add_separator()
-            dpg.add_menu_item(label="Save", callback=app.do_save_file)
-            dpg.add_menu_item(label="Save As", callback=app.do_show_save_file_as)
+            dpg.add_menu_item(label="Save", callback=app.do.save_file)
+            dpg.add_menu_item(label="Save As", callback=app.do.show_save_file_as)
             dpg.add_separator()
-            dpg.add_menu_item(label="Reload", callback=app.do_reload)
+            dpg.add_menu_item(label="Reload", callback=app.do.reload)
             
         with dpg.menu(label="Materials"):
             dpg.add_menu_item(label="Load",
-                              callback=app.do_show_open_mat_file)
+                              callback=app.do.show_open_mat_file)
             dpg.add_menu_item(label="Export custom materials", 
-                              callback=app.do_export_custommat)
+                              callback=app.do.export_custommat)
             dpg.add_separator()
-            app.togglers.add( dpg.add_menu_item(
-                    label="Auto-load from BSP path",
-                    check=True,
-                    user_data="app:auto_load_materials", # holds the tag of the prop
-                    callback=_toggle_prop
-            ) )
+            app.view.bind( dpg.add_menu_item(label="Auto-load from BSP path",check=True),
+                           BindingType.Value,
+                           _propbind(app.data,"auto_load_materials") )
     
     with dpg.table(resizable=True,height=-1): # header_row=False,
         cols = []
@@ -84,43 +87,61 @@ with dpg.window(tag="Primary Window",no_scrollbar=True):
         cols.append(dpg.add_table_column(label="Textures",init_width_or_weight=3))
         cols.append(dpg.add_table_column(label="Options/Actions",width=200))
         for col in cols: 
-            dpg.bind_item_handler_registry(col, app.gallery_view._handler)
+            dpg.bind_item_handler_registry(col, app.view.gallery._handler)
         with dpg.table_row():
         
             # materials pane
             with dpg.child_window(border=False):
-                dpg.add_input_text(label="path",source="app:matpath",readonly=True)
-                dpg.add_button(label="Load...",callback=app.do_show_open_mat_file)
+                app.view.bind( dpg.add_input_text(label="path",readonly=True),
+                               BindingType.Value,
+                               _propbind(app.data,"matpath") )
+                dpg.add_button(label="Load...",callback=app.do.show_open_mat_file)
                 
                 with dpg.collapsing_header(label="Summary",default_open=True):
-                    with dpg.table(resizable=True,tag="tblMatSummary"): pass
+                    app.view.bind( dpg.add_table(resizable=True),
+                                   BindingType.MaterialSummaryTable )
                     
                 with dpg.collapsing_header(label="Entries"):
-                    dpg.add_input_text(
-                            label="filter type", 
-                            source="app:filter_matchars",
-                            hint=f"Material chars e.g. {MaterialSet.MATCHARS}",
-                            callback=app.update
-                    )
-                    dpg.add_input_text(
-                            label="filter name", 
-                            source="app:filter_matnames",
-                            hint=f"Material name", 
-                            callback=app.update
-                    )
-                    with dpg.table(resizable=True,
-                                   tag="tblMatEntries",
-                                   sortable=True, 
-                                   callback=_sort_table): pass
-                app.render_material_tables()
+                    app.view.bind( dpg.add_input_text(label="filter type", 
+                                    hint=f"Material chars e.g. {MaterialSet.MATCHARS}"),
+                                   BindingType.Value,
+                                   _propbind(app.view,"filter_matchars") )
+                    app.view.bind( dpg.add_input_text(label="filter name", 
+                                                      hint=f"Material name"),
+                                   BindingType.Value,
+                                   _propbind(app.view,"filter_matnames") )
+                    app.view.bind( dpg.add_table(resizable=True, sortable=True, 
+                                                 callback=_sort_table),
+                                   BindingType.MaterialEntriesTable )
+                
+                app.do.render_material_tables()
             
             # textures pane
             with dpg.child_window(autosize_y=False,menubar=True) as winTextures: 
                 with dpg.menu_bar():
-                    with dpg.menu(label="Show") as mnuTexShow:
-                        dpg.add_radio_button(mappings.gallery_show,horizontal=True)
+                    with dpg.menu(
+                            label="Show:All",
+                            user_data=["gallery_show_text"]
+                    ) as mnuTexShow:
+                        app.view.bind(mnuTexShow, BindingType.FormatLabel,
+                                      _propbind(app.view,"gallery_show_val"),
+                                      data=["Show:{:.3s}", mappings.gallery_show])
+                                      #  -> mappings.gallery_show[app.view.gallery_show_val]
+                        
+                        app.view.bind(dpg.add_radio_button(mappings.gallery_show,
+                                                           horizontal=True),
+                                      BindingType.TextMappedValue,
+                                      _propbind(app.view,"gallery_show_val"),
+                                      data=mappings.gallery_show )
                         dpg.add_separator()
-                        with dpg.group(tag="grpWadlist"): pass
+                        
+                        app.view.bind( dpg.add_text("Referenced WAD files"),
+                                       BindingType.FormatValue,
+                                       _propbind(app.view, "wadstats"),
+                                       ["Referenced WAD files: {}",
+                                        lambda stats:len(stats) ] )
+                        app.view.bind( dpg.add_group(tag="grpWadlist"), 
+                                       BindingType.WadListGroup )
                         
                         def _select_all_wads(value=True):
                             for child in dpg.get_item_children("grpWadlist", 1):
@@ -129,72 +150,141 @@ with dpg.window(tag="Primary Window",no_scrollbar=True):
                         with dpg.group(horizontal=True):
                             dpg.add_checkbox(label="All",
                                              callback=lambda s,a,u:_select_all_wads(a))
-                            dpg.add_button(label="load selected")
+                            dpg.add_button(label="load selected",
+                                           callback=app.do.load_selected_wads)
                         
-                    with dpg.menu(label="Size:Stuff"):
-                        dpg.add_combo(mappings.gallery_sizes, 
-                                      source="app:gallery_size_text",
-                                      callback=app.update)
-                    with dpg.menu(label="Filter:ON"):
-                        dpg.add_input_text(label="filter")
-                        dpg.add_checkbox(label="Textures without materials only")
+                    with dpg.menu(label="Size:Stuff") as mnuTexSize:
+                        app.view.bind(
+                                mnuTexSize, 
+                                BindingType.FormatLabel,
+                                _propbind(app.view,"gallery_size_val"),
+                                data = [
+                                    "Size:{}", 
+                                    [x.partition(" ")[0] for x in mappings.gallery_sizes]
+                                ]
+                        )
+                        for i, text in enumerate(mappings.gallery_sizes):
+                            app.view.bind( dpg.add_menu_item(label=text,check=True),
+                                           BindingType.ValueIs,
+                                           _propbind(app.view,"gallery_size_val"),
+                                           i )
+                    with dpg.menu(label="Filter:OFF") as mnuFilter:
+                        app.view.bind(
+                                mnuFilter, 
+                                BindingType.FormatLabel,
+                                _propbind(app,"view"),
+                                data = [
+                                    "Filter:{}", 
+                                    lambda view: "ON" if len(view.filter_str) \
+                                                      or view.filter_unassigned \
+                                                      or view.filter_radiosity \
+                                                      else "OFF"
+                                ]
+                        )
+                        app.view.bind( 
+                                dpg.add_input_text(label="filter"),
+                                BindingType.Value,
+                                _propbind(app.view,"filter_str") 
+                        )
+                        app.view.bind( 
+                                dpg.add_checkbox(label="Textures without materials only"),
+                                BindingType.Value,
+                                _propbind(app.view,"filter_unassigned") 
+                        )
+                        app.view.bind( 
+                                dpg.add_checkbox(label="Exclude radiosity textures"),
+                                BindingType.Value,
+                                _propbind(app.view,"filter_radiosity") 
+                        )
+                        _help("These are textures embedded by VHLT+'s RAD to make translucent objects light properly")
                     with dpg.menu(label="Selection"):
-                        dpg.add_menu_item(label="Select all")
-                        dpg.add_menu_item(label="Select none")
+                        dpg.add_menu_item(label="Select all",
+                                          user_data=True,
+                                          callback=app.do.select_textures)
+                        dpg.add_menu_item(label="Select none",
+                                          user_data=False,
+                                          callback=app.do.select_textures)
                         dpg.add_separator()
                         with dpg.menu(label="Set material to"):
-                            for mat in app.matchars:
-                                dpg.add_menu_item(label=f"{ME(mat).value} - {ME(mat).name}")
-                    
-                with dpg.group() as gallery_root: pass
+                            for mat in app.data.matchars:
+                                dpg.add_menu_item(
+                                        label=f"{ME(mat).value} - {ME(mat).name}",
+                                        user_data = mat,
+                                        callback=app.do.selection_set_material
+                                )
+                        dpg.add_menu_item(label="Embed into BSP",
+                                          user_data=True,
+                                          callback=app.do.selection_embed)
+                        dpg.add_menu_item(label="Unembed from BSP",
+                                          user_data=False,
+                                          callback=app.do.selection_embed)
+                        
+                with dpg.group() as gallery_root:
+                    app.view.bind( gallery_root, BindingType.GalleryRoot )
 
             def _center_resize():
-                app.gallery_view.render() # reflow the gallery view
+                app.view.gallery.render() # reflow the gallery view
             with dpg.item_handler_registry() as resize_handler:
                 dpg.add_item_resize_handler(callback=_center_resize)
 
-            app.gallery_view.submit(gallery_root,winTextures)
+            app.view.gallery.submit(gallery_root,winTextures)
+            dpg.bind_item_handler_registry(winTextures, resize_handler)
             dpg.bind_item_handler_registry("Primary Window", resize_handler)
             
             # options/actions pane
             with dpg.child_window(border=False):
+            
                 dpg.add_text("On load:")
-                dpg.add_checkbox(label="Auto find and load materials",
-                                 source="app:auto_load_materials",
-                                 callback=app.update)
-                dpg.add_checkbox(label="Auto find and load WADs",
-                                 source="app:auto_load_wads",
-                                 callback=app.update)
-                dpg.add_text("On save:")
-                dpg.add_checkbox(label="Insert remap entity",
-                                 source="app:insert_remap_entity",
-                                 callback=app.update)
-                _help("Inserts an info_texture_remap entity that maps the texture\nname changes, otherwise the changes would become irreversible.")
+                app.view.bind( dpg.add_checkbox(label="Auto find and load materials"),
+                               BindingType.Value,
+                               _propbind(app.data,"auto_load_materials") )
+                app.view.bind( dpg.add_checkbox(label="Auto find and load WADs"),
+                               BindingType.Value,
+                               _propbind(app.data,"auto_load_wads") )
+                               
+                dpg.add_text("Before save:")
+                dpg.add_text("info_texture_remap action:",indent=8)
+                _help(f"""
+info_texture_remap is an entity that mappers can insert to remap entities. 
+It is primarily used with the command line version BspTexRemap as part of the
+post-compilation step.
+
+Options:
+  - {mappings.remap_entity_actions[0]}: Inserts this entity, or updates its entries.
+    If you forgo this step, the texture renamings would be irreversible.
+  - {mappings.remap_entity_actions[1]}: Removes all instances of this entity.
+  - {mappings.remap_entity_actions[2]}
+                """.strip())
+                app.view.bind( dpg.add_radio_button(mappings.remap_entity_actions,indent=16),
+                               BindingType.TextMappedValue,
+                               _propbind(app.data,"remap_entity_action"),
+                               data=mappings.remap_entity_actions )
                 
                 dpg.add_text("")
                 
-                dpg.add_button(label="Save BSP", callback=app.do_save_file)
+                dpg.add_button(label="Save BSP", callback=app.do.save_file)
                 _help("Remaps texture and save in the same file")
                 
-                dpg.add_checkbox(label="Backup", indent=8, 
-                                 source="app:backup", callback=app.update)
+                app.view.bind( dpg.add_checkbox(label="Backup", indent=8),
+                               BindingType.Value,
+                               _propbind(app.data,"backup") )
                 _help("Makes backup before saving")
                 
                 dpg.add_button(label="Save BSP as...",
-                               callback=app.do_show_save_file_as)
+                               callback=app.do.show_save_file_as)
                 _help("Remaps texture and save in another file")
                 
                 dpg.add_button(
                         label="Export custom materials",
-                        callback=app.do_show_save_mat_file
+                        callback=app.do.show_save_mat_file
                 )
                 _help("Generates custom material file that can be used\nwith BspTexRemap.exe (the console program)")
 
 if args.bsppath:
-    app.load_bsp(args.bsppath)
-dpg.set_frame_callback(1,callback=lambda:app.set_viewport_ready())
+    app.data.load_bsp(args.bsppath)
+dpg.set_frame_callback(1,callback=lambda:app.view.set_viewport_ready())
 
-dpg.show_item_registry()
+#dpg.show_item_registry()
 
 dpg.create_viewport(title='BspTexRemap GUI', width=1200, height=800)
 dpg.setup_dearpygui()

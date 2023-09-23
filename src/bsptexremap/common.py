@@ -12,6 +12,7 @@ import re, sys
 from argparse import ArgumentParser
 from pathlib import Path, PurePath
 from shutil import copy2 as filecopy # backup_bsp
+from functools import reduce
 from logging import getLogger
 log = getLogger(__name__)
 
@@ -174,6 +175,28 @@ def search_materials_file(bsp_path, bsp_entities=[], args_matpath=None):
 
     log.warn("No materials.txt file found.")
 
+def search_wads(bsp_path, wadlist):
+    ''' returns a dict of the search result:
+        key being wad name and value being path if found, or None
+        wadlist items will be popped once found, using its length to track progress
+    '''
+    bsp_path = Path(bsp_path)
+    result = {wad:None for wad in wadlist} # initialize to all None (not found)
+    counter = 0
+    
+    if bsp_path.parent.name.lower() == "maps":
+        log.info("Trying to find wad files relative to map...")
+        for modpath in modpath_fallbacks(bsp_path.parents[1]):
+            if counter == len(wadlist): break # already found everything
+            log.info(f"looking in {modpath}")
+            for wad in wadlist:
+                if result[wad]: continue # already found this one
+                candidate = modpath / wad
+                if candidate.exists():
+                    log.info(f"found {wad} in {modpath}!")
+                    result[wad] = candidate
+                    counter += 1
+    return result
 
 def load_wannabe_sets(bsp,bsppath,arg_val,first_found=True):
     ''' loads the wannabe sets in order:
@@ -262,6 +285,26 @@ def dump_texinfo(bsppath,
             log.info(f"Dumping texture list {e(thispart).value}: {e(thispart).name}")
             f.write(consts.TEXINFO.SECTION.format( e(thispart).name.upper() ))
             f.write("\n".join(sorted(valuegetter[thispart](bsp,material_set))) + "\n")
+
+
+def filter_materials(source, matchars, names):
+    ''' for the gui '''
+    matfn =lambda mat: True if not len(matchars) else mat in matchars
+    fragfn=lambda name,frag: 1 if frag in name else 0
+    namefn=lambda name,list: True if not len(list) \
+                             else reduce(lambda x,y:x+y, \
+                                         [fragfn(name,frag) for frag in list])
+    
+    result = MaterialSet()
+    for mat in source.MATCHARS:
+        if not matfn(mat):
+            result[mat] = set() # replace with empty set
+            continue
+        fragments = names.split(" ")
+        filtered = filter(namefn,[(name,fragments) for name in source[mat]])
+        result[mat] = set(filtered)
+        
+    return result
 
 
 def backup_file(filepath:Path|str):

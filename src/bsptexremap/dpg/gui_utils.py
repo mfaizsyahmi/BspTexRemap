@@ -7,7 +7,7 @@ file_dlg_exts = {
     "all": ("All files (*.*){.*}",{})
 }
 
-def _help(message):
+def add_help_in_place(message):
     ''' adds a "(?)" next to the previous item, which displays the given tooltip
         message when hovered.
     '''
@@ -19,23 +19,53 @@ def _help(message):
     with dpg.tooltip(t):
         dpg.add_text(message)
 
-def create_file_dialog(label,tag, callback, exts,
-        directory_selector=False, 
+def create_file_dialog(label,callback, exts,
+        tag=None,
+        directory_selector=False,
         show=False, modal=True,
         width=700 ,height=400):
+    kwargs = {"tag":tag} if tag else {} # a way to optionally pass tag
     with dpg.file_dialog(
             label=label,
-            tag=tag, 
             directory_selector=directory_selector, 
             show=show, modal=modal,
             callback=callback, 
-            width=width ,height=height):
+            width=width ,height=height,
+            **kwargs) as dlg_tag:
+
         for ext_conf in exts:
             text = file_dlg_exts[ext_conf][0]
             kwargs = file_dlg_exts[ext_conf][1]
             dpg.add_file_extension(text, **kwargs)
+            
+    return dlg_tag
 
-def _sort_table(sender, sort_specs):
+def populate_table(target, 
+                   headers:list[str], 
+                   data:list[list[str|tuple]]):
+    ''' clears and repopulates target table
+        header item can be label str or a tuple of label and weight
+        cell item can be a text str or a tuple of text and kwargs dict
+    '''    
+    dpg.delete_item(target, children_only=True)
+    dpg.push_container_stack(target)
+    
+    for this_header in headers:
+        try:    label, weight = this_header # try unpack
+        except: label, weight = this_header, 1
+        dpg.add_table_column(label=label,init_width_or_weight=weight)
+    
+    for row in data:
+        with dpg.table_row():
+            for col in row:
+                try:    text, kwargs = col     # try unpack
+                except: text, kwargs = col, {}
+                dpg.add_text(text,**kwargs)
+    
+    dpg.pop_container_stack()
+
+
+def sort_table(sender, sort_specs):
     ''' sort_specs scenarios:
         1. no sorting -> sort_specs == None
         2. single sorting -> sort_specs == [[column_id, direction]]
@@ -71,7 +101,3 @@ def _sort_table(sender, sort_specs):
     
     dpg.reorder_items(sender, 1, new_order)
 
-def _toggle_prop(sender,app_data,user_data,app=None):
-    app.togglers.add(sender)
-    dpg.set_value(user_data, app_data)
-    app.update()    

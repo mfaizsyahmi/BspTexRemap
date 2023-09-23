@@ -58,6 +58,7 @@ class TextureView:
         self.channels = 4
         self.data = img_to_dpg(miptex.to_image())
         self.__post_init__() # run this again now that we have data
+    
 
     def estimate_group_width(self, scale=1.0, max_width=float('inf')):
         return max( int(min(self.width*scale,max_width)),
@@ -66,6 +67,10 @@ class TextureView:
     def draw_size(self, scale=1.0, max_width=float('inf')):
         w = min(self.width * scale, max_width)
         h = self.height / self.width * w
+        
+        max_scale = min(max_width/self.width,max_width/self.height)
+        w = self.width * min(scale, max_scale)
+        h = self.height * min(scale, max_scale)
         return (w,h)
 
     def render(self, scale=1.0, max_width=float('inf')):
