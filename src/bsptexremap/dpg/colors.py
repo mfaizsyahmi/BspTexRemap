@@ -1,3 +1,4 @@
+import dearpygui.dearpygui as dpg
 
 class MaterialColors:
     C = (199,199,199) # Concrete 
@@ -16,3 +17,21 @@ class MaterialColors:
     A = (255,255,255) # Grass    
     X = (255,255,255) # GrassCZ  
     R = (255,255,255) # Gravel   
+
+def add_themes():
+    with dpg.theme(tag="theme:main_window"):
+        with dpg.theme_component(dpg.mvWindowAppItem):
+            dpg.add_theme_style(dpg.mvStyleVar_WindowPadding ,4,2)
+            
+    with dpg.theme(tag="theme:layout_table"):
+        with dpg.theme_component(0):
+            #dpg.add_theme_color(dpg.mvThemeCol_TableHeaderBg ,(15,86,135,255))
+            dpg.add_theme_style(dpg.mvStyleVar_WindowPadding ,8,8)
+            
+    with dpg.theme(tag="theme:normal_table"):
+        with dpg.theme_component(0): pass
+            #dpg.add_theme_color(dpg.mvThemeCol_TableHeaderBg ,(48,48,51,255))
+            
+    with dpg.theme(tag="theme:galleryitem_normal"):
+        with dpg.theme_component(dpg.mvGroup):
+            dpg.add_theme_color(dpg.mvThemeCol_ChildBg ,(150,0,0,255))

@@ -12,7 +12,7 @@ class GalleryView(UserList):
     spacing = 8
         
     scale = 1.0                    # set by gallery_size_val_map
-    max_width = float('inf')
+    max_length = float('inf')
     
     def __init__(self):
         self.data = []
@@ -38,7 +38,7 @@ class GalleryView(UserList):
         row = self._new_row(True); 
         row_w, row_items = 0, 0
         for i, item in enumerate(data):
-            item_w = item.estimate_group_width(self.scale, self.max_width)
+            item_w = item.estimate_group_width(self.scale, self.max_length)
             #print(f"img{i:03d} row_w/win_w:{row_w + self.spacing + item_w:-4d}/{win_w:-4d}")
             if row_items \
             and row_w + self.spacing + item_w > win_w:
@@ -46,7 +46,7 @@ class GalleryView(UserList):
                 row_w, row_items = 0, 0
                 
             dpg.push_container_stack(row)
-            item.render(self.scale, self.max_width)
+            item.render(self.scale, self.max_length)
             dpg.pop_container_stack()
             
             row_w += self.spacing + item_w

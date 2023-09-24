@@ -38,13 +38,15 @@ gallery_show_map = [
 gallery_show = [item.text for item in gallery_show_map]
 
 
-_galsize = namedtuple("GallerySizeEntry", ["text", "scale", "max_width"])
+_galsize = namedtuple("GallerySizeEntry", ["text", "scale", "max_length"])
 gallery_size_map = [
-    _galsize("Double size (200%)", 2.0, float('inf')),
-    _galsize("Full size (100%)",   1.0, float('inf')),
-    _galsize("Half size (50%)",    0.5, float('inf')),
-    _galsize("256px max. width",   1.0, 256),
-    _galsize("128px max. width",   1.0, 128)
+    _galsize("Double size (200%)",  2.0, float('inf')),
+    _galsize("Full size (100%)",    1.0, float('inf')),
+    _galsize("Half size (50%)",     0.5, float('inf')),
+    _galsize("256px max. length",   1.0, 256),
+    _galsize("128px max. length",   1.0, 128),
+    # use the sliders. must be last item!
+    _galsize("Custom",              1.0, float('inf')),
 ]
 gallery_sizes = [item.text for item in gallery_size_map]
 

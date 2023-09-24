@@ -1,5 +1,6 @@
 ''' bsputil.py
     BspFile related util functions
+    
 '''
 from . import consts
 from .materials import MaterialSet
@@ -29,8 +30,9 @@ def remap_texnames(func, miptexlist):
     for miptex in miptexlist:
         miptex.name = func(miptex.name)
 
-def wadlist(bsp_entities, strip_paths=False) -> list[str]:
+def wadlist(bsp_entities, strip_paths=False) -> tuple[str]:
+    if "wad" not in bsp_entities[0]: return [] # some maps actually don't have these
     wads = bsp_entities[0]["wad"].split(";")
     wads = list(filter(lambda x:len(x),wads)) # removes empty item at the end
     wads = [Path(item).name if strip_paths else item for item in wads]
-    return wads
+    return tuple(wads)

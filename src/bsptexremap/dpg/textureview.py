@@ -1,6 +1,7 @@
 import dearpygui.dearpygui as dpg
 from dataclasses import dataclass, field # TextureView
 from itertools import chain
+from .ntuple import ntuple
 
 def flatten_imgdata(imgdata):
     return list(chain(*imgdata))
@@ -18,7 +19,8 @@ class TextureView:
     is_external:bool    = True
     external_src:str    = None # holds name of wad file
     mat:str             = None # assigned material
-    uuid:int            = None
+    uuid:int            = None # of the image
+    _view_uuid:int      = None # of the view widget
 
     @classmethod
     def from_img(cls, img, name):
@@ -32,6 +34,11 @@ class TextureView:
                 4 if not miptex.is_external else 0, data,
                 miptex.is_external
         )
+        
+    @classmethod
+    def static_update(cls, tvitem, miptex, source_name):
+        ''' class method provided for parallel thread processing '''
+        tvitem.update_miptex(miptex,source_name)
 
     def __post_init__(self):
         if not self.data: return
@@ -49,7 +56,8 @@ class TextureView:
     def update_miptex(self, miptex, source_name):
         ''' if found wad that has this texture, update here
         '''
-        if self.name != miptex.name \
+        # if self.name != miptex.name # SKIPS NAME CHECK FOR NOW
+        if False \
         or self.width != miptex.width \
         or self.height != miptex.height:
             raise ValueError("WAD miptex doesn't match BSP's miptex")
@@ -60,35 +68,54 @@ class TextureView:
         self.__post_init__() # run this again now that we have data
     
 
-    def estimate_group_width(self, scale=1.0, max_width=float('inf')):
-        return max( int(min(self.width*scale,max_width)),
-                    int(dpg.get_text_size(self.name)[0]) )
+    def estimate_group_width(self, scale=1.0, max_length=float('inf')):
+        return max( int(self.draw_size(scale, max_length)[0]),
+                    int(dpg.get_text_size(self.name)[0]),
+                    int(dpg.get_text_size(f"{self.width}x{self.height}")[0]),
+                    int(dpg.get_text_size("external")[0]), # temp
+                    )
 
-    def draw_size(self, scale=1.0, max_width=float('inf')):
-        w = min(self.width * scale, max_width)
-        h = self.height / self.width * w
+    def draw_size(self, scale=1.0, max_length=float('inf')):
+        # w = min(self.width * scale, max_length)
+        # h = self.height / self.width * w
         
-        max_scale = min(max_width/self.width,max_width/self.height)
+        max_scale = min(max_length/self.width,max_length/self.height)
         w = self.width * min(scale, max_scale)
         h = self.height * min(scale, max_scale)
         return (w,h)
 
-    def render(self, scale=1.0, max_width=float('inf')):
+    def render(self, scale=1.0, max_length=float('inf')):
+        #with dpg.child_window(width=w) as galleryItem:
         with dpg.group() as galleryItem:
+            w,h = self.draw_size(scale, max_length)
             dpg.add_text(self.name)
 
-            w,h = self.draw_size(scale, max_width)
-            if self.uuid:
-                dpg.add_image(self.uuid,width=w, height=h)
-            else:
-                with dpg.drawlist(width=w, height=h):
+            with dpg.drawlist(width=w, height=h):
+                if self.uuid:
+                    dpg.draw_image(self.uuid,(0,0),(w,h))
+                else:
                     dpg.draw_rectangle((0,0),(w,h))
                     dpg.draw_line((0,0),(w,h))
                     dpg.draw_line((w,0),(0,h))
 
             dpg.add_text(f"{self.width}x{self.height}")
             if self.is_external:
-                dpg.add_text(f"external")
+                dpg.add_text("external")
             
-
+        dpg.bind_item_theme(galleryItem,"theme:galleryitem_normal")
+        self._view_uuid = galleryItem
         return galleryItem
+    
+    def render_in_place(self, *args, **kwargs):
+        old_view = self._view_uuid
+        # make sre that the referenced item exists (i.e. it's being rendered)
+        try: dpg.get_item(old_view)
+        except: return 
+        
+        with dpg.stage() as staging:
+            new_view = self.render(*args, **kwargs) # self-assigns _view_uuid
+        dpg.unstage(new_view)
+        dpg_move_item(new_view, before=old_view)
+        dpg.delete_item(old_view)
+        dpg.delete_item(staging)
+        
