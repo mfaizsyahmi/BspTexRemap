@@ -5,36 +5,40 @@ from .ntuple import ntuple
 
 def flatten_imgdata(imgdata):
     return list(chain(*imgdata))
-    
+
 def img_to_dpg(img):
     return [n/256.0 for n in flatten_imgdata(img.convert("RGBA").getdata())]
 
 @dataclass
 class TextureView:
-    name:str
-    width:int
-    height:int
-    channels:any        = None
-    data:any            = None
-    is_external:bool    = True
-    external_src:str    = None # holds name of wad file
-    mat:str             = None # assigned material
-    uuid:int            = None # of the image
-    _view_uuid:int      = None # of the view widget
+    name : str
+    width : int
+    height : int
+    channels : any      = None
+    data : any          = None
+    is_external : bool  = True
+    external_src : str  = None # holds name of wad file
+    precedence : int    = 1000 # for overloading wad textures
+    mat : str           = None # assigned material
+    uuid : int          = None # of the image
+    _view_uuid : int    = None # of the view widget
+    selected : bool     = False # view state
 
     @classmethod
     def from_img(cls, img, name):
         return cls(name, *img.size, 4, img_to_dpg(miptex.to_image()) )
-    
+
     @classmethod
     def from_miptex(cls, miptex):
         data = None if miptex.is_external else img_to_dpg(miptex.to_image())
         return cls(
                 miptex.name, miptex.width, miptex.height,
                 4 if not miptex.is_external else 0, data,
-                miptex.is_external
+                miptex.is_external,
+                # ...skipping a few items...
+                precedence = -1 if not miptex.is_external else 1000
         )
-        
+
     @classmethod
     def static_update(cls, tvitem, miptex, source_name):
         ''' class method provided for parallel thread processing '''
@@ -48,25 +52,29 @@ class TextureView:
                 default_value=self.data,
                 label=self.name
             )
-            
+
     def __del__(self):
         ''' make sure item is freed '''
         if self.uuid: dpg.delete_item(self.uuid)
 
-    def update_miptex(self, miptex, source_name):
+    def update_miptex(self, miptex, source_name, precedence=999):
         ''' if found wad that has this texture, update here
+            todo: precedence overload if higher than current
         '''
         # if self.name != miptex.name # SKIPS NAME CHECK FOR NOW
         if False \
         or self.width != miptex.width \
         or self.height != miptex.height:
             raise ValueError("WAD miptex doesn't match BSP's miptex")
-        
+
+        elif self.precedence <= precedence: return
+
         self.external_src = source_name
         self.channels = 4
         self.data = img_to_dpg(miptex.to_image())
+        self.precedende = precedence
         self.__post_init__() # run this again now that we have data
-    
+
 
     def estimate_group_width(self, scale=1.0, max_length=float('inf')):
         return max( int(self.draw_size(scale, max_length)[0]),
@@ -78,7 +86,7 @@ class TextureView:
     def draw_size(self, scale=1.0, max_length=float('inf')):
         # w = min(self.width * scale, max_length)
         # h = self.height / self.width * w
-        
+
         max_scale = min(max_length/self.width,max_length/self.height)
         w = self.width * min(scale, max_scale)
         h = self.height * min(scale, max_scale)
@@ -101,21 +109,21 @@ class TextureView:
             dpg.add_text(f"{self.width}x{self.height}")
             if self.is_external:
                 dpg.add_text("external")
-            
+
         dpg.bind_item_theme(galleryItem,"theme:galleryitem_normal")
         self._view_uuid = galleryItem
         return galleryItem
-    
+
     def render_in_place(self, *args, **kwargs):
         old_view = self._view_uuid
         # make sre that the referenced item exists (i.e. it's being rendered)
         try: dpg.get_item(old_view)
-        except: return 
-        
+        except: return
+
         with dpg.stage() as staging:
             new_view = self.render(*args, **kwargs) # self-assigns _view_uuid
         dpg.unstage(new_view)
         dpg_move_item(new_view, before=old_view)
         dpg.delete_item(old_view)
         dpg.delete_item(staging)
-        
+

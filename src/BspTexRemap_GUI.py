@@ -83,9 +83,9 @@ def main():
                 dpg.add_menu_item(label="Export custom materials",
                                   callback=app.do.export_custommat)
                 dpg.add_separator()
-#               app.view.bind( dpg.add_menu_item(label="Auto-load from BSP path",check=True),
-#                              BindingType.Value,
-#                              _propbind(app.data,"auto_load_materials") )
+'''             app.view.bind( dpg.add_menu_item(label="Auto-load from BSP path",check=True),
+                               BindingType.Value,
+                               _propbind(app.data,"auto_load_materials") ) '''
                 dpg.add_menu_item(label="Auto-load from BSP path",check=True)
                 _bind(BindingType.Value, _propbind(app.data,"auto_load_materials"))
 
@@ -97,20 +97,22 @@ def main():
 
             app.view.bind(col1, BindingType.FormatLabel,
                           _propbind(app.data,"mat_set"),
-                          data=["Materials ({1}/{0})",
-                                lambda mat: len(mat),
-                                lambda mat: len(+mat)])
+                          data=["Materials {}",
+                                lambda mat: f"({len(+mat)}/{len(mat)})" \
+                                if app.data.matpath else ""])
 
             app.view.bind(col2, BindingType.FormatLabel,
                           _propbind(app,"view"),
-                          data=["Textures ({}M+{}X={}T {}V)",
-                                lambda view: len(view.app.data.bsp.textures_m),
-                                lambda view: len(view.app.data.bsp.textures_x),
-                                lambda view: len(view.app.data.bsp.textures),
-                                lambda view: len(view.gallery.data)])
+                          data=["Textures {}",
+                                lambda view: "({}M + {}X = {}T, {}V)"\
+                                .format(len(view.app.data.bsp.textures_m),
+                                        len(view.app.data.bsp.textures_x),
+                                        len(view.app.data.bsp.textures),
+                                        len(view.gallery.data)
+                                ) if view.app.data.bsp else ""])
 
             with dpg.table_row() as mainLayoutRow:
-                
+
                 # materials pane
                 with dpg.child_window(border=False):
                     dpg.bind_item_theme(dpg.last_item(),"theme:normal_table")
@@ -188,7 +190,6 @@ def main():
                                                 app.view.gallery_size_scale,
                                                 app.view.gallery_size_maxlen
                                         )
-                                        #[x.partition(" ")[0] for x in mappings.gallery_sizes]
                                     ]
                             )
                             for i, text in enumerate(mappings.gallery_sizes):
@@ -329,6 +330,7 @@ Options:
                     )
                     _help("Generates custom material file that can be used\nwith BspTexRemap.exe (the console program)")
 
+    app.view.reflect()
     if args.bsppath:
         app.data.load_bsp(args.bsppath)
     dpg.set_frame_callback(1,callback=lambda:app.view.set_viewport_ready())

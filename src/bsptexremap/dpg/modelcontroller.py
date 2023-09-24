@@ -55,7 +55,7 @@ def get_textures_from_wad(wadpath:str|Path, texture_names:str) -> dict:
             fp.seek(item.offset)
             result[item.name] = WadMipTex.load(fp,item.sizeondisk)
     return result
-    
+
 
 @dataclass
 class WadStatus:
@@ -77,7 +77,7 @@ class WadStatus:
         elif self.loaded == False:   fmt_str = "{0} ({1}, {2})"
         elif self.found is not None: fmt_str = "{0} ({1})"
         else: return self.name
-        return fmt_str.format(self.name, self._found_str[self.found], 
+        return fmt_str.format(self.name, self._found_str[self.found],
                                          self._loaded_str[self.loaded],
                               self.loaded_count)
 
@@ -119,6 +119,11 @@ class AppModel:
     backup              : bool = True # creates backup file if saving in same file
 
     def load_bsp(self, bsppath):
+        ''' loads given bsp, and kickstarts some post-load operations
+            (has side effects)
+        '''
+        log.info(f"Loading BSP: {bsppath!s}")
+
         self.bsppath = bsppath
         with open(self.bsppath, "rb") as f:
             self.bsp = BspFile(f, lump_enum=guess_lumpenum(self.bsppath))
@@ -129,12 +134,12 @@ class AppModel:
             matpath = search_materials_file(self.bsppath)
             if matpath:
                 self.load_materials(matpath)
+        else: matpath = None
 
         self.app.view.update_wadlist() # populates app.view._wad_found_paths
         if self.auto_load_wads:
-            for wad, wadpath in self.app.view._wad_found_paths.items():
-                if not wadpath: continue
-                
+            paths_to_load = tuple(v for k,v in self.app.view._wad_found_paths.items() if v)
+            self.app.view.load_external_wad_textures(paths_to_load)
 
     def load_materials(self, matpath):
         self.matpath = matpath
@@ -148,6 +153,8 @@ class BindingEntry:
     type: BindingType
     prop: namedtuple = None
     data: any = None
+    update_predicate : callable = None
+    reflect_predicate : callable = None
 
 @dataclass
 class AppView:
@@ -190,12 +197,14 @@ class AppView:
         "filter_radiosity"
     ]
 
-    def bind(self, tag, type:BindingType, prop=None, data=None):
+    def bind(self, tag, type:BindingType, prop=None, data=None, update_predicate=None, reflect_predicate=None):
         ''' binds the tag to the prop
             prop is a tuple of obj and propname.
             - get value using getattr(*prop)
             - set value using setattr(*prop, value)
             data is usually passed by value
+            update_predicate is a callable that checks whether it should update
+            reflect_predicate is a callable that checks whether it should run on reflect
         '''
         self.bound_items[tag] = BindingEntry(type, prop, data)
         if type in mappings.writeable_binding_types:
@@ -206,8 +215,10 @@ class AppView:
             prop is a tuple of obj and propname.
             - set value using setattr(*prop, value)
         '''
+        #log.debug("UPDATE CALLED BY: " + repr(dpg.get_item_info(sender)) + "\n")
         if sender not in self.bound_items: return
         item = self.bound_items[sender]
+        if callable(item.update_predicate) and not item.update_predicate(): return
 
         if item.type == BindingType.Value:
             setattr(*item.prop, app_data)
@@ -250,11 +261,14 @@ class AppView:
         for tag,item in self.bound_items.items():
             if tag == not_tagged: continue
             elif prop:
-                if item.prop and tuple(item.prop) != tuple(prop): continue
-                elif item.prop != prop: continue
-            elif item.type not in types: continue
+                if (item.prop and tuple(item.prop) != tuple(prop)) \
+                or item.prop != prop: continue
+            elif item.type not in types \
+            or callable(item.reflect_predicate) and not item.reflect_predicate():
+                continue
 
-            elif item.type == BindingType.Value:
+            #log.debug("REFLECT ON: " + repr(dpg.get_item_info(tag)) + "\n")
+            if item.type == BindingType.Value:
                 dpg.set_value(tag, getattr(*item.prop))
             elif item.type == BindingType.ValueIs:
                 dpg.set_value(tag, getattr(*item.prop) == item.data)
@@ -296,15 +310,15 @@ class AppView:
 
     def load_textures(self, miptexes, update=False, new_source=None):
         ''' populates app.view.textures with TextureView items.
-            if updating, the miptexes are from wads, and new_source must be 
+            if updating, the miptexes are from wads, and new_source must be
             the wad's filename.
-            
+
             on both cases, returns the number of textures loaded/updated
         '''
         result = 0
-        
+
         if update:
-            ''' build a list of new miptexes, pair it up with the corresponding 
+            ''' build a list of new miptexes, pair it up with the corresponding
                 texview item, then use the thread pool to update them
             '''
             finder = lambda tex:tex.name.lower() == newtex.name.lower()
@@ -312,7 +326,7 @@ class AppView:
             for newtex in miptexes:
                 if (oldtex := next(filter(finder,self.textures),None)):
                     update_args.append((oldtex,newtex,new_source))
-                    
+
             if not len(update_args): return
             log.info(f"{len(update_args)} texture entries will be updated with {new_source}")
             # transpose list i.e. list 1 is all the texview, #2 is all the miptex, etc.
@@ -336,18 +350,18 @@ class AppView:
 
             self.textures = loaded_textures
             result = len(loaded_textures)
-            
+
         if self._viewport_ready: self.update_gallery()
         return result
 
     def load_external_wad_textures(self,wadpaths:tuple[Path]):
         ''' loads the textures from the wads, *in order*, then update textures list.
-            caller should filter the wad paths, and make sure it's in the same 
+            caller should filter the wad paths, and make sure it's in the same
             order as in the bsp, to preserve game engine presumed load order.
         '''
         wanted_list = [x.name for x in self.app.data.bsp.textures_x]
         log.info(f"{len(wanted_list)} external textures wanted")
-        
+
         log.info(f"loading all wad files simultaneously-ish...")
         taskfn = get_textures_from_wad # failure_returns_none(get_textures_from_wad)
         results = {}
@@ -355,40 +369,40 @@ class AppView:
         with time_it():
             with ThreadPoolExecutor() as executor:
                 for wadpath, result \
-                in zip(wadpaths, executor.map(taskfn, wadpaths, 
+                in zip(wadpaths, executor.map(taskfn, wadpaths,
                                               [wanted_list]*len(wadpaths))):
                     results[wadpath] = result
 
         log.debug("wad loading results (success/fail):")
         log.debug({k:lambda v:bool(v) for k,v in results.items()})
-        
+
         for wadpath in wadpaths:
             wadname = Path(wadpath).name
             status = {"loaded": False if results[wadpath] is None else True}
             if not results[wadpath]:
                 log.warning(f"failed to load textures from {wadpath}")
-                
-            elif len(results[wadpath]): 
+
+            elif len(results[wadpath]):
                 # something is loaded (empty means can load but found nothing)
                 log.debug(f"updating textures with {wadpath} ({len(results[wadpath])} items)")
-            
+
                 # fix the miptex name to the waddirentry's.
                 # I'm not sure if the engine only considers the waddirentry's name
-                # but it makes sense 
+                # but it makes sense
                 # NOTE: result is a dict. translate to list
                 miptexes = []
                 for direntryname, miptex in results[wadpath].items():
                     miptex.name = direntryname
                     miptexes.append(miptex)
-                
+
                 status["loaded_count"] = self.load_textures(miptexes, True, wadname)
-            else: 
+            else:
                 status["loaded_count"] = 0
-            
+
             log.debug(f"updating wadstats")
             item = next(filter(lambda x:x.name==wadname,self.wadstats),None)
             if item: item.update(**status)
-            
+
 
     def update_wadlist(self):
         WadStatus._parent = self.get_dpg_item(type=BindingType.WadListGroup)
@@ -408,7 +422,6 @@ class AppView:
     def update_gallery(self, size_only=False):
         ''' filters the textures list, then passes it off to gallery to render '''
         # all the filters in modelcontroller assembled
-        log.debug("updating gallery")
         f_a = mappings.gallery_show_map[self.gallery_show_val].filter_fn
         f_u = lambda item: MaterialSet.strip(item.name) not in self.app.data.mat_set
         f_r = lambda item: not item.name.lower().startswith("__rad")
@@ -475,7 +488,7 @@ class AppActions:
     def load_selected_wads(self, *_):
         selection_paths = tuple(x.path for x in self.view.wadstats if x.selected)
         self.view.load_external_wad_textures(selection_paths)
-        
+
     def select_textures(self, sender, app_data, user_data): pass
     def selection_set_material(self, sender, app_data, user_data): pass
     def selection_embed(self, sender, app_data, user_data): pass
