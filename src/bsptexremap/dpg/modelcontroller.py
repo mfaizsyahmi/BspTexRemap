@@ -9,8 +9,8 @@ from .galleryview import GalleryView
 from .dbgtools import *
 
 from .. import consts, utils
-from ..enums import MaterialEnum
-from ..common import search_materials_file, search_wads, filter_materials
+from ..enums import MaterialEnum, DumpTexInfoParts
+from ..common import search_materials_file, search_wads, filter_materials, dump_texinfo
 from ..bsputil import wadlist, guess_lumpenum
 from ..materials import MaterialSet, TextureRemapper
 
@@ -23,6 +23,7 @@ from dataclasses import dataclass, field, asdict
 from collections import namedtuple
 from typing import NamedTuple, ClassVar
 from operator import attrgetter
+from itertools import chain
 from concurrent.futures import ThreadPoolExecutor
 import re, logging
 
@@ -51,7 +52,7 @@ def get_textures_from_wad(wadpath:str|Path, texture_names:str) -> dict:
         wad = WadFile.load(fp, True)
         for item in wad.entries:
             if item.name.lower() not in texture_names: continue
-            log.debug(f"{item.name} is wanted and found")
+            # log.debug(f"{item.name} is wanted and found")
             fp.seek(item.offset)
             result[item.name] = WadMipTex.load(fp,item.sizeondisk)
     return result
@@ -82,7 +83,7 @@ class WadStatus:
                               self.loaded_count)
 
     def __post_init__(self):
-        callback = lambda s,a,u: setattr(self,"selected",dpg.get_value(s))
+        callback = lambda s,a,u: setattr(self,"selected",a)
         self.uuid = dpg.add_selectable(label=self._fmt(),
                                        parent=self._parent,
                                        disable_popup_close=True,
@@ -133,19 +134,25 @@ class AppModel:
         if self.auto_load_materials:
             matpath = search_materials_file(self.bsppath)
             if matpath:
-                self.load_materials(matpath)
-        else: matpath = None
+                self.load_materials(matpath) # sets self.matpath and render the tables
+        else:
+            self.matpath = None
+
+        self.wannabe_set = MaterialSet()
+        self.app.view.update_wannabe_material_tables()
 
         self.app.view.update_wadlist() # populates app.view._wad_found_paths
         if self.auto_load_wads:
             paths_to_load = tuple(v for k,v in self.app.view._wad_found_paths.items() if v)
             self.app.view.load_external_wad_textures(paths_to_load)
 
+        log.info("Done.")
+
     def load_materials(self, matpath):
         self.matpath = matpath
         self.mat_set = MaterialSet.from_materials_file(self.matpath)
         self.app.view.reflect()
-        self.app.do.render_material_tables()
+        self.app.view.render_material_tables()
 
 
 @dataclass(frozen=True)
@@ -155,6 +162,7 @@ class BindingEntry:
     data: any = None
     update_predicate : callable = None
     reflect_predicate : callable = None
+
 
 @dataclass
 class AppView:
@@ -177,6 +185,12 @@ class AppView:
     # material entry filter settings
     filter_matchars : str        = ""
     filter_matnames : str        = ""
+
+    # texture remap list settings
+    texremap_sort : bool         = False
+    texremap_revsort : bool      = False
+    texremap_grouped : bool      = False
+    texremap_not_empty : bool    = False
 
     # texture gallery view settings
     gallery_show_val : int       = 2 # all  -> mappings.gallery_show_map
@@ -232,6 +246,7 @@ class AppView:
         if item.prop[0] == self and item.prop[1] in \
         ["gallery_size_scale", "gallery_size_maxlen"]:
             self.gallery_size_val = len(mappings.gallery_size_map) - 1
+
         elif tuple(item.prop) == (self,"gallery_size_val") \
         and self.gallery_size_val < len(mappings.gallery_size_map) - 1:
             _, self.gallery_size_scale, self.gallery_size_maxlen \
@@ -240,6 +255,9 @@ class AppView:
         if item.prop[0] == self and item.prop[1] in self._gallery_view_props:
             self.reflect() # general total reflection
             self.update_gallery(size_only = (item.prop[1]=="gallery_size_val"))
+
+        elif item.prop[0] == self and item.prop[1][0:9] == "texremap_":
+            self.update_wannabe_material_tables()
         else:
             # updates other bound items with same prop
             self.reflect(not_tagged=sender,
@@ -339,9 +357,9 @@ class AppView:
             result = len(argsT[0])
 
         else:
+            log.info(f"Loading textures ({len(miptexes)} items)")
             # self.textures = [TextureView.from_miptex(item) for item in miptexes]
             # TEST parallel texture conversion
-            log.debug(f"START LOAD TEXTURES ({len(miptexes)})")
             loaded_textures = []
             with time_it():
                 with ThreadPoolExecutor() as executor:
@@ -361,9 +379,10 @@ class AppView:
         '''
         wanted_list = [x.name for x in self.app.data.bsp.textures_x]
         log.info(f"{len(wanted_list)} external textures wanted")
+        if not len(wanted_list): return
 
         log.info(f"loading all wad files simultaneously-ish...")
-        taskfn = get_textures_from_wad # failure_returns_none(get_textures_from_wad)
+        taskfn = failure_returns_none(get_textures_from_wad)
         results = {}
         log.debug("START")
         with time_it():
@@ -373,18 +392,15 @@ class AppView:
                                               [wanted_list]*len(wadpaths))):
                     results[wadpath] = result
 
-        log.debug("wad loading results (success/fail):")
-        log.debug({k:lambda v:bool(v) for k,v in results.items()})
-
         for wadpath in wadpaths:
             wadname = Path(wadpath).name
             status = {"loaded": False if results[wadpath] is None else True}
-            if not results[wadpath]:
-                log.warning(f"failed to load textures from {wadpath}")
+            if results[wadpath] is None:
+                log.warning(f"failed to load textures from {wadname}")
 
             elif len(results[wadpath]):
                 # something is loaded (empty means can load but found nothing)
-                log.debug(f"updating textures with {wadpath} ({len(results[wadpath])} items)")
+                log.debug(f"updating textures with {wadname} ({len(results[wadpath])} items)")
 
                 # fix the miptex name to the waddirentry's.
                 # I'm not sure if the engine only considers the waddirentry's name
@@ -399,7 +415,7 @@ class AppView:
             else:
                 status["loaded_count"] = 0
 
-            log.debug(f"updating wadstats")
+            log.debug(f"updating wadstats for {wadname}")
             item = next(filter(lambda x:x.name==wadname,self.wadstats),None)
             if item: item.update(**status)
 
@@ -453,6 +469,107 @@ class AppView:
         self.gallery.render()
         self.reflect(prop=(self.app,"view"))
 
+    def render_material_tables(self):
+        ME = MaterialEnum
+        mat_set = self.app.data.mat_set
+        choice_set = mat_set.choice_cut()
+        wannabe_set = self.app.data.wannabe_set
+
+        avail_colors = lambda n: (0,255,0) if n else (255,0,0)
+        is_suitable = lambda name: \
+                consts.MATNAME_MIN_LEN <= len(name) <= consts.MATNAME_MAX_LEN
+        suitable_mark = lambda name: "Y" if is_suitable(name) else "N"
+        suitable_colors = lambda name: (0,255,0) if is_suitable(name) else (255,0,0)
+
+        # SUMMARY TABLE
+        header = (("",0.4), ("Material",1.8), "Count", "Usable", "Assigned")
+        data = []
+        for mat in mat_set.MATCHARS:
+            data.append([ ME(mat).value,
+                          ME(mat).name,
+                          len(mat_set[mat]),
+                          ( len(choice_set[mat]),
+                            {"color" : avail_colors(len(choice_set[mat]))} ),
+                          len(wannabe_set[mat]) ])
+        # totals row
+        data.append(["", "TOTAL", len(mat_set), len(choice_set), len(wannabe_set)])
+
+        table = self.get_dpg_item(type=BindingType.MaterialSummaryTable)
+        gui_utils.populate_table(table, header, data)
+
+        # ENTRIES TABLE
+        header = (("Mat",0.4), ("Name",3), "Usable")
+        data = []
+        for mat in self.app.data.matchars:
+            for name in mat_set[mat]:
+                data.append([mat, name,
+                             (suitable_mark(name), {"color":suitable_colors(name)})])
+        table = self.get_dpg_item(type=BindingType.MaterialEntriesTable)
+        gui_utils.populate_table(table, header, data)
+
+    def update_wannabe_material_tables(self):
+        ''' update the summary table display of wannabe set items '''
+        table = self.get_dpg_item(type=BindingType.MaterialSummaryTable)
+        
+        for i, mat in enumerate(self.app.data.wannabe_set.MATCHARS):
+            table_cell = gui_utils.traverse_children(table, f"{i}.4")
+            dpg.set_value(table_cell, len(self.app.data.wannabe_set[mat]))
+            
+        totals_row = len(self.app.data.wannabe_set.MATCHARS)
+        table_cell = gui_utils.traverse_children(table, f"{totals_row}.4")
+        dpg.set_value(table_cell, len(self.app.data.wannabe_set))
+
+        ### START RENDERING THE TEXTURE REMAP LIST ###
+        ME = MaterialEnum
+        _E = gui_utils.ImglistEntry
+        dict_of_lists = {}
+        target_len = 48
+
+        for mat in self.app.data.wannabe_set.MATCHARS:
+            sublist = []
+            
+            for matname in self.app.data.wannabe_set[mat]:
+
+                textures = [x for x in self.textures if x.matname==matname]
+                text = f"{matname}" if self.texremap_grouped else \
+                       f"{matname} {'-'*(15-len(matname))}> {mat}"
+
+                if len(textures):
+                    sample = textures[0]
+                    entry = _E(sample.uuid,sample.width,sample.height,
+                               [text, f"{len(textures)} items"], matname)
+                else:
+                    entry = _E(None,target_len,target_len,
+                               [text, "0 items"], matname)
+
+                sublist.append(entry)
+
+            dict_of_lists[ME(mat).name] = sublist
+
+        if not self.texremap_grouped:
+            dict_of_lists = {"All":list(chain(*dict_of_lists.values()))}
+            
+        if self.texremap_sort:
+            for sublist in dict_of_lists.values():
+                sublist.sort(key=lambda x:x.key, reverse=self.texremap_revsort)
+
+        remap_list = self.get_dpg_item(type=BindingType.TextureRemapList)
+        dpg.delete_item(remap_list, children_only=True)
+        dpg.push_container_stack(remap_list)
+        
+        try:
+            for label, imglist in dict_of_lists.items():
+                if self.texremap_not_empty and not len(imglist): continue # hide empty
+                
+                with dpg.tree_node(label=f"{label:8s} ({len(imglist)} entries)",
+                                   default_open=True) as node:
+                    gui_utils.populate_imglist(node,imglist,target_len)
+                    
+                dpg.add_separator()
+                
+        finally:
+            dpg.pop_container_stack()
+
 
 class AppActions:
     def __init__(self,app,view):
@@ -468,24 +585,27 @@ class AppActions:
     def show_save_mat_file(self, *_):
         dpg.show_item(self.view.get_dpg_item(type=BindingType.MatExportFileDialog))
 
-    def open_file(self, sender, app_data):
+    def open_file(self, sender, app_data): # dialog callback
         ''' called by the open file dialog
             load bsp, then load wadstats
         '''
         self.app.data.load_bsp(app_data["file_path_name"])
 
-    def reload(self, sender, app_data):
+    def reload(self, sender, app_data): # menu callback
         if self.app.data.bsppath:
             self.app.data.load_bsp(self.app.data.bsppath)
 
-    def save_file(self, sender, app_data): pass
-    def save_file_as(self, sender, app_data): pass
-    def load_mat_file(self, sender, app_data):
+    def save_file(self, sender, app_data): pass # dialog callback
+    def save_file_as(self, sender, app_data): pass # dialog callback
+    def load_mat_file(self, sender, app_data): # dialog callback
         self.app.data.load_materials(app_data["file_path_name"])
 
-    def export_custommat(self, sender, app_data): pass
+    def export_custommat(self, sender, app_data): # dialog callback
+        dump_texinfo(Path(self.app.data.bsppath),0b1110000000000, None,
+                     material_set=self.app.data.wannabe_set,
+                     outpath=app_data["file_path_name"])
 
-    def load_selected_wads(self, *_):
+    def load_selected_wads(self, *_): # button callback
         selection_paths = tuple(x.path for x in self.view.wadstats if x.selected)
         self.view.load_external_wad_textures(selection_paths)
 
@@ -502,49 +622,15 @@ class AppActions:
             self.app.data.load_materials(data[0])
 
 
-    def render_material_tables(self):
-        ME = MaterialEnum
-        mat_set = self.app.data.mat_set
-        choice_set = mat_set.choice_cut()
-
-        avail_colors = lambda n: (0,255,0) if n else (255,0,0)
-        is_suitable = lambda name: \
-                consts.MATNAME_MIN_LEN <= len(name) <= consts.MATNAME_MAX_LEN
-        suitable_mark = lambda name: "Y" if is_suitable(name) else "N"
-        suitable_colors = lambda name: (0,255,0) if is_suitable(name) else (255,0,0)
-
-        # SUMMARY TABLE
-        header = (("",0.4), ("Material",1.8), "Count", "Usable")
-        data = []
-        for mat in mat_set.MATCHARS:
-            data.append([ME(mat).value,
-                         ME(mat).name,
-                         len(mat_set[mat]),
-                         (len(choice_set[mat]), {
-                            "color" : avail_colors(len(choice_set[mat]))
-                         }) ])
-        data.append(["", "TOTAL", len(mat_set), len(choice_set)]) # totals row
-
-        table = self.view.get_dpg_item(type=BindingType.MaterialSummaryTable)
-        gui_utils.populate_table(table, header, data)
-
-        # ENTRIES TABLE
-        header = (("Mat",0.4), ("Name",3), "Usable")
-        data = []
-        for mat in self.app.data.matchars:
-            for name in mat_set[mat]:
-                data.append([mat, name,
-                             (suitable_mark(name), {"color":suitable_colors(name)})])
-        table = self.view.get_dpg_item(type=BindingType.MaterialEntriesTable)
-        gui_utils.populate_table(table, header, data)
-
-
 class App:
     def __init__(self):
         self.data = AppModel(self)
         self.view = AppView(self)
         self.do = AppActions(self,self.view)
         dpg.set_frame_callback(1,callback=lambda:self.view.set_viewport_ready())
+
+        TextureView.appdata = self.data # used to get/set materials
+        TextureView.mat_update_cb = self.view.update_wannabe_material_tables
 
     def update(self,*args,**kwargs):
         ''' pass this to self.view.update '''

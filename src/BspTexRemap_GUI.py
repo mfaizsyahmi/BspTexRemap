@@ -28,6 +28,7 @@ def main():
     args = parse_arguments(gui=True)
     setup_logger(args.log)
     log = logging.getLogger(__name__)
+    logging.getLogger().addHandler(gui_utils.DpgHandler(show=False))
 
     app = App()
     dpg_dnd.set_drop(app.do.handle_drop)
@@ -56,7 +57,7 @@ def main():
         BindingType.MatExportFileDialog : {
             "tag" : "dlgMatFileExport",
             "label": "Export custom materials file",
-            "callback": app.do.load_mat_file,
+            "callback": app.do.export_custommat,
             "exts": ("txt","all")
         }
     }
@@ -83,9 +84,6 @@ def main():
                 dpg.add_menu_item(label="Export custom materials",
                                   callback=app.do.export_custommat)
                 dpg.add_separator()
-'''             app.view.bind( dpg.add_menu_item(label="Auto-load from BSP path",check=True),
-                               BindingType.Value,
-                               _propbind(app.data,"auto_load_materials") ) '''
                 dpg.add_menu_item(label="Auto-load from BSP path",check=True)
                 _bind(BindingType.Value, _propbind(app.data,"auto_load_materials"))
 
@@ -138,7 +136,24 @@ def main():
                                                      callback=_sort_table),
                                        BindingType.MaterialEntriesTable )
 
-                    app.do.render_material_tables()
+                    with dpg.collapsing_header(label="Remaps",default_open=True):
+                        with dpg.table(header_row=False):
+                            for i in range(2): dpg.add_table_column()
+                            with dpg.table_row():
+                                dpg.add_checkbox(label="grouped")
+                                _bind(BindingType.Value,_propbind(app.view,"texremap_grouped"))
+                                dpg.add_checkbox(label="hide empty")
+                                _bind(BindingType.Value,_propbind(app.view,"texremap_not_empty"))
+                            with dpg.table_row():
+                                dpg.add_checkbox(label="sort")
+                                _bind(BindingType.Value,_propbind(app.view,"texremap_sort"))
+                                dpg.add_checkbox(label="reverse")
+                                _bind(BindingType.Value,_propbind(app.view,"texremap_revsort"))
+                        dpg.add_separator()
+                        dpg.add_group()
+                        _bind(BindingType.TextureRemapList)
+
+                    app.view.render_material_tables()
 
                 # textures pane
                 with dpg.child_window(autosize_y=False,menubar=True,

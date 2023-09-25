@@ -12,15 +12,16 @@ class BindingType(IntEnum):
     FormatValue          = auto()   #   R  [fmtstr, prop map]
     FilterValue          = auto()   #
     FilterSet            = auto()   #
-    BspOpenFileDialog = auto()      # U
-    BspSaveFileDialog = auto()      # U
-    MatLoadFileDialog = auto()      # U
-    MatExportFileDialog = auto()    # U
+    BspOpenFileDialog    = auto()   # U
+    BspSaveFileDialog    = auto()   # U
+    MatLoadFileDialog    = auto()   # U
+    MatExportFileDialog  = auto()   # U
     MaterialSummaryTable = auto()   # U
     MaterialEntriesTable = auto()   # U
-    WadListGroup = auto()           # U
-    GallerySizeList = auto()        # U
-    GalleryRoot = auto()            # U
+    TextureRemapList     = auto()   # U
+    WadListGroup         = auto()   # U
+    GallerySizeList      = auto()   # U
+    GalleryRoot          = auto()   # U
 
 read_only_binding_types = (BindingType.FormatLabel,
                            BindingType.FormatValue)

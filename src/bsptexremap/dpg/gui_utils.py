@@ -1,4 +1,6 @@
 import dearpygui.dearpygui as dpg
+import logging
+from typing import NamedTuple
 
 # create_file_dialog
 file_dlg_exts = {
@@ -64,6 +66,59 @@ def populate_table(target,
     
     dpg.pop_container_stack()
 
+class ImglistEntry(NamedTuple):
+    image  : str|int
+    width  : int
+    height : int
+    text   : list[str]
+    key    : any  = 0 # sorting aid
+def _x(): pass # this gets consumed by npp
+
+def draw_crossed_rectangle(p1:tuple,p2:tuple):
+    dpg.draw_rectangle(p1,p2)
+    dpg.draw_line(p1,p2)
+    dpg.draw_line((p2[0],p1[1]),(p1[0],p2[1]))
+
+
+def populate_imglist(target, items:list[ImglistEntry], max_length=48, grow=False):
+    ''' fills target item with a list of images with attached text
+        item : [img_id, w,h, [*text]]
+    '''
+    dpg.delete_item(target, children_only=True)
+    dpg.push_container_stack(target)
+        
+    try:
+        for item in items:
+            scale = min(max_length/item.width,max_length/item.height)
+            factors = (scale,) if grow else (scale,1)
+            w,h = item.width*min(*factors), item.height*min(*factors)
+            x,y = max_length/2-w/2, max_length/2-h/2
+                
+            with dpg.group(horizontal=True):
+                with dpg.drawlist(width=max_length,height=max_length):
+                    if item.image is None:
+                        draw_crossed_rectangle((0,0),(max_length,max_length))
+                    else:
+                        dpg.draw_image(item.image, (x,y), (x+w,y+h))
+                with dpg.group():
+                    for line in item.text:
+                        dpg.add_text(line)
+    finally:
+        dpg.pop_container_stack()
+    
+
+def traverse_children(root, paths: str):
+    ''' traverse item hierarchy by position 
+        paths is in the form of "1.3.12" or "0:1.3"
+        path part is separated by dot. slot is defined by #: before number
+        traversal is on slot 1 by default
+    '''
+    parent = root
+    for part in paths.split("."):
+        slot, child = (1, part) if ":" not in part else part.split(":")
+        try: parent = dpg.get_item_children(parent,slot=slot)[int(child)]
+        except: return None
+    return parent
 
 def sort_table(sender, sort_specs):
     ''' sort_specs scenarios:
@@ -101,3 +156,23 @@ def sort_table(sender, sort_specs):
     
     dpg.reorder_items(sender, 1, new_order)
 
+class DpgHandler(logging.Handler):
+    COLORS = {
+        logging.DEBUG:    (235,255,155), # cream white
+        logging.INFO:     (  0,160,255), # light blue
+        logging.WARNING:  (255,127,  0), # orange
+        logging.ERROR:    (255,  0,  0), # red
+        logging.CRITICAL: (150,  0,255)  # purple
+    }
+    TAG = "log_console_window"
+    
+    def __init__(self, level=logging.NOTSET,**kwargs):
+        super().__init__(level)
+        try:
+            dpg.add_window(tag=DpgHandler.TAG,label="Log Console",
+                           width=300,height=200,**kwargs)
+        except: raise
+        
+    def emit(self, record):
+        msg = self.format(record)
+        dpg.add_text(msg, color=DpgHandler.COLORS[record.levelno], parent=DpgHandler.TAG, wrap=0)

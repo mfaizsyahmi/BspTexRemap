@@ -92,6 +92,7 @@ def setup_logger(level:str):
     handler = logging.NullHandler if level in ["off", "0"] \
             else logging.StreamHandler(sys.stdout)
     handler.setFormatter(formatter)
+    # handler.setLevel(level.upper())
     root_logger = logging.getLogger()
     root_logger.setLevel(level.upper())
     root_logger.addHandler(handler)
