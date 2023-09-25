@@ -23,6 +23,7 @@ class BindingType(IntEnum):
     GallerySizeList      = auto()   # U
     GalleryRoot          = auto()   # U
 
+
 read_only_binding_types = (BindingType.FormatLabel,
                            BindingType.FormatValue)
 writeable_binding_types = (BindingType.Value, 
@@ -51,6 +52,22 @@ gallery_size_map = [
 ]
 gallery_sizes = [item.text for item in gallery_size_map]
 
+_galsort = namedtuple("GallerySortEntry", ["text", "short", "key", "reverse"])
+gallery_sort_map = [
+    _galsort("By entry order (no sort)",          "--", lambda x:0,         False),
+    _galsort("By texture name, ascending" ,       "+N", lambda x:x.name,    False),
+    _galsort("By texture name, descending",       "-N", lambda x:x.name,    True ),
+    _galsort("By material name, ascending" ,      "+M", lambda x:x.matname, False),
+    _galsort("By material name, descending",      "-M", lambda x:x.matname, True ),
+    _galsort("By texture width, ascending" ,      "+W", lambda x:x.width,   False),
+    _galsort("By texture width, descending",      "-W", lambda x:x.width,   True ),
+    _galsort("By texture height, ascending" ,     "+H", lambda x:x.height,  False),
+    _galsort("By texture height, descending",     "-H", lambda x:x.height,  True ),
+    _galsort("By texture dimensions, ascending" , "+S", lambda x:x.width*x.height, False),
+    _galsort("By texture dimensions, descending", "-S", lambda x:x.width*x.height, True ),
+]
+gallery_sortings = [item.text for item in gallery_sort_map]
+
 
 class RemapEntityActions(IntEnum):
     Insert   = auto()
@@ -64,3 +81,7 @@ remap_entity_actions_map = [
     _act("No action",                 RemapEntityActions.NoAction)
 ]
 remap_entity_actions = [item.text for item in remap_entity_actions_map]
+
+texview_matslider_theme_map = (
+    
+)

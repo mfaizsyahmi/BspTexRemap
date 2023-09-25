@@ -1,68 +1,125 @@
 import dearpygui.dearpygui as dpg
+from ..enums import MaterialEnum
 from collections import namedtuple
 
 class Subscriptable:
-    def __getitem__(self, item): 
-        ''' support for instance[mattype] '''
-        return getattr(self, item)    
+    ''' support for class[item] '''
+    def __class_getitem__(cls, item): return cls.__dict__[item]
+
 
 _c = namedtuple("ColorRegistry", ["color","bg","fg"])
 class MaterialColors(Subscriptable):
+    ''' it's too hard to get easily-copyable RGB picker so here I just go
+        through the colour wheel
+    '''
         # text on default      background         fg over bg
-    C = _c((199,199,199,255), (100,100,100,255), (255,255,255,255)) # Concrete 
-    M = _c((153,167,173,255), (100,100,100,255), (255,255,255,255)) # Metal    
-    D = _c((144, 85,128,255), (100,100,100,255), (255,255,255,255)) # Dirt     
-    V = _c((133,125,255,255), (100,100,100,255), (255,255,255,255)) # Vents    
-    G = _c((255,255,255,255), (100,100,100,255), (255,255,255,255)) # Grate    
-    T = _c((255,255,255,255), (100,100,100,255), (255,255,255,255)) # Tile     
-    S = _c((255,255,255,255), (100,100,100,255), (255,255,255,255)) # Slosh    
-    W = _c((255,255,255,255), (100,100,100,255), (255,255,255,255)) # Wood     
-    P = _c((255,255,255,255), (100,100,100,255), (255,255,255,255)) # Computer 
-    Y = _c((255,255,255,255), (100,100,100,255), (255,255,255,255)) # Glass    
-    F = _c((255,255,255,255), (100,100,100,255), (255,255,255,255)) # Flesh    
-    N = _c((255,255,255,255), (100,100,100,255), (255,255,255,255)) # Snow     
-    E = _c((255,255,255,255), (100,100,100,255), (255,255,255,255)) # Carpet   
-    A = _c((255,255,255,255), (100,100,100,255), (255,255,255,255)) # Grass    
-    X = _c((255,255,255,255), (100,100,100,255), (255,255,255,255)) # GrassCZ  
-    R = _c((255,255,255,255), (100,100,100,255), (255,255,255,255)) # Gravel 
+    C = _c((255,255,255,255), (255,255,255,255), (  0,  0,  0,255)) # Concrete 
+    M = _c((255,  0,  0,255), (255,  0,  0,255), (255,255,255,255)) # Metal    
+    D = _c((255,127,  0,255), (255,127,  0,255), (255,255,255,255)) # Dirt     
+    V = _c((255,255,  0,255), (255,255,  0,255), (255,255,255,255)) # Vents    
+    G = _c((127,255,  0,255), (127,255,  0,255), (255,255,255,255)) # Grate    
+    T = _c((  0,255,  0,255), (  0,255,  0,255), (255,255,255,255)) # Tile     
+    S = _c((  0,255,127,255), (  0,255,127,255), (255,255,255,255)) # Slosh    
+    W = _c((  0,255,255,255), (  0,255,255,255), (255,255,255,255)) # Wood     
+    P = _c((  0,127,255,255), (  0,127,255,255), (255,255,255,255)) # Computer 
+    Y = _c((127,127,255,255), (  0,  0,255,255), (255,255,255,255)) # Glass    
+    F = _c((127,  0,255,255), (127,  0,255,255), (255,255,255,255)) # Flesh    
+    N = _c((255,  0,255,255), (255,  0,255,255), (255,255,255,255)) # Snow     
+    E = _c((255,  0,127,255), (255,  0,127,255), (255,255,255,255)) # Carpet   
+    A = _c(( 76,152,  0,255), ( 76,152,  0,255), (255,255,255,255)) # Grass    
+    X = _c(( 76,152,  0,255), ( 76,152,  0,255), (255,255,255,255)) # GrassCZ  
+    R = _c((192,192,192,255), (192,192,192,255), (  0,  0,  0,255)) # Gravel 
     
 class AppColors(Subscriptable):
-    #              (?)                unused             unused
-    Help     = _c((  0,255,  0,255), (100,100,100,255), (  0,255,  0,255))
+    #              text color         background         fg over bg
+    # Texts        (?)                unused             unused
+    Help     = _c((  0,200,  0,255), (100,100,100,255), (  0,255,  0,255))
     #              texview name      texview label bg    texview label fg
     Embedded = _c((255,255,255,255), (128, 64,  0,255), (  0,  0,  0,255))
     External = _c((150,150,150,255), (100,100,100,255), (255,255,255,255))
+    
+    Selected = _c((  0,170,255,255), (  0,170,255,255), (  0,170,255,255))
 
-
-class AppThemes:
-    Embedded = "theme:texlabel_embedded"
-    External = "theme:texlabel_external"
+class AppThemes(Subscriptable):             # applies to:
+    Embedded   = "theme:texlabel_embedded"  # texview src button
+    External   = "theme:texlabel_external"  # texview src button
+    Normal     = "theme:galleryitem_normal" # texview group
+    Selected   = "theme:texview_selected"   # texview group
+    Uneditable = "theme:texview_uneditable" # texview slider
+    
+    Material__ = "theme:texview_mat_-"      # texview slider
+    Material_C = "theme:texview_mat_C"      # texview slider
+    Material_M = "theme:texview_mat_M"      # texview slider
+    Material_D = "theme:texview_mat_D"      # texview slider
+    Material_V = "theme:texview_mat_V"      # texview slider
+    Material_G = "theme:texview_mat_G"      # texview slider
+    Material_T = "theme:texview_mat_T"      # texview slider
+    Material_S = "theme:texview_mat_S"      # texview slider
+    Material_W = "theme:texview_mat_W"      # texview slider
+    Material_P = "theme:texview_mat_P"      # texview slider
+    Material_Y = "theme:texview_mat_Y"      # texview slider
+    Material_F = "theme:texview_mat_F"      # texview slider
+    Material_N = "theme:texview_mat_N"      # texview slider
+    Material_E = "theme:texview_mat_E"      # texview slider
+    Material_A = "theme:texview_mat_A"      # texview slider
+    Material_X = "theme:texview_mat_X"      # texview slider
+    Material_R = "theme:texview_mat_R"      # texview slider
 
 def add_themes():
     with dpg.theme(tag="theme:main_window"):
         with dpg.theme_component(dpg.mvWindowAppItem):
-            dpg.add_theme_style(dpg.mvStyleVar_WindowPadding ,4,2)
+            dpg.add_theme_style(dpg.mvStyleVar_WindowPadding,4,2)
             
     with dpg.theme(tag="theme:layout_table"):
         with dpg.theme_component(0):
             #dpg.add_theme_color(dpg.mvThemeCol_TableHeaderBg ,(15,86,135,255))
-            dpg.add_theme_style(dpg.mvStyleVar_WindowPadding ,8,8)
+            dpg.add_theme_style(dpg.mvStyleVar_WindowPadding,8,8)
             
     with dpg.theme(tag="theme:normal_table"):
         with dpg.theme_component(0): pass
             #dpg.add_theme_color(dpg.mvThemeCol_TableHeaderBg ,(48,48,51,255))
             
-    with dpg.theme(tag="theme:galleryitem_normal"):
+    with dpg.theme(tag=AppThemes.Normal):
         with dpg.theme_component(dpg.mvGroup):
-            dpg.add_theme_color(dpg.mvThemeCol_ChildBg ,(150,0,0,255))
+            dpg.add_theme_color(dpg.mvThemeCol_ChildBg, (150,0,0,255))
+            
+    with dpg.theme(tag=AppThemes.Selected):
+        with dpg.theme_component(0): 
+            dpg.add_theme_color(dpg.mvThemeCol_Border, AppColors.Selected.bg)
+            dpg.add_theme_color(dpg.mvThemeCol_Text,   AppColors.Selected.color)
+            dpg.add_theme_style(dpg.mvStyleVar_FrameBorderSize, 1)
     
     with dpg.theme(tag=AppThemes.Embedded):
         with dpg.theme_component(dpg.mvButton):
-            dpg.add_theme_color(dpg.mvThemeCol_Button ,AppColors.Embedded.bg)
-            dpg.add_theme_color(dpg.mvThemeCol_Text ,  AppColors.Embedded.fg)
+            dpg.add_theme_color(dpg.mvThemeCol_Button, AppColors.Embedded.bg)
+            dpg.add_theme_color(dpg.mvThemeCol_Text,   AppColors.Embedded.fg)
             
     with dpg.theme(tag=AppThemes.External):
         with dpg.theme_component(dpg.mvButton):
-            dpg.add_theme_color(dpg.mvThemeCol_Button ,AppColors.External.bg)
-            dpg.add_theme_color(dpg.mvThemeCol_Text ,  AppColors.External.fg)
+            dpg.add_theme_color(dpg.mvThemeCol_Button, AppColors.External.bg)
+            dpg.add_theme_color(dpg.mvThemeCol_Text,   AppColors.External.fg)
+
+    with dpg.theme(tag=AppThemes.Uneditable):
+        with dpg.theme_component(0): # slider only
+            dpg.add_theme_color(dpg.mvThemeCol_FrameBg,         ( 37, 37, 38,255))
+            dpg.add_theme_color(dpg.mvThemeCol_FrameBgHovered,  ( 21, 21, 22,255))
+            dpg.add_theme_color(dpg.mvThemeCol_SliderGrab,      ( 37, 37, 38,255))
+            dpg.add_theme_color(dpg.mvThemeCol_SliderGrabActive,( 37, 37, 38,255))
+            #dpg.add_theme_color(dpg.mvThemeCol_Text,            (151,151,151,255))
+            dpg.add_theme_color(dpg.mvThemeCol_Text,            (255,0,255,255))
+
+    with dpg.theme(tag=AppThemes.Material__):
+        with dpg.theme_component(dpg.mvSliderInt): # slider only
+            pass
+            
+    for mat in MaterialEnum:
+        with dpg.theme(tag=AppThemes[f"Material_{mat.value}"]):
+            with dpg.theme_component(dpg.mvSliderInt): # slider only
+                dpg.add_theme_color(dpg.mvThemeCol_SliderGrab,
+                                    MaterialColors[mat.value].bg)
+                dpg.add_theme_color(dpg.mvThemeCol_SliderGrabActive,
+                                    MaterialColors[mat.value].bg)
+                dpg.add_theme_color(dpg.mvThemeCol_Text,
+                                    MaterialColors[mat.value].color)
+
 

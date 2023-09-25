@@ -27,14 +27,6 @@ def parse_arguments(gui=False):
         help="show this help message and exit",
     )
     
-#    parser.add_argument(
-#        "-low", action="store_const", dest="priority", const="low",
-#        help="set process priority level to low",
-#    )
-#    parser.add_argument(
-#        "-high", action="store_const", dest="priority", const="high",
-#        help="set process priority level to high",
-#    )
     parser.add_argument(
         "-backup", action="store_true",
         help="makes backup of BSP file",
@@ -87,15 +79,20 @@ combine all given/available custom texture material remappings, otherwise stops 
     return parser.parse_args()
 
 
-def setup_logger(level:str):
-    formatter = logging.Formatter(fmt='%(levelname)-8s: %(message)s')
-    handler = logging.NullHandler if level in ["off", "0"] \
+def setup_logger(level:str|int):
+    level = logging.getLevelName(level.upper())
+    
+    con_formatter = logging.Formatter(fmt='%(levelname)-8s: %(message)s')
+    
+    con_handler = logging.NullHandler if level in ["off", "0"] \
             else logging.StreamHandler(sys.stdout)
-    handler.setFormatter(formatter)
-    # handler.setLevel(level.upper())
+    con_handler.setFormatter(con_formatter)
+    con_handler.setLevel(level)
+    
     root_logger = logging.getLogger()
-    root_logger.setLevel(level.upper())
-    root_logger.addHandler(handler)
+    root_logger.setLevel(0)
+    root_logger.addHandler(con_handler)
+    
     log.debug(f"log level set to {root_logger.getEffectiveLevel()}")
 
 
@@ -176,6 +173,7 @@ def search_materials_file(bsp_path, bsp_entities=[], args_matpath=None):
 
     log.warn("No materials.txt file found.")
 
+
 def search_wads(bsp_path, wadlist):
     ''' returns a dict of the search result:
         key being wad name and value being path if found, or None
@@ -199,6 +197,14 @@ def search_wads(bsp_path, wadlist):
                     counter += 1
     return result
 
+
+def load_wannabe_set_from_bsp_entities(bsp):
+    wannabe_set = MaterialSet()
+    for texremap_ent in iter_texremap_entities(bsp.entities):
+        wannabe_set |= MaterialSet.from_entity(texremap_ent)
+    return wannabe_set
+    
+
 def load_wannabe_sets(bsp,bsppath,arg_val,first_found=True):
     ''' loads the wannabe sets in order:
         1. info_texture_remap entries
@@ -209,21 +215,31 @@ def load_wannabe_sets(bsp,bsppath,arg_val,first_found=True):
     wannabe_set = MaterialSet()
 
     for step in range(3):
-        match step:
-            case 0:
-                for texremap_ent in iter_texremap_entities(bsp.entities):
-                    wannabe_set |= MaterialSet.from_entity(texremap_ent)
-            case 1:
-                if bsp_custommat_path(bsppath).exists():
-                    wannabe_set |= MaterialSet\
-                    .from_materials_file(bsp_custommat_path(bsppath))
-            case 2:
-                if arg_val and Path(arg_val).exists():
-                    wannabe_set |= MaterialSet.from_materials_file(arg_val)
+        if step == 0:
+            for texremap_ent in iter_texremap_entities(bsp.entities):
+                wannabe_set |= MaterialSet.from_entity(texremap_ent)
+        elif step == 1:
+            if bsp_custommat_path(bsppath).exists():
+                wannabe_set |= MaterialSet\
+                .from_materials_file(bsp_custommat_path(bsppath))
+        elif step == 2:
+            if arg_val and Path(arg_val).exists():
+                wannabe_set |= MaterialSet.from_materials_file(arg_val)
 
         if first_found and len(wannabe_set): break
 
     return wannabe_set
+
+
+def load_material_remaps_from_entity(entity):
+    ''' given item_texture_remap entity, returns the hard remap entries
+        e.g. "originalname" = "newname"
+    '''
+    return {k:v for k,v in entity.items() \
+            if  not re.match(consts.ENT_PROPS_RE, k) \
+            and not re.match(consts.TEX_IGNORE_RE,k) \
+            and     len(v) > 1
+    }
 
 
 def dump_texinfo(bsppath, 
@@ -314,3 +330,4 @@ def backup_file(filepath:Path|str):
     bakpath = filepath.with_name(filepath.name + ".bak")
     if not bakpath.exists():
         filecopy(filepath, bakpath)
+

@@ -1,6 +1,7 @@
 import dearpygui.dearpygui as dpg
 import logging
 from typing import NamedTuple
+from .colors import AppColors
 
 # create_file_dialog
 file_dlg_exts = {
@@ -17,7 +18,7 @@ def add_help_in_place(message):
     group = dpg.add_group(horizontal=True)
     dpg.move_item(last_item, parent=group)
     dpg.capture_next_item(lambda s: dpg.move_item(s, parent=group))
-    t = dpg.add_text("(?)", color=[0, 255, 0])
+    t = dpg.add_text("(?)", color=AppColors.Help.color)
     with dpg.tooltip(t):
         dpg.add_text(message)
 
@@ -156,9 +157,9 @@ def sort_table(sender, sort_specs):
     
     dpg.reorder_items(sender, 1, new_order)
 
-class DpgHandler(logging.Handler):
+class DpgLogHandler(logging.Handler):
     COLORS = {
-        logging.DEBUG:    (235,255,155), # cream white
+        logging.DEBUG:    (127,159,127), # olive
         logging.INFO:     (  0,160,255), # light blue
         logging.WARNING:  (255,127,  0), # orange
         logging.ERROR:    (255,  0,  0), # red
@@ -169,10 +170,29 @@ class DpgHandler(logging.Handler):
     def __init__(self, level=logging.NOTSET,**kwargs):
         super().__init__(level)
         try:
-            dpg.add_window(tag=DpgHandler.TAG,label="Log Console",
-                           width=300,height=200,**kwargs)
-        except: raise
+            dpg.add_window(tag=DpgLogHandler.TAG,label="Log Console",
+                           width=420,height=200,**kwargs)
+        except: pass
         
     def emit(self, record):
         msg = self.format(record)
-        dpg.add_text(msg, color=DpgHandler.COLORS[record.levelno], parent=DpgHandler.TAG, wrap=0)
+        dpg.add_text(msg, parent=DpgLogHandler.TAG, wrap=0,
+                     filter_key=record.levelno,
+                     color=DpgLogHandler.COLORS[record.levelno])
+        # scroll to end
+        dpg.set_y_scroll(DpgLogHandler.TAG,dpg.get_y_scroll_max(DpgLogHandler.TAG))
+
+class DpgLogToTextItemHandler(logging.Handler):
+    def __init__(self, target, level=logging.NOTSET, set_colors=False):
+        super().__init__(level)
+        self._target = target
+        self._set_colors = set_colors
+        
+    def emit(self, record):
+        msg = self.format(record)
+        dpg.set_value(self._target,msg)
+        
+        if self._set_colors:
+            dpg.configure_item(self._target, color=DpgLogHandler.COLORS[record.levelno])
+
+

@@ -6,34 +6,34 @@
     >>> consts.CHARSEQUENCE
 '''
 # general info
-APPNAME = "BspTexRemap"
-VERSION = "v0.2"
-COPYRIGHT = "(c) 2023 M Faiz Syahmi"
-APPDESC = '''
+APPNAME     = "BspTexRemap"
+VERSION     = "v0.2"
+COPYRIGHT   = "(c) 2023 M Faiz Syahmi @ kimilil"
+APPDESC     = '''
 Renames textures in a bsp file in a way that matches the entries from a given
 materials.txt, making them inherit material sounds without editing materials.txt
 '''.strip()
-APP_HEADER = f"{APPNAME} {VERSION}\n{COPYRIGHT}\n\n{APPDESC}"
+APP_HEADER  = f"{APPNAME} {VERSION}\n{COPYRIGHT}\n\n{APPDESC}"
 
 TEXNAME_MAX_LEN = 15
 # min/max mength for workable material names
 MATNAME_MIN_LEN = 12
 MATNAME_MAX_LEN = 14
 
-TEXREMAP_ENTITY_CLASSNAME = "info_texture_remap"
-TEXREMAP_MATPATH_KEY = "materials_path"
-CMDLINE_MATPATH_KEY = "materials_path"
+TEXREMAP_ENTITY_CLASSNAME   = "info_texture_remap"
+TEXREMAP_MATPATH_KEY        = "materials_path"
+CMDLINE_MATPATH_KEY         = "materials_path"
 
-TEXINFO_SUFFIX = "_texinfo"
-TEXINFO_FMT = ".txt"
-CUSTOMMAT_SUFFIX = "_custommat"
-CUSTOMMAT_FMT = ".txt"
-CUSTOMMAT_ARG    = "custommat_path"
+TEXINFO_SUFFIX              = "_texinfo"
+TEXINFO_FMT                 = ".txt"
+CUSTOMMAT_SUFFIX            = "_custommat"
+CUSTOMMAT_FMT               = ".txt"
+CUSTOMMAT_ARG               = "custommat_path"
 
 # .utils.modpath_fallbacks
-MODNAME_SUFFIX_RE = r"(?i)_(?:downloads|addon)$"
-LIBLIST_FALLBACK_RE = r"(?im)^fallback_dir\s+(?P<dir>.*)"
-FALLBACK_OF_LAST_RESORT = "valve"
+MODNAME_SUFFIX_RE           = r"(?i)_(?:downloads|addon)$"
+LIBLIST_FALLBACK_RE         = r"(?im)^fallback_dir\s+(?P<dir>.*)"
+FALLBACK_OF_LAST_RESORT     = "valve"
 
 INCOMPATIBLE_MODS = ["cstrike","dod"]
 
@@ -46,21 +46,23 @@ INCOMPATIBLE_MODS = ["cstrike","dod"]
 +A animated_alt ^ditto
 ~  light (used to be fullbright in Quake)
 '''
-TEX_PARTS_RE = r"(?i)(?P<prefix>[!@{]?(?P<grouped>-\d|\+[0-9a-z])?~?)?(?P<texname>.*)"
+TEX_PARTS_RE  = r"(?i)(?P<prefix>[!@{]?(?P<grouped>-\d|\+[0-9a-z])?~?)?(?P<texname>.*)"
 # don't work with these texture names
 TEX_IGNORE_RE = r"(?i)^(sky|{blue|{invisible|black|aaatrigger|scroll.*)"
 # ignore these entity properties
-ENT_PROPS_RE = r"(?i)^(classname|materials_path|spawnflags|angles|origin)$"
+ENT_PROPS_RE  = r"(?i)^(classname|materials_path|spawnflags|angles|origin)$"
 
 MATCHARS = "CMDVGTSWPYFN" # use MaterialSet.MATCHARS instead of this
 # char_padder, MaterialSet.iter_padded_names
 CHARSEQUENCE = r"~}|{`_^]\[@?>=<;:/.-,+*)(&%$#!ZYXWVUTSRQPONMLKJIHGFEDCBA9876543210"
 
+
 class MATCHARS_BY_MOD:
     CZERO  = "CMDVGTSWPYFNX"
     CZEROR = "CMDVGTSWPYFNEAR"
-    def __getitem__(self, item): # support for instance[mattype]
-        return getattr(self, item)
+    ''' support for class[item] '''
+    def __class_getitem__(cls, item): return cls.__dict__[item]
+
 
 # dump_texinfo
 class TEXINFO:

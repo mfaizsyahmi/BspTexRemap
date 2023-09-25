@@ -1,11 +1,13 @@
 import dearpygui.dearpygui as dpg
-from dataclasses import dataclass, field # TextureView
-from itertools import chain
-from typing import ClassVar
+from . import dbgtools
 from ..materials import MaterialSet
 from .ntuple import ntuple
 from .colors import MaterialColors, AppColors, AppThemes
-from . import dbgtools
+from dataclasses import dataclass, field # TextureView
+from itertools import chain
+from typing import ClassVar
+from logging import getLogger
+log = getLogger(__name__)
 
 def flatten_imgdata(imgdata):
     return list(chain(*imgdata))
@@ -140,6 +142,13 @@ class TextureView:
 
         with dpg.group() as galleryItem:
             dpg.add_text(self.name,color=mx_color.color)
+            #with dpg.popup(dpg.last_item(),mousebutton=dpg.mvMouseButton_Left):
+            #    dpg.add_text(self.name,label="texture name")
+            #    dpg.add_text(not self.is_external,label="embedded in BSP?")
+            #    dpg.add_text(self.external_src,label="source WAD")
+            #    dpg.add_text(self.matname,label="material name")
+            #    dpg.add_text(not self.mat_editable,label="referenced in materials.txt?")
+            #    dpg.add_text(not self.mat,label="assigned material")
 
             with dpg.drawlist(width=w, height=h):
                 if self.uuid:
@@ -162,13 +171,17 @@ class TextureView:
                 kwargs={"source":linked_matval_tag}
             except: # it doesn't exist
                 kwargs={"tag":linked_matval_tag}
-            dpg.add_slider_int(format="",width=w_estimate-16,
-                               max_value=len(TextureView.matchars)-1,
-                               default_value=0 if self.mat in "-_" \
-                                             else TextureView.matchars.find(self.mat),
-                               label=self.mat, # if self.mat_editable else self.mat.lower(),
-                               enabled=self.mat_editable,
-                               callback=self._slider_cb,**kwargs)
+            matslider = dpg.add_slider_int(
+                    format="",width=w_estimate-16,
+                    max_value=len(TextureView.matchars)-1,
+                    default_value=0 if self.mat in "-_" \
+                                  else TextureView.matchars.find(self.mat),
+                    label=self.mat, # if self.mat_editable else self.mat.lower(),
+                    enabled=self.mat_editable,
+                    callback=self._slider_cb,**kwargs
+            )
+            if not self.mat_editable:
+                dpg.bind_item_theme(matslider,AppThemes.Uneditable)
 
         dpg.bind_item_theme(galleryItem,"theme:galleryitem_normal")
         self._view_uuid = galleryItem
@@ -191,4 +204,11 @@ class TextureView:
         if not self.mat_editable: return
         self.mat = TextureView.matchars[val]
         dpg.configure_item(sender,label=TextureView.matchars[val])
+        
+        if not self.mat_editable:
+            dpg.bind_item_theme(matslider,AppThemes.Uneditable)
+        elif self.mat in "-_":
+            dpg.bind_item_theme(sender,AppThemes.Material__)
+        else:
+            dpg.bind_item_theme(sender,AppThemes[f"Material_{self.mat}"])
 

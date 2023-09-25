@@ -7,10 +7,12 @@ from .mappings import BindingType, RemapEntityActions
 from .textureview import TextureView
 from .galleryview import GalleryView
 from .dbgtools import *
+from .colors import MaterialColors
 
 from .. import consts, utils
 from ..enums import MaterialEnum, DumpTexInfoParts
 from ..common import search_materials_file, search_wads, filter_materials, dump_texinfo
+from ..utils import bsp_custommat_path
 from ..bsputil import wadlist, guess_lumpenum
 from ..materials import MaterialSet, TextureRemapper
 
@@ -116,6 +118,7 @@ class AppModel:
     # settings
     auto_load_materials : bool = True # try find materials.path
     auto_load_wads      : bool = True # try find wads
+    auto_parse_ents     : bool = True # parse entity
     remap_entity_action : int  = 0    # RemapEntityActions.Insert
     backup              : bool = True # creates backup file if saving in same file
 
@@ -123,14 +126,16 @@ class AppModel:
         ''' loads given bsp, and kickstarts some post-load operations
             (has side effects)
         '''
+        ## load bsp
         log.info(f"Loading BSP: {bsppath!s}")
-
         self.bsppath = bsppath
         with open(self.bsppath, "rb") as f:
             self.bsp = BspFile(f, lump_enum=guess_lumpenum(self.bsppath))
 
+        ## load textures
         self.app.view.load_textures(self.bsp.textures)
 
+        ## setup material set
         if self.auto_load_materials:
             matpath = search_materials_file(self.bsppath)
             if matpath:
@@ -138,9 +143,11 @@ class AppModel:
         else:
             self.matpath = None
 
+        ## setup wannabe set
         self.wannabe_set = MaterialSet()
         self.app.view.update_wannabe_material_tables()
 
+        ## setup wad
         self.app.view.update_wadlist() # populates app.view._wad_found_paths
         if self.auto_load_wads:
             paths_to_load = tuple(v for k,v in self.app.view._wad_found_paths.items() if v)
@@ -197,6 +204,7 @@ class AppView:
     gallery_size_val : int       = 1 # full -> mappings.gallery_size_map
     gallery_size_scale : float   = 1
     gallery_size_maxlen:int|float= 512
+    gallery_sort_val : int       = 0 # no sort
     filter_str : str             = ""
     filter_unassigned : bool     = False # show only textures without materials
     filter_radiosity : bool      = False # hide radiosity generated textures
@@ -206,6 +214,7 @@ class AppView:
         "gallery_size_val",
         "gallery_size_scale",
         "gallery_size_maxlen",
+        "gallery_sort_val",
         "filter_str",
         "filter_unassigned",
         "filter_radiosity"
@@ -439,9 +448,12 @@ class AppView:
         ''' filters the textures list, then passes it off to gallery to render '''
         # all the filters in modelcontroller assembled
         f_a = mappings.gallery_show_map[self.gallery_show_val].filter_fn
-        f_u = lambda item: MaterialSet.strip(item.name) not in self.app.data.mat_set
+        f_u = lambda item: item.matname not in self.app.data.mat_set
         f_r = lambda item: not item.name.lower().startswith("__rad")
         f_s = lambda item: utils.filterstring_to_filter(self.filter_str)(item.name)
+        # the sort
+        s_k = mappings.gallery_sort_map[self.gallery_sort_val].key
+        s_r = mappings.gallery_sort_map[self.gallery_sort_val].reverse
 
         if not size_only:
             # assemble the filter stack
@@ -453,7 +465,7 @@ class AppView:
             if self.filter_str:
                 the_list = filter(f_s, the_list)
             # finally filter and send it to gallery
-            self.gallery.data = list(the_list)
+            self.gallery.data = list(sorted(the_list, key=s_k, reverse=s_r))
 
         # set gallery scale
         if self.gallery_size_val == len(mappings.gallery_size_map) - 1:
@@ -475,6 +487,7 @@ class AppView:
         choice_set = mat_set.choice_cut()
         wannabe_set = self.app.data.wannabe_set
 
+        mat_color = lambda mat: MaterialColors[mat].color
         avail_colors = lambda n: (0,255,0) if n else (255,0,0)
         is_suitable = lambda name: \
                 consts.MATNAME_MIN_LEN <= len(name) <= consts.MATNAME_MAX_LEN
@@ -485,9 +498,9 @@ class AppView:
         header = (("",0.4), ("Material",1.8), "Count", "Usable", "Assigned")
         data = []
         for mat in mat_set.MATCHARS:
-            data.append([ ME(mat).value,
-                          ME(mat).name,
-                          len(mat_set[mat]),
+            data.append([ ( ME(mat).value, {"color": mat_color(mat)} ),
+                            ME(mat).name,
+                            len(mat_set[mat]),
                           ( len(choice_set[mat]),
                             {"color" : avail_colors(len(choice_set[mat]))} ),
                           len(wannabe_set[mat]) ])
@@ -502,7 +515,8 @@ class AppView:
         data = []
         for mat in self.app.data.matchars:
             for name in mat_set[mat]:
-                data.append([mat, name,
+                data.append([(ME(mat).value, {"color": mat_color(mat)}),
+                              name,
                              (suitable_mark(name), {"color":suitable_colors(name)})])
         table = self.get_dpg_item(type=BindingType.MaterialEntriesTable)
         gui_utils.populate_table(table, header, data)
@@ -578,12 +592,30 @@ class AppActions:
 
     def show_open_file(self, *_):
         dpg.show_item(self.view.get_dpg_item(type=BindingType.BspOpenFileDialog))
+        
     def show_save_file_as(self, *_):
-        dpg.show_item(self.view.get_dpg_item(type=BindingType.BspSaveFileDialog))
+        def_path = Path(self.app.data.bsppath)
+        
+        item = self.view.get_dpg_item(type=BindingType.BspSaveFileDialog)
+        dpg.configure_item(item,
+                           default_path=str(def_path.parent),
+                           default_filename=str(def_path\
+                                .with_name(def_path.stem + "_output.bsp") )
+                           )
+        dpg.show_item(item)
+    
     def show_open_mat_file(self, *_):
         dpg.show_item(self.view.get_dpg_item(type=BindingType.MatLoadFileDialog))
+        
     def show_save_mat_file(self, *_):
-        dpg.show_item(self.view.get_dpg_item(type=BindingType.MatExportFileDialog))
+        def_path = bsp_custommat_path(Path(self.app.data.bsppath))
+        
+        item = self.view.get_dpg_item(type=BindingType.MatExportFileDialog)
+        dpg.configure_item(item,
+                           default_path=str(def_path.parent),
+                           default_filename=str(def_path.name) )
+        dpg.show_item(item)
+
 
     def open_file(self, sender, app_data): # dialog callback
         ''' called by the open file dialog
@@ -603,7 +635,7 @@ class AppActions:
     def export_custommat(self, sender, app_data): # dialog callback
         dump_texinfo(Path(self.app.data.bsppath),0b1110000000000, None,
                      material_set=self.app.data.wannabe_set,
-                     outpath=app_data["file_path_name"])
+                     outpath=Path(app_data["file_path_name"]))
 
     def load_selected_wads(self, *_): # button callback
         selection_paths = tuple(x.path for x in self.view.wadstats if x.selected)

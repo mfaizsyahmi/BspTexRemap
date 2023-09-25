@@ -18,7 +18,7 @@ def main():
     
     # set log level
     setup_logger(args.log)
-    log = logging.getLogger(__name__)
+    log = logging.getLogger() ## "__main__" should use the root logger
     
     # load bsp
     # with_suffix is required to be compatible with other compilers which omits 
