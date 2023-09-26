@@ -12,8 +12,8 @@ from .colors import MaterialColors
 from .. import consts, utils
 from ..enums import MaterialEnum, DumpTexInfoParts
 from ..common import search_materials_file, search_wads, filter_materials, dump_texinfo
-from ..utils import bsp_custommat_path
-from ..bsputil import wadlist, guess_lumpenum
+from ..utils import failure_returns_none
+from ..bsputil import wadlist, guess_lumpenum, bsp_custommat_path
 from ..materials import MaterialSet, TextureRemapper
 
 from jankbsp import BspFileBasic as BspFile, WadFile
@@ -21,7 +21,7 @@ from jankbsp.types import EntityList
 from jankbsp.types.wad import WadMipTex
 
 from pathlib import Path
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field #, asdict
 from collections import namedtuple
 from typing import NamedTuple, ClassVar
 from operator import attrgetter
@@ -31,18 +31,6 @@ import re, logging
 
 log = logging.getLogger(__name__)
 
-def failure_returns_none(func):
-    ''' wraps function so that if it fails, returns none
-        this is to be used for executing get_textures_from_wad concurrently
-    '''
-    def wrap(*args, **kwargs):
-        try:
-            result = func(*args, **kwargs)
-        except:
-            result = None
-        return result
-    return wrap
-
 # @failure_returns_none
 def get_textures_from_wad(wadpath:str|Path, texture_names:str) -> dict:
     ''' loads miptexes of any of the textures in texture_names found in wad file.
@@ -50,6 +38,7 @@ def get_textures_from_wad(wadpath:str|Path, texture_names:str) -> dict:
     '''
     texture_names = [x.lower() for x in texture_names]
     result = {}
+
     with open(wadpath, "rb") as fp:
         wad = WadFile.load(fp, True)
         for item in wad.entries:
@@ -57,6 +46,7 @@ def get_textures_from_wad(wadpath:str|Path, texture_names:str) -> dict:
             # log.debug(f"{item.name} is wanted and found")
             fp.seek(item.offset)
             result[item.name] = WadMipTex.load(fp,item.sizeondisk)
+
     return result
 
 
@@ -110,7 +100,7 @@ class AppModel:
     bsppath : str     = None
     bsp     : BspFile = None
     matpath : str     = None
-    mat_set : MaterialSet     = field(default_factory=MaterialSet)
+    mat_set     : MaterialSet = field(default_factory=MaterialSet)
     wannabe_set : MaterialSet = field(default_factory=MaterialSet)
 
     matchars : str    = MaterialSet.MATCHARS # edit if loading CZ/CZDS
@@ -128,7 +118,7 @@ class AppModel:
         '''
         ## load bsp
         log.info(f"Loading BSP: {bsppath!s}")
-        self.bsppath = bsppath
+        self.bsppath = Path(bsppath)
         with open(self.bsppath, "rb") as f:
             self.bsp = BspFile(f, lump_enum=guess_lumpenum(self.bsppath))
 
@@ -148,9 +138,9 @@ class AppModel:
         self.app.view.update_wannabe_material_tables()
 
         ## setup wad
-        self.app.view.update_wadlist() # populates app.view._wad_found_paths
+        self.app.view.update_wadlist() # populates app.view.wad_found_paths
         if self.auto_load_wads:
-            paths_to_load = tuple(v for k,v in self.app.view._wad_found_paths.items() if v)
+            paths_to_load = tuple(v for k,v in self.app.view.wad_found_paths.items() if v)
             self.app.view.load_external_wad_textures(paths_to_load)
 
         log.info("Done.")
@@ -164,10 +154,10 @@ class AppModel:
 
 @dataclass(frozen=True)
 class BindingEntry:
-    type: BindingType
-    prop: namedtuple = None
-    data: any = None
-    update_predicate : callable = None
+    type : BindingType
+    prop : namedtuple = None
+    data : any = None
+    update_predicate  : callable = None
     reflect_predicate : callable = None
 
 
@@ -180,7 +170,7 @@ class AppView:
 
     # list of wadstatus
     wadstats: list[WadStatus]    = field(default_factory=list)
-    _wad_found_paths : dict      = field(default_factory=dict)
+    wad_found_paths : dict       = field(default_factory=dict)
     # all textures in the bsp
     textures : list[TextureView] = field(default_factory=list)
     # gallery view (only store the filtered items in its data)
@@ -220,7 +210,9 @@ class AppView:
         "filter_radiosity"
     ]
 
-    def bind(self, tag, type:BindingType, prop=None, data=None, update_predicate=None, reflect_predicate=None):
+
+    def bind(self, tag, type:BindingType, prop=None, data=None,
+             update_predicate=None, reflect_predicate=None):
         ''' binds the tag to the prop
             prop is a tuple of obj and propname.
             - get value using getattr(*prop)
@@ -232,6 +224,7 @@ class AppView:
         self.bound_items[tag] = BindingEntry(type, prop, data)
         if type in mappings.writeable_binding_types:
             dpg.configure_item(tag, callback=self.update)
+
 
     def update(self,sender,app_data,*_):
         ''' called by the gui item when it updates a prop linked to the model
@@ -335,6 +328,7 @@ class AppView:
         self.reflect()
         self.update_gallery()
 
+
     def load_textures(self, miptexes, update=False, new_source=None):
         ''' populates app.view.textures with TextureView items.
             if updating, the miptexes are from wads, and new_source must be
@@ -380,6 +374,7 @@ class AppView:
 
         if self._viewport_ready: self.update_gallery()
         return result
+
 
     def load_external_wad_textures(self,wadpaths:tuple[Path]):
         ''' loads the textures from the wads, *in order*, then update textures list.
@@ -440,9 +435,10 @@ class AppView:
         for item in self.wadstats:
             item.update(found=bool(wad_found_paths[item.name]))
             item.path = wad_found_paths[item.name]
-        self._wad_found_paths = wad_found_paths
+        self.wad_found_paths = wad_found_paths
 
         self.reflect() #prop=_propbind(self, "wadstats"))
+
 
     def update_gallery(self, size_only=False):
         ''' filters the textures list, then passes it off to gallery to render '''
@@ -480,6 +476,7 @@ class AppView:
         # render the gallery
         self.gallery.render()
         self.reflect(prop=(self.app,"view"))
+
 
     def render_material_tables(self):
         ME = MaterialEnum
@@ -521,14 +518,15 @@ class AppView:
         table = self.get_dpg_item(type=BindingType.MaterialEntriesTable)
         gui_utils.populate_table(table, header, data)
 
+
     def update_wannabe_material_tables(self):
         ''' update the summary table display of wannabe set items '''
         table = self.get_dpg_item(type=BindingType.MaterialSummaryTable)
-        
+
         for i, mat in enumerate(self.app.data.wannabe_set.MATCHARS):
             table_cell = gui_utils.traverse_children(table, f"{i}.4")
             dpg.set_value(table_cell, len(self.app.data.wannabe_set[mat]))
-            
+
         totals_row = len(self.app.data.wannabe_set.MATCHARS)
         table_cell = gui_utils.traverse_children(table, f"{totals_row}.4")
         dpg.set_value(table_cell, len(self.app.data.wannabe_set))
@@ -541,7 +539,7 @@ class AppView:
 
         for mat in self.app.data.wannabe_set.MATCHARS:
             sublist = []
-            
+
             for matname in self.app.data.wannabe_set[mat]:
 
                 textures = [x for x in self.textures if x.matname==matname]
@@ -562,7 +560,7 @@ class AppView:
 
         if not self.texremap_grouped:
             dict_of_lists = {"All":list(chain(*dict_of_lists.values()))}
-            
+
         if self.texremap_sort:
             for sublist in dict_of_lists.values():
                 sublist.sort(key=lambda x:x.key, reverse=self.texremap_revsort)
@@ -570,17 +568,17 @@ class AppView:
         remap_list = self.get_dpg_item(type=BindingType.TextureRemapList)
         dpg.delete_item(remap_list, children_only=True)
         dpg.push_container_stack(remap_list)
-        
+
         try:
             for label, imglist in dict_of_lists.items():
                 if self.texremap_not_empty and not len(imglist): continue # hide empty
-                
+
                 with dpg.tree_node(label=f"{label:8s} ({len(imglist)} entries)",
                                    default_open=True) as node:
                     gui_utils.populate_imglist(node,imglist,target_len)
-                    
+
                 dpg.add_separator()
-                
+
         finally:
             dpg.pop_container_stack()
 
@@ -592,10 +590,10 @@ class AppActions:
 
     def show_open_file(self, *_):
         dpg.show_item(self.view.get_dpg_item(type=BindingType.BspOpenFileDialog))
-        
+
     def show_save_file_as(self, *_):
-        def_path = Path(self.app.data.bsppath)
-        
+        def_path : Path = self.app.data.bsppath
+
         item = self.view.get_dpg_item(type=BindingType.BspSaveFileDialog)
         dpg.configure_item(item,
                            default_path=str(def_path.parent),
@@ -603,13 +601,13 @@ class AppActions:
                                 .with_name(def_path.stem + "_output.bsp") )
                            )
         dpg.show_item(item)
-    
+
     def show_open_mat_file(self, *_):
         dpg.show_item(self.view.get_dpg_item(type=BindingType.MatLoadFileDialog))
-        
+
     def show_save_mat_file(self, *_):
-        def_path = bsp_custommat_path(Path(self.app.data.bsppath))
-        
+        def_path : Path = bsp_custommat_path(self.app.data.bsppath)
+
         item = self.view.get_dpg_item(type=BindingType.MatExportFileDialog)
         dpg.configure_item(item,
                            default_path=str(def_path.parent),
@@ -633,17 +631,18 @@ class AppActions:
         self.app.data.load_materials(app_data["file_path_name"])
 
     def export_custommat(self, sender, app_data): # dialog callback
-        dump_texinfo(Path(self.app.data.bsppath),0b1110000000000, None,
+        dump_texinfo(self.app.data.bsppath,0b1110000000000, None,
                      material_set=self.app.data.wannabe_set,
                      outpath=Path(app_data["file_path_name"]))
 
     def load_selected_wads(self, *_): # button callback
+        # TODO: use self.view.wad_found_paths as the only source of truth please
         selection_paths = tuple(x.path for x in self.view.wadstats if x.selected)
         self.view.load_external_wad_textures(selection_paths)
 
-    def select_textures(self, sender, app_data, user_data): pass
-    def selection_set_material(self, sender, app_data, user_data): pass
-    def selection_embed(self, sender, app_data, user_data): pass
+    def select_all_textures(self, sender, app_data, all:bool): pass
+    def selection_set_material(self, sender, app_data, mat:str): pass
+    def selection_embed(self, sender, app_data, embed:bool): pass
 
     def handle_drop(self, data, keys): # DearPyGui_DragAndDrop
         if not isinstance(data, list): return

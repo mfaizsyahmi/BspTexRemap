@@ -1,17 +1,16 @@
 import dearpygui.dearpygui as dpg
 import DearPyGui_DragAndDrop as dpg_dnd
+
 import logging
-from pathlib import Path
 from collections import namedtuple
-from jankbsp import BspFileBasic as BspFile
-from jankbsp.types import EntityList
+
 from bsptexremap.common import parse_arguments, setup_logger
 from bsptexremap.enums import MaterialEnum as ME
 from bsptexremap.materials import MaterialSet # matchars
-from bsptexremap.dpg.modelcontroller import App
-from bsptexremap.dpg.galleryview import GalleryView
-from bsptexremap.dpg.textureview import TextureView
+
 from bsptexremap.dpg import mappings, gui_utils, colors
+from bsptexremap.dpg.modelcontroller import App
+
 BindingType = mappings.BindingType # puts it onto the main scope
 _BT = mappings.BindingType # shorthand
 _prop = namedtuple("PropertyBinding",["obj","prop"])
@@ -52,66 +51,67 @@ def add_file_dialogs(app):
     }
     for type, item in file_dlg_cfg.items():
         app.view.bind(gui_utils.create_file_dialog(**item), type)
-        
+
+
 def add_materials_pane(app):
     ### materials pane ###
     _bind = lambda *args,**kwargs: _bind_last_item(app,*args,**kwargs) # shorthand
-    
+
     with dpg.child_window(border=False):
         dpg.bind_item_theme(dpg.last_item(),"theme:normal_table")
-        
+
         dpg.add_input_text(label="path",readonly=True)
         _bind(_BT.Value,_prop(app.data,"matpath"))
-        
+
         dpg.add_button(label="Load...",callback=app.do.show_open_mat_file)
 
         with dpg.collapsing_header(label="Summary",default_open=True):
-            
+
             ## Material summary table
             ## X | Material | Total | Usable | Assigned
             dpg.add_table(resizable=True)
             _bind(_BT.MaterialSummaryTable)
 
         with dpg.collapsing_header(label="Entries"):
-            
+
             ## Material type fiter
             dpg.add_input_text(label="filter type",
                                hint=f"Material chars e.g. {MaterialSet.MATCHARS}")
             _bind(_BT.Value,_prop(app.view,"filter_matchars"))
-            
+
             ## material name filter
             dpg.add_input_text(label="filter name",hint=f"Material name")
             _bind(_BT.Value,_prop(app.view,"filter_matnames"))
-            
+
             ## Material entries table
             ## Mat | Name | Usable
             dpg.add_table(resizable=True,sortable=True,callback=_sort_table)
             _bind(_BT.MaterialEntriesTable)
 
         with dpg.collapsing_header(label="Remaps",default_open=True):
-        
+
             with dpg.table(header_row=False):
                 for i in range(2): dpg.add_table_column()
-                
+
                 with dpg.table_row():
-                
+
                     dpg.add_checkbox(label="grouped")
                     _bind(_BT.Value,_prop(app.view,"texremap_grouped"))
-                    
+
                     dpg.add_checkbox(label="hide empty")
                     _bind(_BT.Value,_prop(app.view,"texremap_not_empty"))
-                    
+
                 with dpg.table_row():
-                
+
                     dpg.add_checkbox(label="sort")
                     _bind(_BT.Value,_prop(app.view,"texremap_sort"))
-                    
+
                     dpg.add_checkbox(label="reverse")
                     _bind(_BT.Value,_prop(app.view,"texremap_revsort"))
-                    
+
             dpg.add_separator()
-            
-            ## Texture remap list 
+
+            ## Texture remap list
             dpg.add_group()
             _bind(_BT.TextureRemapList)
 
@@ -121,13 +121,13 @@ def add_materials_pane(app):
 def add_textures_pane(app):
     ### textures pane ###
     _bind = lambda *args,**kwargs: _bind_last_item(app,*args,**kwargs) # shorthand
-    
+
     with dpg.child_window(autosize_y=False,menubar=True,
                           horizontal_scrollbar=True) as winTextures:
         dpg.bind_item_theme(dpg.last_item(),"theme:normal_table")
-        
+
         with dpg.menu_bar():
-        
+
             with dpg.menu(label="Show:All") as mnuTexShow:
                 _bind(_BT.FormatLabel,_prop(app.view,"gallery_show_val"),
                       data=["Show:{:.3s}", mappings.gallery_show])
@@ -183,7 +183,7 @@ def add_textures_pane(app):
                 _bind(_BT.FormatLabel,_prop(app.view,"gallery_sort_val"),
                       ["Sort:{}",
                        lambda val:mappings.gallery_sort_map[val].short])
-                
+
                 ## Mapped sort values
                 sep = (5,)
                 for i, text in enumerate(mappings.gallery_sortings):
@@ -214,28 +214,28 @@ def add_textures_pane(app):
                 _help("These are textures embedded by VHLT+'s RAD to make translucent objects light properly")
 
             with dpg.menu(label="Selection"):
-            
+
                 dpg.add_menu_item(label="Select all", user_data=True,
-                                  callback=app.do.select_textures)
-                                  
+                                  callback=app.do.select_all_textures)
+
                 dpg.add_menu_item(label="Select none", user_data=False,
-                                  callback=app.do.select_textures)
-                                  
+                                  callback=app.do.select_all_textures)
+
                 dpg.add_separator()
-                
+
                 with dpg.menu(label="Set material to"):
-                
+
                     for mat in app.data.matchars:
                         dpg.add_menu_item(
                                 label=f"{ME(mat).value} - {ME(mat).name}",
                                 user_data = mat,
                                 callback=app.do.selection_set_material
                         )
-                        
+
                 dpg.add_menu_item(label="Embed into BSP",
                                   user_data=True,
                                   callback=app.do.selection_embed)
-                                  
+
                 dpg.add_menu_item(label="Unembed from BSP",
                                   user_data=False,
                                   callback=app.do.selection_embed)
@@ -245,7 +245,7 @@ def add_textures_pane(app):
 
     def _center_resize(sender):
         app.view.gallery.render() # reflow the gallery view
-        
+
     with dpg.item_handler_registry() as resize_handler:
         dpg.add_item_resize_handler(callback=_center_resize)
 
@@ -258,7 +258,7 @@ def add_textures_pane(app):
 def add_right_pane(app):
     ### options/actions pane ###
     _bind = lambda *args,**kwargs: _bind_last_item(app,*args,**kwargs) # shorthand
-    
+
     with dpg.child_window(border=False):
         dpg.bind_item_theme(dpg.last_item(),"theme:normal_table")
 
@@ -314,9 +314,9 @@ def add_main_window(app):
 
     with dpg.window(tag="Primary Window",no_scrollbar=True):
         dpg.bind_item_theme(dpg.last_item(),"theme:main_window")
-        
+
         with dpg.menu_bar() as menubar:
-        
+
             with dpg.menu(label="BSP"):
                 dpg.add_menu_item(label="Open",    callback=app.do.show_open_file)
                 dpg.add_separator()
@@ -328,7 +328,7 @@ def add_main_window(app):
                 dpg.add_menu_item(label="Exit",    callback=exit)
 
             with dpg.menu(label="Materials"):
-                dpg.add_menu_item(label="Load", 
+                dpg.add_menu_item(label="Load",
                                   callback=app.do.show_open_mat_file)
                 dpg.add_menu_item(label="Export custom materials",
                                   callback=app.do.export_custommat)
@@ -352,7 +352,7 @@ def add_main_window(app):
         ### MAIN LAYOUT TABLE ###
         with dpg.table(resizable=True,height=-8) as mainLayoutTable: # header_row=False,
             dpg.bind_item_theme(dpg.last_item(),"theme:layout_table")
-            
+
             col1 = dpg.add_table_column(label="Materials",width=200)
             _bind(_BT.FormatLabel, _prop(app.data,"mat_set"),
                   ["Materials {}",
@@ -367,7 +367,7 @@ def add_main_window(app):
                            len(view.app.data.bsp.textures),
                            len(view.gallery.data)
                    ) if view.app.data.bsp else ""])
-            
+
             dpg.add_table_column(label="Options/Actions",width=200)
 
             with dpg.table_row() as mainLayoutRow:
@@ -380,7 +380,7 @@ def add_main_window(app):
 
                 ### options/actions pane ###
                 add_right_pane(app)
-                
+
     ### END OF WINDOW LAYOUT
 
 
@@ -394,15 +394,12 @@ def main():
 
     app = App()
     dpg_dnd.set_drop(app.do.handle_drop)
-    
+
     colors.add_themes()
     add_file_dialogs(app)
     add_main_window(app)
     app.view.reflect()
-    
-    if args.bsppath:
-        app.data.load_bsp(args.bsppath)
-    dpg.set_frame_callback(1,callback=lambda:app.view.set_viewport_ready())
+
 
     #dpg.show_item_registry()
 
@@ -410,6 +407,10 @@ def main():
     dpg.setup_dearpygui()
     dpg.show_viewport()
     dpg.set_primary_window("Primary Window", True)
+    
+    dpg.set_frame_callback(1,callback=lambda:app.view.set_viewport_ready())
+    if args.bsppath:
+        app.data.load_bsp(args.bsppath)
 
     dpg.start_dearpygui()
     dpg.destroy_context()

@@ -15,17 +15,25 @@ import logging
 log = logging.getLogger(__name__)
 
 
+def failure_returns_none(func):
+    ''' wraps function so that if it fails, returns none
+        this is to be used for executing get_textures_from_wad concurrently
+    '''
+    def wrap(*args, **kwargs):
+        try:
+            result = func(*args, **kwargs)
+        except:
+            result = None
+        return result
+    return wrap
+    
+    
 def char_padder(len:int) -> str:
     ''' generator of character paddings of given length
     '''
     for result in product(consts.CHARSEQUENCE, repeat=len):
         yield "".join(result)
 
-def bsp_texinfo_path(bsppath:Path) -> Path:
-    return bsppath.with_name(bsppath.stem + consts.TEXINFO_SUFFIX + consts.TEXINFO_FMT)
-    
-def bsp_custommat_path(bsppath:Path) -> Path:
-    return bsppath.with_name(bsppath.stem + consts.CUSTOMMAT_SUFFIX + consts.CUSTOMMAT_FMT)
 
 def infolog_material_set(material_set):
     if log.getEffectiveLevel() > logging.INFO: return
