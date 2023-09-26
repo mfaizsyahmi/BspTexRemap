@@ -3,6 +3,7 @@ import logging
 from typing import NamedTuple
 from .colors import AppColors
 
+
 # create_file_dialog
 file_dlg_exts = {
     "bsp": ("BSP files (*.bsp){.bsp}",{"color":(0, 255, 255, 255)}),
@@ -21,6 +22,7 @@ def add_help_in_place(message):
     t = dpg.add_text("(?)", color=AppColors.Help.color)
     with dpg.tooltip(t):
         dpg.add_text(message)
+
 
 def create_file_dialog(label,callback, exts,
         tag=None,
@@ -42,6 +44,7 @@ def create_file_dialog(label,callback, exts,
             dpg.add_file_extension(text, **kwargs)
             
     return dlg_tag
+
 
 def populate_table(target, 
                    headers:list[str], 
@@ -67,6 +70,7 @@ def populate_table(target,
     
     dpg.pop_container_stack()
 
+
 class ImglistEntry(NamedTuple):
     image  : str|int
     width  : int
@@ -74,6 +78,7 @@ class ImglistEntry(NamedTuple):
     text   : list[str]
     key    : any  = 0 # sorting aid
 def _x(): pass # this gets consumed by npp
+
 
 def draw_crossed_rectangle(p1:tuple,p2:tuple):
     dpg.draw_rectangle(p1,p2)
@@ -121,6 +126,7 @@ def traverse_children(root, paths: str):
         except: return None
     return parent
 
+
 def sort_table(sender, sort_specs):
     ''' sort_specs scenarios:
         1. no sorting -> sort_specs == None
@@ -157,6 +163,7 @@ def sort_table(sender, sort_specs):
     
     dpg.reorder_items(sender, 1, new_order)
 
+
 class DpgLogHandler(logging.Handler):
     COLORS = {
         logging.DEBUG:    (127,159,127), # olive
@@ -170,17 +177,18 @@ class DpgLogHandler(logging.Handler):
     def __init__(self, level=logging.NOTSET,**kwargs):
         super().__init__(level)
         try:
-            dpg.add_window(tag=DpgLogHandler.TAG,label="Log Console",
-                           width=420,height=200,**kwargs)
+            dpg.add_window(tag=DpgLogHandler.TAG, label="Log Console",
+                           width=420, height=200, **kwargs)
         except: pass
         
     def emit(self, record):
         msg = self.format(record)
-        dpg.add_text(msg, parent=DpgLogHandler.TAG, wrap=0,
+        dpg.add_text(msg, parent=DpgLogHandler.TAG, user_data=record, wrap=0,
                      filter_key=record.levelno,
                      color=DpgLogHandler.COLORS[record.levelno])
-        # scroll to end
+        # scroll to end?
         dpg.set_y_scroll(DpgLogHandler.TAG,dpg.get_y_scroll_max(DpgLogHandler.TAG))
+
 
 class DpgLogToTextItemHandler(logging.Handler):
     def __init__(self, target, level=logging.NOTSET, set_colors=False):
@@ -192,6 +200,7 @@ class DpgLogToTextItemHandler(logging.Handler):
         msg = self.format(record)
         dpg.set_value(self._target,msg)
         
+        dpg.configure_item(self._target, user_data=record)
         if self._set_colors:
             dpg.configure_item(self._target, color=DpgLogHandler.COLORS[record.levelno])
 
