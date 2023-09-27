@@ -8,6 +8,11 @@ from .enums import DumpTexInfoParts, MaterialEnum # dump_texinfo
 from .utils import *
 from .bsputil import *
 from .materials import MaterialSet, TextureRemapper
+
+# get_textures_from_wad
+from jankbsp import WadFile
+from jankbsp.types.wad import WadMipTex
+
 import re, sys
 from argparse import ArgumentParser
 from pathlib import Path, PurePath
@@ -306,21 +311,35 @@ def dump_texinfo(bsppath,
 
 def filter_materials(source, matchars, names):
     ''' for the gui '''
-    matfn =lambda mat: True if not len(matchars) else mat in matchars
-    fragfn=lambda name,frag: 1 if frag in name else 0
-    namefn=lambda name,list: True if not len(list) \
-                             else reduce(lambda x,y:x+y, \
-                                         [fragfn(name,frag) for frag in list])
+    l = lambda x:x.lower()
+    matfn =lambda mat: not len(matchars) or mat in matchars.upper()
+    namefn=lambda name,list:not len(list) or any((l(frag) in l(name) for frag in list))
     
+    fragments = [x for x in names.split(" ") if len(x)]
     result = MaterialSet()
     for mat in source.MATCHARS:
-        if not matfn(mat):
-            result[mat] = set() # replace with empty set
-            continue
-        fragments = names.split(" ")
-        filtered = filter(namefn,[(name,fragments) for name in source[mat]])
-        result[mat] = set(filtered)
+        if not matfn(mat): continue # empty if material not match
+        filtered = set(name for name in source[mat] if namefn(name,fragments))
+        result[mat].update(filtered)
         
+    return result
+
+
+def get_textures_from_wad(wadpath:str|Path, texture_names:str) -> dict:
+    ''' loads miptexes of any of the textures in texture_names found in wad file.
+        this is so that we only read miptexes referenced in bsp file
+    '''
+    texture_names = [x.lower() for x in texture_names]
+    result = {}
+
+    with open(wadpath, "rb") as fp:
+        wad = WadFile.load(fp, True)
+        for item in wad.entries:
+            if item.name.lower() not in texture_names: continue
+            # log.debug(f"{item.name} is wanted and found")
+            fp.seek(item.offset)
+            result[item.name] = WadMipTex.load(fp,item.sizeondisk)
+
     return result
 
 

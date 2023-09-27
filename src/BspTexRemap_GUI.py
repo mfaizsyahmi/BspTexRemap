@@ -3,6 +3,7 @@ import DearPyGui_DragAndDrop as dpg_dnd
 
 import logging
 from collections import namedtuple
+from pathlib import Path
 
 from bsptexremap.common import parse_arguments, setup_logger
 from bsptexremap.enums import MaterialEnum as ME
@@ -60,8 +61,12 @@ def add_materials_pane(app):
     with dpg.child_window(border=False):
         dpg.bind_item_theme(dpg.last_item(),"theme:normal_table")
 
-        dpg.add_input_text(label="path",readonly=True)
+        matpath_box = dpg.add_input_text(label="path",readonly=True)
         _bind(_BT.Value,_prop(app.data,"matpath"))
+        with dpg.tooltip(matpath_box):
+            dpg.add_text("")
+            _bind(_BT.FormatValue,_prop(app.data,"matpath"),
+                  ["{}",lambda val:val])
 
         dpg.add_button(label="Load...",callback=app.do.show_open_mat_file)
 
@@ -124,7 +129,7 @@ def add_textures_pane(app):
 
     with dpg.child_window(autosize_y=False,menubar=True,
                           horizontal_scrollbar=True) as winTextures:
-        dpg.bind_item_theme(dpg.last_item(),"theme:normal_table")
+        #dpg.bind_item_theme(dpg.last_item(),"theme:main_window") #"theme:normal_table"
 
         with dpg.menu_bar():
 
@@ -240,18 +245,21 @@ def add_textures_pane(app):
                                   user_data=False,
                                   callback=app.do.selection_embed)
 
-        with dpg.group() as gallery_root:
+            dpg.add_menu_item(label="Refresh", tag="gallery refresh",
+                              callback=lambda s,a,u:app.view.gallery.render())
+
+        #with dpg.group() as gallery_root:
+        with dpg.child_window(border=False) as gallery_root:
             app.view.bind( gallery_root, _BT.GalleryRoot )
 
     def _center_resize(sender):
-        app.view.gallery.render() # reflow the gallery view
+        app.view.gallery.reflow() # reflow the gallery view
 
     with dpg.item_handler_registry() as resize_handler:
         dpg.add_item_resize_handler(callback=_center_resize)
 
-    app.view.gallery.submit(gallery_root,winTextures)
-    #dpg.bind_item_handler_registry(mainLayoutTable, resize_handler)
-    dpg.bind_item_handler_registry(winTextures, resize_handler)
+    app.view.gallery.submit(gallery_root)
+    #dpg.bind_item_handler_registry(winTextures, resize_handler)
     dpg.bind_item_handler_registry("Primary Window", resize_handler)
 
 
@@ -398,19 +406,15 @@ def main():
     colors.add_themes()
     add_file_dialogs(app)
     add_main_window(app)
-    app.view.reflect()
-
-
-    #dpg.show_item_registry()
+    #app.view.reflect()
+    
+    if args.bsppath:
+        app.data.load_bsp(args.bsppath)
 
     dpg.create_viewport(title='BspTexRemap GUI', width=1200, height=800)
     dpg.setup_dearpygui()
     dpg.show_viewport()
     dpg.set_primary_window("Primary Window", True)
-    
-    dpg.set_frame_callback(1,callback=lambda:app.view.set_viewport_ready())
-    if args.bsppath:
-        app.data.load_bsp(args.bsppath)
 
     dpg.start_dearpygui()
     dpg.destroy_context()

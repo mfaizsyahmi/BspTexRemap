@@ -43,11 +43,13 @@ class AppColors(Subscriptable):
 class AppThemes(Subscriptable):             # applies to:
     Embedded   = "theme:texlabel_embedded"  # texview src button
     External   = "theme:texlabel_external"  # texview src button
+    ToEmbed    = "theme:texlabel_to_embed"  # texview src button
+    ToUnembed  = "theme:texlabel_to_unembed"# texview src button
     Normal     = "theme:galleryitem_normal" # texview group
     Selected   = "theme:texview_selected"   # texview group
     Uneditable = "theme:texview_uneditable" # texview slider
     
-    Material__ = "theme:texview_mat_-"      # texview slider
+    Material__ = "theme:texview_mat__"      # texview slider
     Material_C = "theme:texview_mat_C"      # texview slider
     Material_M = "theme:texview_mat_M"      # texview slider
     Material_D = "theme:texview_mat_D"      # texview slider
@@ -78,7 +80,9 @@ def add_themes():
     with dpg.theme(tag="theme:normal_table"):
         with dpg.theme_component(0): pass
             #dpg.add_theme_color(dpg.mvThemeCol_TableHeaderBg ,(48,48,51,255))
-            
+    
+    #### TexView Themes ####
+    ### Normal/Selected  ###
     with dpg.theme(tag=AppThemes.Normal):
         with dpg.theme_component(dpg.mvGroup):
             dpg.add_theme_color(dpg.mvThemeCol_ChildBg, (150,0,0,255))
@@ -89,6 +93,7 @@ def add_themes():
             dpg.add_theme_color(dpg.mvThemeCol_Text,   AppColors.Selected.color)
             dpg.add_theme_style(dpg.mvStyleVar_FrameBorderSize, 1)
     
+    ### Embedded/External  ###
     with dpg.theme(tag=AppThemes.Embedded):
         with dpg.theme_component(dpg.mvButton):
             dpg.add_theme_color(dpg.mvThemeCol_Button, AppColors.Embedded.bg)
@@ -98,15 +103,26 @@ def add_themes():
         with dpg.theme_component(dpg.mvButton):
             dpg.add_theme_color(dpg.mvThemeCol_Button, AppColors.External.bg)
             dpg.add_theme_color(dpg.mvThemeCol_Text,   AppColors.External.fg)
+            
+    with dpg.theme(tag=AppThemes.ToEmbed):
+        with dpg.theme_component(dpg.mvButton):
+            dpg.add_theme_style(dpg.mvStyleVar_FrameBorderSize, 1)
+            dpg.add_theme_color(dpg.mvThemeCol_Border, (0,255,0,255))
+            
+    with dpg.theme(tag=AppThemes.ToUnembed):
+        with dpg.theme_component(dpg.mvButton):
+            dpg.add_theme_style(dpg.mvStyleVar_FrameBorderSize, 1)
+            dpg.add_theme_color(dpg.mvThemeCol_Border, (255,0,0,255))
 
     with dpg.theme(tag=AppThemes.Uneditable):
-        with dpg.theme_component(0): # slider only
-            dpg.add_theme_color(dpg.mvThemeCol_FrameBg,         ( 37, 37, 38,255))
-            dpg.add_theme_color(dpg.mvThemeCol_FrameBgHovered,  ( 21, 21, 22,255))
+        with dpg.theme_component(dpg.mvSliderInt, enabled_state=False): # slider only
+            dpg.add_theme_color(dpg.mvThemeCol_FrameBg,         ( 29, 29, 31,255))
+            dpg.add_theme_color(dpg.mvThemeCol_FrameBgHovered,  ( 29, 29, 31,255))
+            #dpg.add_theme_color(dpg.mvThemeCol_FrameBgHovered,  ( 21, 21, 22,255))
             dpg.add_theme_color(dpg.mvThemeCol_SliderGrab,      ( 37, 37, 38,255))
-            dpg.add_theme_color(dpg.mvThemeCol_SliderGrabActive,( 37, 37, 38,255))
-            #dpg.add_theme_color(dpg.mvThemeCol_Text,            (151,151,151,255))
-            dpg.add_theme_color(dpg.mvThemeCol_Text,            (255,0,255,255))
+            dpg.add_theme_color(dpg.mvThemeCol_SliderGrabActive,( 24, 24, 24,255))
+            dpg.add_theme_color(dpg.mvThemeCol_Text,            (151,151,151,255))
+            #dpg.add_theme_color(dpg.mvThemeCol_Text,            (255,0,255,255))
 
     with dpg.theme(tag=AppThemes.Material__):
         with dpg.theme_component(dpg.mvSliderInt): # slider only

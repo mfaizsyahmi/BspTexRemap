@@ -80,10 +80,10 @@ class ImglistEntry(NamedTuple):
 def _x(): pass # this gets consumed by npp
 
 
-def draw_crossed_rectangle(p1:tuple,p2:tuple):
-    dpg.draw_rectangle(p1,p2)
-    dpg.draw_line(p1,p2)
-    dpg.draw_line((p2[0],p1[1]),(p1[0],p2[1]))
+def draw_crossed_rectangle(p1:tuple, p2:tuple, **kwargs):
+    dpg.draw_rectangle(p1, p2, **kwargs)
+    dpg.draw_line(p1, p2, **kwargs)
+    dpg.draw_line((p2[0],p1[1]), (p1[0],p2[1]), **kwargs)
 
 
 def populate_imglist(target, items:list[ImglistEntry], max_length=48, grow=False):
@@ -182,12 +182,19 @@ class DpgLogHandler(logging.Handler):
         except: pass
         
     def emit(self, record):
+        try: dpg.configure_item(self._last_item,tracked=False)
+        except: pass
+        
         msg = self.format(record)
-        dpg.add_text(msg, parent=DpgLogHandler.TAG, user_data=record, wrap=0,
-                     filter_key=record.levelno,
-                     color=DpgLogHandler.COLORS[record.levelno])
+        self._last_item = dpg.add_text(
+                msg, parent=DpgLogHandler.TAG, user_data=record, wrap=0,
+                filter_key=record.levelno,
+                color=DpgLogHandler.COLORS[record.levelno],
+                tracked=True, track_offset=1)
         # scroll to end?
-        dpg.set_y_scroll(DpgLogHandler.TAG,dpg.get_y_scroll_max(DpgLogHandler.TAG))
+        #dpg.set_y_scroll(DpgLogHandler.TAG,dpg.get_y_scroll_max(DpgLogHandler.TAG))
+        dpg.set_frame_callback(dpg.get_frame_count() + 2,
+                               lambda:dpg.configure_item(self._last_item,tracked=False))
 
 
 class DpgLogToTextItemHandler(logging.Handler):
