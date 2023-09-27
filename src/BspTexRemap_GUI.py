@@ -23,30 +23,43 @@ def _sort_table(sender, sort_specs):
 def _bind_last_item(app,*args,**kwargs):
     return app.view.bind(dpg.last_item(),*args,**kwargs)
 
+def _filedlg_cb(fn): 
+    ''' for feeding the action fn that accepts a path as the first argument
+        intended to back-feed the caller fn i.e. same_fn -> dlg -> same_fn
+    '''
+    cb = lambda sender, app_data: fn(app_data["file_path_name"])
+    return cb
+
+def _bare_cb(fn):
+    ''' discards the sender,app_data,user_data trio from callback '''
+    cb = lambda sender, app_data: fn()
+    return cb
+    
+    
 def add_file_dialogs(app):
     file_dlg_cfg = {
         BindingType.BspOpenFileDialog : {
             "tag" : "dlgBspFileOpen",
             "label": "Open BSP file",
-            "callback": app.do.open_file,
+            "callback": _filedlg_cb(app.do.open_bsp_file),
             "exts": ("bsp","all")
         },
         BindingType.BspSaveFileDialog : {
             "tag" : "dlgBspFileSaveAs",
             "label": "Save BSP file",
-            "callback": app.do.save_file_as,
+            "callback": _filedlg_cb(app.do.save_bsp_file_as),
             "exts": ("bsp","all")
         },
         BindingType.MatLoadFileDialog : {
             "tag" : "dlgMatFileOpen",
             "label": "Open materials file",
-            "callback": app.do.load_mat_file,
+            "callback": _filedlg_cb(app.do.load_mat_file),
             "exts": ("txt","all")
         },
         BindingType.MatExportFileDialog : {
             "tag" : "dlgMatFileExport",
             "label": "Export custom materials file",
-            "callback": app.do.export_custommat,
+            "callback": _filedlg_cb(app.do.export_custommat),
             "exts": ("txt","all")
         }
     }
@@ -68,7 +81,7 @@ def add_materials_pane(app):
             _bind(_BT.FormatValue,_prop(app.data,"matpath"),
                   ["{}",lambda val:val])
 
-        dpg.add_button(label="Load...",callback=app.do.show_open_mat_file)
+        dpg.add_button(label="Load...",callback=_bare_cb(app.do.load_mat_file))
 
         with dpg.collapsing_header(label="Summary",default_open=True):
 
@@ -302,23 +315,28 @@ If you forgo this step, the texture renamings would be irreversible.
 
         dpg.add_text("")
 
-        dpg.add_button(label="Save BSP", width=128, callback=app.do.save_file)
+        dpg.add_button(label="Save BSP", width=128, 
+                       callback=lambda:app.do.save_bsp_file(app.data.backup))
         _help("Remaps texture and save in the same file")
 
         dpg.add_checkbox(label="Backup", indent=8)
         _bind(_BT.Value, _prop(app.data,"backup"))
         _help("Makes backup before saving")
 
-        dpg.add_button(label="Save BSP as...", width=128, callback=app.do.show_save_file_as)
+        dpg.add_button(label="Save BSP as...", width=128, 
+                       callback=_bare_cb(app.do.save_bsp_file_as))
         _help("Remaps texture and save in another file")
 
-        dpg.add_button(label="Export custom materials", callback=app.do.show_save_mat_file)
+        dpg.add_button(label="Export custom materials", 
+                       callback=_bare_cb(app.do.export_custommat))
         _help("Generates custom material file that can be used\nwith BspTexRemap.exe (the console program)")
 
 
 def add_main_window(app):
     ''' main window layout '''
     _bind = lambda *args,**kwargs: _bind_last_item(app,*args,**kwargs) # shorthand
+    _mi = dpg.add_menu_item
+    ___ = dpg.add_separator
 
     with dpg.window(tag="Primary Window",no_scrollbar=True):
         dpg.bind_item_theme(dpg.last_item(),"theme:main_window")
@@ -326,35 +344,41 @@ def add_main_window(app):
         with dpg.menu_bar() as menubar:
 
             with dpg.menu(label="BSP"):
-                dpg.add_menu_item(label="Open",    callback=app.do.show_open_file)
-                dpg.add_separator()
-                dpg.add_menu_item(label="Save",    callback=app.do.save_file)
-                dpg.add_menu_item(label="Save As", callback=app.do.show_save_file_as)
-                dpg.add_separator()
-                dpg.add_menu_item(label="Reload",  callback=app.do.reload)
-                dpg.add_separator()
-                dpg.add_menu_item(label="Exit",    callback=exit)
+            
+                _mi(label="Open",    callback=_bare_cb(app.do.open_bsp_file))
+                ___() # separtor
+                
+                _mi(label="Save",    callback=lambda:app.do.save_bsp_file(app.data.backup))
+                _mi(label="Save As", callback=_bare_cb(app.do.save_bsp_file_as))
+                ___()
+                
+                _mi(label="Reload",  callback=app.do.reload)
+                ___()
+                
+                _mi(label="Exit",    callback=exit)
 
             with dpg.menu(label="Materials"):
-                dpg.add_menu_item(label="Load",
-                                  callback=app.do.show_open_mat_file)
-                dpg.add_menu_item(label="Export custom materials",
-                                  callback=app.do.export_custommat)
-                dpg.add_separator()
-                dpg.add_menu_item(label="Auto-load from BSP path",check=True)
+            
+                _mi(label="Load",
+                                  callback=_bare_cb(app.do.load_mat_file))
+                _mi(label="Export custom materials",
+                                  callback=_bare_cb(app.do.export_custommat))
+                ___()
+                
+                _mi(label="Auto-load from BSP path",check=True)
                 _bind(_BT.Value, _prop(app.data,"auto_load_materials"))
 
             with dpg.menu(label="Textures"):
-                dpg.add_menu_item(label="Auto-load WADs from BSP path",check=True)
+                _mi(label="Auto-load WADs from BSP path",check=True)
                 _bind(_BT.Value, _prop(app.data,"auto_load_wads"))
 
             with dpg.menu(label="Tools"):
-                dpg.add_menu_item(label="Log console",check=True,
+                _mi(label="Log console",check=True,
                                   callback=lambda s,a,u: \
                                     dpg.configure_item(gui_utils.DpgLogHandler.TAG,show=a))
-                dpg.add_menu_item(label="GUI item registry",
+                _mi(label="GUI item registry",
                                   callback=lambda *_:dpg.show_item_registry())
-                dpg.add_menu_item(label="GUI style editor",
+                _mi(label="GUI style editor",
                                   callback=lambda *_:dpg.show_style_editor())
 
         ### MAIN LAYOUT TABLE ###

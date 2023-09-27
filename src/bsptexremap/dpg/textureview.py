@@ -283,19 +283,21 @@ class TextureView:
         slider_label = self.mat
         slider_val = 0 if self.mat in "-_" else TextureView.matchars.find(self.mat.upper())
 
-        for item in TextureView.app.view.textures:
-            if item.matname != self.matname: continue
-            if item != self:
-                item.selected = self.selected # select the other entries
+        with dpg.mutex():
+            for item in TextureView.app.view.textures:
+                if item.matname != self.matname: continue
+                if item != self:
+                    item.selected = self.selected # select the other entries
 
-            dpg.bind_item_theme(item._view_uuid,target_selection_theme)
+                dpg.bind_item_theme(item._view_uuid,target_selection_theme)
 
-            dpg.configure_item(item._slider_uuid,label=slider_label)
-            dpg.set_value(item._slider_uuid,slider_val)
-            dpg.bind_item_theme(item._slider_uuid,target_slider_theme)
+                dpg.configure_item(item._slider_uuid,label=slider_label)
+                dpg.set_value(item._slider_uuid,slider_val)
+                dpg.bind_item_theme(item._slider_uuid,target_slider_theme)
 
-            dpg.configure_item(self._selector_uuid, show=self.selected)
-            dpg.set_value(item._selector_uuid,self.selected)
+                dpg.configure_item(self._selector_uuid, show=self.selected)
+                dpg.set_value(item._selector_uuid,self.selected)
+
 
     def _slider_cb(self,sender,val):
         if not self.mat_editable: return
@@ -307,7 +309,7 @@ class TextureView:
             val += 0 if self.mat in "-_" else TextureView.matchars.find(self.mat.upper())
             # wrap around on the positive side, because it does so 
             # automatically on the negative side
-            if val > len(TextureView.matchars):
+            if val >= len(TextureView.matchars):
                 val %= len(TextureView.matchars)
             dpg.set_value(self._slider_uuid,val)
 

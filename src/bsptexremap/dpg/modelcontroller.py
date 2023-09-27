@@ -79,9 +79,9 @@ class WadStatus:
 class AppModel:
     app : any # reference to app
     # primary data
-    bsppath : str     = None
+    bsppath : Path    = None
     bsp     : BspFile = None
-    matpath : str     = None
+    matpath : Path    = None
     mat_set     : MaterialSet = field(default_factory=MaterialSet)
     wannabe_set : MaterialSet = field(default_factory=MaterialSet)
 
@@ -129,7 +129,7 @@ class AppModel:
         log.info("Done.")
 
     def load_materials(self, matpath):
-        self.matpath = matpath
+        self.matpath = Path(matpath)
         self.mat_set = MaterialSet.from_materials_file(self.matpath)
         self.app.view.reflect()
         self.app.view.render_material_tables()
@@ -578,7 +578,7 @@ class AppView:
         finally:
             dpg.pop_container_stack()
 
-
+###################################### AppActions ##############################
 class AppActions:
     def __init__(self,app,view):
         self.app = app
@@ -594,52 +594,72 @@ class AppActions:
             dpg.add_mouse_drag_handler(callback=self.on_mouse_drag)
 
     ### GUI callbacks that opens a file dialog ###
-    def show_open_file(self, *_):
-        dpg.show_item(self.view.get_dpg_item(type=BindingType.BspOpenFileDialog))
+    def show_file_dialog(self, type:BindingType, init_path=None, init_filename=None):
+        dlg = self.view.get_dpg_item(type)
+        kwargs = {}
+        if init_path: kwargs["default_path"] = init_path
+        if init_filename: kwargs["default_filename"] = init_filename
+        
+        dpg.configure_item(dlg, **kwargs)
+        dpg.show_item(dlg)
 
-    def show_save_file_as(self, *_):
-        def_path : Path = self.app.data.bsppath
+    ### File load/save/export ###
+    def open_bsp_file(self, bsppath:str|Path=None): # dialog callback
+        ''' load bsp, then load wadstats '''
+        if not bsppath:
+            self.show_file_dialog(BindingType.BspOpenFileDialog)
+            return 
+        self.app.data.load_bsp(bsppath)
 
-        item = self.view.get_dpg_item(type=BindingType.BspSaveFileDialog)
-        dpg.configure_item(item,
-                           default_path=str(def_path.parent),
-                           default_filename=str(def_path\
-                                .with_name(def_path.stem + "_output.bsp") )
-                           )
-        dpg.show_item(item)
-
-    def show_open_mat_file(self, *_):
-        dpg.show_item(self.view.get_dpg_item(type=BindingType.MatLoadFileDialog))
-
-    def show_save_mat_file(self, *_):
-        def_path : Path = bsp_custommat_path(self.app.data.bsppath)
-
-        item = self.view.get_dpg_item(type=BindingType.MatExportFileDialog)
-        dpg.configure_item(item,
-                           default_path=str(def_path.parent),
-                           default_filename=str(def_path.name) )
-        dpg.show_item(item)
-
-    ### File load/save/export callbacks ###
-    def open_file(self, sender, app_data): # dialog callback
-        ''' called by the open file dialog
-            load bsp, then load wadstats
-        '''
-        self.app.data.load_bsp(app_data["file_path_name"])
-
-    def reload(self, sender, app_data): # menu callback
+    def reload(self, *_): # menu callback
         if self.app.data.bsppath:
             self.app.data.load_bsp(self.app.data.bsppath)
 
-    def save_file(self, sender, app_data): pass # dialog callback
-    def save_file_as(self, sender, app_data): pass # dialog callback
-    def load_mat_file(self, sender, app_data): # dialog callback
-        self.app.data.load_materials(app_data["file_path_name"])
+    def save_bsp_file(self, backup:bool=None, confirm=None):
+        if not backup:
+            pass #TODO: confirm
+        
+    def save_bsp_file_as(self, bsppath:str|Path=None, confirm=None):
+        if not bsppath:
+            try:
+                def_path = self.app.data.bsppath
+                init_path = def_path.parent
+                init_filename = def_path.with_name(def_path.stem + "_output.bsp")
+            except:
+                init_path, init_filename = None, None
+                
+            self.show_file_dialog(BindingType.BspSaveFileDialog)
+            return 
+            
+        elif Path(bsppath).exists() and not confirm:
+            return # show confirmation dialog
+        # todo: save file
+        
+    def load_mat_file(self, matpath:str|Path=None): # dialog callback
+        if not matpath:
+            self.show_file_dialog(BindingType.MatLoadFileDialog)
+            return 
+        self.app.data.load_materials(matpath)
 
-    def export_custommat(self, sender, app_data): # dialog callback
+    def export_custommat(self, outpath:str|Path=None, confirm=None):
+        if not outpath:
+            try:
+                def_path = bsp_custommat_path(self.app.data.bsppath)
+                init_path = def_path.parent
+                init_filename = def_path.with_name(def_path.stem + "_output.bsp")
+            except:
+                init_path, init_filename = None, None
+                
+            self.show_file_dialog(BindingType.MatExportFileDialog)
+            return 
+            
+        elif outpath.exists() and not confirm:
+            return # show confirmation dialog
+        
         dump_texinfo(self.app.data.bsppath,0b1110000000000, None,
                      material_set=self.app.data.wannabe_set,
                      outpath=Path(app_data["file_path_name"]))
+
 
     ## wad selection callback
     def load_selected_wads(self, *_): # button callback
@@ -673,7 +693,7 @@ class AppActions:
     ### GLOBAL IO handlers ###
     def on_mouse_x(self,cbname,sender,data):
         try: self._mouse_callbacks[cbname](data)
-        except: pass
+        except (AttributeError, KeyError): pass
     def on_mouse_down (self,sender,data): self.on_mouse_x("mouse_down", sender,data)
     def on_mouse_up   (self,sender,data): self.on_mouse_x("mouse_up",   sender,data)
     def on_mouse_click(self,sender,data): self.on_mouse_x("mouse_click",sender,data)
@@ -706,7 +726,7 @@ class App:
                                mouse_event_registrar=self.do.set_mouse_event_target)
                                
     def load_config(self,cfgpath):
-        
+        pass
 
     def update(self,*args,**kwargs):
         ''' pass this to self.view.update '''
