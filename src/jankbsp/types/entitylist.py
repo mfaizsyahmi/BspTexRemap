@@ -90,7 +90,7 @@ class EntityList(UserList):
         def _facing(ent,angle,spread):
             o = [float(a) for a in ent["angles"].split(" ")]
             i = [float(a) for a in angle.split(" ")]
-            j = [float(a) for a in spread.split(" ")]
+            j = [float(a) for a in spread.split(" ")] if spread else [90,0]
             return i[0]-j[0] <= o[0] <= i[0]+j[0] \
                and i[1]-j[1] <= o[1] <= i[1]+j[1]
         f_s = {

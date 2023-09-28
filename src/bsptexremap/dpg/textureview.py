@@ -229,15 +229,13 @@ class TextureView:
         return galleryItem
 
     def _get_tag_and_source_kwargs(self,prefix="MATVAL"):
-        ''' a common function to get a tag name that's unique but also regular,
+        ''' a common function to get a tag name that's unique but also related,
             such that related tags share the same prefix, with differing suffix
+            so it takes the form of
+                {PREFIX}{fixed width material name}{index}
+                
             then the first of such series is designated the primary source tag
             and all the other items point to it for their source value
-
-            prepares tags/sources for the material slider. it should be unique
-            but related, so it takes the form of
-                {PREFIX}{fixed width material name}{index}
-            this is to facilitate updating all the related material's mat values
 
             returns a kwargs dict containing tag (+source) that you can tag onto
             a add_item call
