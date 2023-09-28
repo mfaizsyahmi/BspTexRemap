@@ -295,7 +295,7 @@ class TextureView:
                 dpg.set_value(item._slider_uuid,slider_val)
                 dpg.bind_item_theme(item._slider_uuid,target_slider_theme)
 
-                dpg.configure_item(self._selector_uuid, show=self.selected)
+                dpg.configure_item(item._selector_uuid, show=self.selected)
                 dpg.set_value(item._selector_uuid,self.selected)
 
 

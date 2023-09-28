@@ -140,8 +140,7 @@ def add_textures_pane(app):
     ### textures pane ###
     _bind = lambda *args,**kwargs: _bind_last_item(app,*args,**kwargs) # shorthand
 
-    with dpg.child_window(autosize_y=False,menubar=True,
-                          horizontal_scrollbar=True) as winTextures:
+    with dpg.child_window(autosize_y=False,menubar=True) as winTextures:
         #dpg.bind_item_theme(dpg.last_item(),"theme:main_window") #"theme:normal_table"
 
         with dpg.menu_bar():
@@ -262,7 +261,7 @@ def add_textures_pane(app):
                               callback=lambda s,a,u:app.view.gallery.render())
 
         #with dpg.group() as gallery_root:
-        with dpg.child_window(border=False) as gallery_root:
+        with dpg.child_window(border=False,horizontal_scrollbar=True) as gallery_root:
             app.view.bind( gallery_root, _BT.GalleryRoot )
 
     def _center_resize(sender):
@@ -367,6 +366,12 @@ def add_main_window(app):
                 
                 _mi(label="Auto-load from BSP path",check=True)
                 _bind(_BT.Value, _prop(app.data,"auto_load_materials"))
+                ___()
+                
+                _mi(label="Parse info_texture_remap entity in map")
+                _mi(label="Automatically on map load",indent=8,check=True)
+                _bind(_BT.Value, _prop(app.data,"auto_parse_ents"))
+                
 
             with dpg.menu(label="Textures"):
                 _mi(label="Auto-load WADs from BSP path",check=True)

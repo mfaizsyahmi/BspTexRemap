@@ -41,7 +41,7 @@ class WadFile:
             fp.seek(item.offset)
             this_miptex = WadMipTex.load(fp,item.sizeondisk)
             # miptexes.append(this_miptex)
-            entries._miptex = this_miptex # reference to the data it's representing
+            item._miptex = this_miptex # reference to the data it's representing
 
         return cls(header,entries,only_entries) # ,miptexes)
 

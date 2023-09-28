@@ -11,7 +11,7 @@ from .colors import MaterialColors
 
 from .. import consts, utils
 from ..enums import MaterialEnum, DumpTexInfoParts
-from ..common import search_materials_file, search_wads, filter_materials, get_textures_from_wad, dump_texinfo
+from ..common import *
 from ..utils import failure_returns_none
 from ..bsputil import wadlist, guess_lumpenum, bsp_custommat_path
 from ..materials import MaterialSet, TextureRemapper
@@ -27,6 +27,7 @@ from typing import NamedTuple, ClassVar
 from operator import attrgetter
 from itertools import chain
 from concurrent.futures import ThreadPoolExecutor
+from math import log10, ceil
 import re, logging
 
 log = logging.getLogger(__name__)
@@ -82,10 +83,9 @@ class AppModel:
     bsppath : Path    = None
     bsp     : BspFile = None
     matpath : Path    = None
-    mat_set     : MaterialSet = field(default_factory=MaterialSet)
-    wannabe_set : MaterialSet = field(default_factory=MaterialSet)
-
-    matchars : str    = MaterialSet.MATCHARS # edit if loading CZ/CZDS
+    mat_set      : MaterialSet = field(default_factory=MaterialSet)
+    wannabe_set  : MaterialSet = field(default_factory=MaterialSet)
+    direct_remap : dict        = field(default_factory=dict)
 
     # settings
     auto_load_materials : bool = True # try find materials.path
@@ -93,6 +93,10 @@ class AppModel:
     auto_parse_ents     : bool = True # parse entity
     remap_entity_action : int  = 0    # RemapEntityActions.Insert
     backup              : bool = True # creates backup file if saving in same file
+
+    # info (generally read-only from other places)
+    remap_entity_count  : int  = 0
+    matchars : str    = MaterialSet.MATCHARS # edit if loading CZ/CZDS
 
     def load_bsp(self, bsppath):
         ''' loads given bsp, and kickstarts some post-load operations
@@ -108,16 +112,22 @@ class AppModel:
         self.app.view.load_textures(self.bsp.textures)
 
         ## setup material set
+        self.matpath = None
         if self.auto_load_materials:
             matpath = search_materials_file(self.bsppath)
             if matpath:
                 self.load_materials(matpath) # sets self.matpath and render the tables
-        else:
-            self.matpath = None
         self.app.view.render_material_tables() # manually render tables
 
-        ## setup wannabe set
+        ## setup wannabe set & direct remaps
         self.wannabe_set = MaterialSet()
+        self.direct_remap = {}
+        self.remap_entity_count = 0
+        for texremap_ent in iter_texremap_entities(self.bsp.entities):
+            self.remap_entity_count += 1
+            if self.auto_parse_ents:
+                self.wannabe_set |= MaterialSet.from_entity(texremap_ent)
+
         self.app.view.update_wannabe_material_tables()
 
         ## setup wad
@@ -127,12 +137,25 @@ class AppModel:
             self.app.view.load_external_wad_textures(paths_to_load)
 
         log.info("Done.")
+    
+    def parse_remap_entities(self):
+        if not self.bsp: return
+        for texremap_ent in iter_texremap_entities(self.bsp.entities):
+            self.wannabe_set |= MaterialSet.from_entity(texremap_ent)
 
     def load_materials(self, matpath):
         self.matpath = Path(matpath)
         self.mat_set = MaterialSet.from_materials_file(self.matpath)
         self.app.view.reflect()
         self.app.view.render_material_tables()
+    
+    def TEST_load_wad(self,wadpath):
+        ''' TEST of loading a wad file directly '''
+        with time_it():
+            log.debug(f"LOADING WAD: {Path(wadpath).name}")
+            with open(wadpath, "rb") as fp:
+                wad = WadFile.load(fp)
+        self.app.view.load_textures([item._miptex for item in wad.entries])
 
 
 @dataclass(frozen=True)
@@ -204,7 +227,9 @@ class AppView:
             update_predicate is a callable that checks whether it should update
             reflect_predicate is a callable that checks whether it should run on reflect
         '''
-        self.bound_items[tag] = BindingEntry(type, prop, data)
+        if tag not in self.bound_items: 
+            self.bound_items[tag] = []
+        self.bound_items[tag].append(BindingEntry(type, prop, data))
         if type in mappings.writeable_binding_types:
             dpg.configure_item(tag, callback=self.update)
 
@@ -215,47 +240,47 @@ class AppView:
             - set value using setattr(*prop, value)
         '''
         if sender not in self.bound_items: return
-        item = self.bound_items[sender]
-        if callable(item.update_predicate) and not item.update_predicate(): return
+        for item in self.bound_items[sender]:
+            if callable(item.update_predicate) and not item.update_predicate(): return
 
-        if item.type == BindingType.Value:
-            setattr(*item.prop, app_data)
-        elif item.type == BindingType.ValueIs:
-            setattr(*item.prop, item.data)
-        elif item.type == BindingType.TextMappedValue:
-            val = self._index_of(item.data,lambda x:x == app_data)
-            if val is not None: setattr(*item.prop, val)
+            if item.type == BindingType.Value:
+                setattr(*item.prop, app_data)
+            elif item.type == BindingType.ValueIs:
+                setattr(*item.prop, item.data)
+            elif item.type == BindingType.TextMappedValue:
+                val = self._index_of(item.data,lambda x:x == app_data)
+                if val is not None: setattr(*item.prop, val)
 
-        ### update specific things based on prop ###
-        ## material entries filter changed
-        if item.prop[0] == self and item.prop[1].startswith("filter_mat"):
-            self.render_material_tables(False,True) # update only entries
+            ### update specific things based on prop ###
+            ## material entries filter changed
+            if item.prop[0] == self and item.prop[1].startswith("filter_mat"):
+                self.render_material_tables(False,True) # update only entries
 
-        ## gallery size option change
-        elif item.prop[0] == self and item.prop[1] in \
-        ["gallery_size_scale", "gallery_size_maxlen"]:
-            self.gallery_size_val = len(mappings.gallery_size_map) - 1
+            ## gallery size option change
+            elif item.prop[0] == self and item.prop[1] in \
+            ["gallery_size_scale", "gallery_size_maxlen"]:
+                self.gallery_size_val = len(mappings.gallery_size_map) - 1
 
-        ## gallery size slider change
-        elif tuple(item.prop) == (self,"gallery_size_val") \
-        and self.gallery_size_val < len(mappings.gallery_size_map) - 1:
-            _, self.gallery_size_scale, self.gallery_size_maxlen \
-                    = mappings.gallery_size_map[self.gallery_size_val]
+            ## gallery size slider change
+            elif tuple(item.prop) == (self,"gallery_size_val") \
+            and self.gallery_size_val < len(mappings.gallery_size_map) - 1:
+                _, self.gallery_size_scale, self.gallery_size_maxlen \
+                        = mappings.gallery_size_map[self.gallery_size_val]
 
-        ## any of the gallery settings changed
-        if item.prop[0] == self and item.prop[1] in self._gallery_view_props:
-            self.reflect() # general total reflection
-            self.update_gallery(size_only = (item.prop[1]=="gallery_size_val"))
+            ## any of the gallery settings changed
+            if item.prop[0] == self and item.prop[1] in self._gallery_view_props:
+                self.reflect() # general total reflection
+                self.update_gallery(size_only = (item.prop[1]=="gallery_size_val"))
 
-        ## texture remap view settings
-        elif item.prop[0] == self and item.prop[1][0:9] == "texremap_":
-            self.update_wannabe_material_tables()
+            ## texture remap view settings
+            elif item.prop[0] == self and item.prop[1][0:9] == "texremap_":
+                self.update_wannabe_material_tables()
 
-        ## updates other bound items with same prop
-        else:
-            self.reflect(not_tagged=sender,
-                         prop=item.prop,
-                         types=mappings.reflect_all_binding_types)
+            ## updates other bound items with same prop
+            else:
+                self.reflect(not_tagged=sender,
+                             prop=item.prop,
+                             types=mappings.reflect_all_binding_types)
 
 
     def reflect(self, not_tagged=None, prop=None, types=mappings.reflect_all_binding_types):
@@ -269,37 +294,39 @@ class AppView:
             else:
                 dpg.set_viewport_title("BspTexRemap GUI")
 
-        for tag,item in self.bound_items.items():
-            if tag == not_tagged: continue
-            elif prop:
-                if (item.prop and tuple(item.prop) != tuple(prop)) \
-                or item.prop != prop: continue
-            elif item.type not in types \
-            or callable(item.reflect_predicate) and not item.reflect_predicate():
-                continue
+        for tag,items in self.bound_items.items():
+            for item in items:
+                if tag == not_tagged: continue
+                elif prop:
+                    if (item.prop and tuple(item.prop) != tuple(prop)) \
+                    or item.prop != prop: continue
+                elif item.type not in types \
+                or callable(item.reflect_predicate) and not item.reflect_predicate():
+                    continue
 
-            if item.type == BindingType.Value:
-                dpg.set_value(tag, getattr(*item.prop))
-            elif item.type == BindingType.ValueIs:
-                dpg.set_value(tag, getattr(*item.prop) == item.data)
-            elif item.type == BindingType.TextMappedValue:
-                val = item.data(getattr(*item.prop)) if callable(item.data) \
-                        else item.data[getattr(*item.prop)]
-                dpg.set_value(tag, val)
-            # these are readonly
-            elif item.type in [BindingType.FormatLabel, BindingType.FormatValue]:
-                label, *attrs = item.data
-                attr_values = tuple( x(getattr(*item.prop)) if callable(x) \
-                                else x[getattr(*item.prop)] for x in attrs )
-                if item.type == BindingType.FormatValue:
-                    dpg.set_value(tag,label.format(*attr_values))
-                else:
-                    dpg.configure_item(tag, label=label.format(*attr_values))
+                if item.type == BindingType.Value:
+                    dpg.set_value(tag, getattr(*item.prop))
+                elif item.type == BindingType.ValueIs:
+                    dpg.set_value(tag, getattr(*item.prop) == item.data)
+                elif item.type == BindingType.TextMappedValue:
+                    val = item.data(getattr(*item.prop)) if callable(item.data) \
+                            else item.data[getattr(*item.prop)]
+                    dpg.set_value(tag, val)
+                # these are readonly
+                elif item.type in [BindingType.FormatLabel, BindingType.FormatValue]:
+                    label, *attrs = item.data
+                    attr_values = tuple( x(getattr(*item.prop)) if callable(x) \
+                                    else x[getattr(*item.prop)] for x in attrs )
+                    if item.type == BindingType.FormatValue:
+                        dpg.set_value(tag,label.format(*attr_values))
+                    else:
+                        dpg.configure_item(tag, label=label.format(*attr_values))
 
     def get_bound_entries(self,prop=None,type:BindingType=None):
-        for k,v in self.bound_items.items():
-            if (prop and v.prop == prop) or v.type == type:
-                yield (k, self.bound_items[k])
+        for k,list in self.bound_items.items():
+            for v in list:
+                if (prop and v.prop == prop) or v.type == type:
+                    yield (k, self.bound_items[k])
 
     def get_bound_entry(self,prop=None,type:BindingType=None):
         return next(self.get_bound_entries(prop,type),None)
@@ -481,6 +508,8 @@ class AppView:
                 consts.MATNAME_MIN_LEN <= len(name) <= consts.MATNAME_MAX_LEN
         suitable_mark = lambda name: "Y" if is_suitable(name) else "N"
         suitable_colors = lambda name: (0,255,0) if is_suitable(name) else (255,0,0)
+        table_entry_width = 1 if not len(mat_set) else ceil(log10(len(mat_set)))
+        ra = lambda num: str(num).rjust(table_entry_width)
 
         ### SUMMARY TABLE
         if summary:
@@ -489,10 +518,10 @@ class AppView:
             for mat in mat_set.MATCHARS:
                 data.append([ ( ME(mat).value, {"color": mat_color(mat)} ),
                                 ME(mat).name,
-                                len(mat_set[mat]),
-                              ( len(choice_set[mat]),
+                                ra(len(mat_set[mat])),
+                              ( ra(len(choice_set[mat])),
                                 {"color" : avail_colors(len(choice_set[mat]))} ),
-                              len(wannabe_set[mat]) ])
+                                ra(len(wannabe_set[mat])) ])
             # totals row
             data.append(["", "TOTAL", len(mat_set), len(choice_set), len(wannabe_set)])
 
@@ -661,6 +690,10 @@ class AppActions:
                      outpath=Path(app_data["file_path_name"]))
 
 
+    ## parse entity in bsp (just a passthrough)
+    def parse_remap_entities(self, *_):
+        self.app.data.parse_remap_entities()
+
     ## wad selection callback
     def load_selected_wads(self, *_): # button callback
         # TODO: use self.view.wad_found_paths as the only source of truth please
@@ -689,11 +722,14 @@ class AppActions:
             self.app.data.load_bsp(data[0])
         elif suffix == ".txt":
             self.app.data.load_materials(data[0])
+        elif suffix == ".wad":
+            # TEST
+            self.app.data.TEST_load_wad(data[0])
 
     ### GLOBAL IO handlers ###
     def on_mouse_x(self,cbname,sender,data):
         try: self._mouse_callbacks[cbname](data)
-        except (AttributeError, KeyError): pass
+        except (AttributeError, KeyError, TypeError): pass
     def on_mouse_down (self,sender,data): self.on_mouse_x("mouse_down", sender,data)
     def on_mouse_up   (self,sender,data): self.on_mouse_x("mouse_up",   sender,data)
     def on_mouse_click(self,sender,data): self.on_mouse_x("mouse_click",sender,data)
@@ -710,7 +746,7 @@ class AppActions:
         self._mouse_event_target = sender
         self._mouse_callbacks = callbacks
         ## clear on next frame
-        dpg.set_frame_callback(dpg.get_frame_count()+1,
+        dpg.set_frame_callback(dpg.get_frame_count()+2,
                                lambda: self.set_mouse_event_target())
 
 
