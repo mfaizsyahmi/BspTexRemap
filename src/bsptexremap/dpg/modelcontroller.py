@@ -104,17 +104,17 @@ class AppModel:
         '''
         log.info(f"Loading BSP: {bsppath!s}")
         gui_utils.show_loading(True)
-        
+
         ## load bsp
         self.bsppath = Path(bsppath)
         with open(self.bsppath, "rb") as f:
             self.bsp = BspFile(f, lump_enum=guess_lumpenum(self.bsppath))
-        
+
         ## reset all the matchars
         self.matchars = matchars_by_mod(bsp_modname_from_path(self.bsppath))
         MaterialSet.MATCHARS = self.matchars
         TextureView.class_set_matchars(self.matchars)
-        
+
         ## load textures
         self.app.view.load_textures(self.bsp.textures)
 
@@ -192,7 +192,7 @@ class AppView:
     gallery : GalleryView        = field(default_factory=GalleryView)
 
     # check against issuing dpg commands when viewport isn't ready
-    _viewport_ready : bool       = False
+    #_viewport_ready : bool       = False
 
     # material entry filter settings
     filter_matchars : str        = ""
@@ -349,8 +349,11 @@ class AppView:
             if callable(thing):
                 return i
 
-    def set_viewport_ready(self):
-        self._viewport_ready = True
+    @property
+    def _viewport_ready(self):
+        return dpg.get_frame_count() > 3
+
+    def set_viewport_ready(self,*_):
         self.reflect()
         self.update_gallery()
 
@@ -399,7 +402,8 @@ class AppView:
             self.textures = loaded_textures
             result = len(loaded_textures)
 
-        if self._viewport_ready: self.update_gallery()
+        log.debug(f"load_texture: done.")
+        self.update_gallery()
         return result
 
 
@@ -502,6 +506,7 @@ class AppView:
             self.gallery.max_length = size_tuple.max_length
 
         # render the gallery
+        if not self._viewport_ready: return
         self.gallery.render()
         self.reflect(prop=(self.app,"view"))
 
@@ -533,7 +538,7 @@ class AppView:
                                 {"color" : avail_colors(len(choice_set[mat]))} ),
                                 ra(len(wannabe_set[mat])) ])
             # totals row
-            data.append(["", "TOTAL", 
+            data.append(["", "TOTAL",
                         ra(len(mat_set)), ra(len(choice_set)), ra(len(wannabe_set))])
 
             table = self.get_dpg_item(type=BindingType.MaterialSummaryTable)
@@ -559,7 +564,7 @@ class AppView:
         ''' update the summary table display of wannabe set items '''
         mat_set = self.app.data.mat_set
         table_entry_width = 1 if not len(mat_set) else ceil(log10(len(mat_set)))
-        ra = lambda num: str(num).rjust(table_entry_width)        
+        ra = lambda num: str(num).rjust(table_entry_width)
         table = self.get_dpg_item(type=BindingType.MaterialSummaryTable)
 
         for i, mat in enumerate(self.app.data.wannabe_set.MATCHARS):
@@ -731,7 +736,7 @@ class AppActions:
 
         elif Path(outpath).exists() and not confirm:
             cb_wrap = gui_utils.wrap_message_box_callback(self.export_custommat,outpath)
-            gui_utils.confirm_replace(outpath, cb_wrap)
+            gui_utils.confirm_replace(str(outpath), cb_wrap)
             return
 
         try:
@@ -757,14 +762,19 @@ class AppActions:
         log.debug(f"selection: {value}")
         for item in self.view.gallery.data: # only the list in gallery data is selectable
             item._select_cb(sender,value)
+            item.update_state()
+
     def selection_set_material(self, sender, app_data, mat:str):
         for item in self.view.gallery.data:
             if item.selected:
                 item.mat = mat
+                item.update_state()
+
     def selection_embed(self, sender, app_data, embed:bool):
         for item in self.view.gallery.data:
             if item.selected:
-                item.become_external = not embed
+                item.become_external = not embed if embed != item.is_external else None
+                item.update_state()
 
     ## file drop
     def handle_drop(self, data, keys): # DearPyGui_DragAndDrop
@@ -807,11 +817,17 @@ class App:
         self.data = AppModel(self)
         self.view = AppView(self)
         self.do = AppActions(self,self.view)
-        dpg.set_frame_callback(1,callback=lambda:self.view.set_viewport_ready())
+
+        self.global_texture_registry = dpg.add_texture_registry()
 
         TextureView.class_init(app=self,
                                mat_update_cb=self.view.update_wannabe_material_tables,
-                               mouse_event_registrar=self.do.set_mouse_event_target)
+                               mouse_event_registrar=self.do.set_mouse_event_target,
+                               global_texture_registry=self.global_texture_registry)
+
+        self.cfg = {
+            "use_multithread" : False
+        }
 
     def load_config(self,cfgpath):
         pass

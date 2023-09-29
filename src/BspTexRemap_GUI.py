@@ -35,6 +35,16 @@ def _bare_cb(fn):
     cb = lambda sender, app_data: fn()
     return cb
     
+
+def setup_fonts():
+    return # nah...
+    font_path = __file__ + "/../assets/fonts/FiraCode-VariableFont_wght.ttf"
+    # add a font registry
+    with dpg.font_registry():
+        # first argument ids the path to the .ttf or .otf file
+        default_font = dpg.add_font(font_path, 18)
+    return default_font
+    
     
 def add_file_dialogs(app):
     file_dlg_cfg = {
@@ -331,7 +341,7 @@ If you forgo this step, the texture renamings would be irreversible.
         _help("Generates custom material file that can be used\nwith BspTexRemap.exe (the console program)")
 
 
-def add_main_window(app):
+def add_main_window(app, default_font=None):
     ''' main window layout '''
     _bind = lambda *args,**kwargs: _bind_last_item(app,*args,**kwargs) # shorthand
     _mi = dpg.add_menu_item
@@ -379,12 +389,14 @@ def add_main_window(app):
 
             with dpg.menu(label="Tools"):
                 _mi(label="Log console",check=True,
-                                  callback=lambda s,a,u: \
-                                    dpg.configure_item(gui_utils.DpgLogHandler.TAG,show=a))
+                    callback=lambda s,a,u:\
+                             dpg.configure_item(gui_utils.DpgLogHandler.TAG,show=a))
                 _mi(label="GUI item registry",
-                                  callback=lambda *_:dpg.show_item_registry())
+                    callback=lambda *_:dpg.show_item_registry())
                 _mi(label="GUI style editor",
-                                  callback=lambda *_:dpg.show_style_editor())
+                    callback=lambda *_:dpg.show_style_editor())
+                _mi(label="Show loading",check=True,
+                    callback=lambda s,a,u:gui_utils.show_loading(a))
 
         ### MAIN LAYOUT TABLE ###
         with dpg.table(resizable=True,height=-8) as mainLayoutTable: # header_row=False,
@@ -419,6 +431,9 @@ def add_main_window(app):
                 ### options/actions pane ###
                 add_right_pane(app)
 
+    # set font of specific widget
+    if default_font:
+        dpg.bind_font(default_font)
     ### END OF WINDOW LAYOUT
 
 
@@ -433,18 +448,21 @@ def main():
     app = App()
     dpg_dnd.set_drop(app.do.handle_drop)
 
+    default_font = setup_fonts()
     colors.add_themes()
     add_file_dialogs(app)
-    add_main_window(app)
+    add_main_window(app, default_font)
     #app.view.reflect()
     
     if args.bsppath:
         app.data.load_bsp(args.bsppath)
 
     dpg.create_viewport(title='BspTexRemap GUI', width=1200, height=800)
+    dpg.set_viewport_decorated(True)
     dpg.setup_dearpygui()
     dpg.show_viewport()
     dpg.set_primary_window("Primary Window", True)
+    dpg.set_frame_callback(4,callback=app.view.set_viewport_ready)
 
     dpg.start_dearpygui()
     dpg.destroy_context()

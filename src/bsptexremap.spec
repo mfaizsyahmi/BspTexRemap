@@ -37,7 +37,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=['img\\BspTexRemap_64.ico'],
+    icon=['assets\\images\\BspTexRemap_64.ico'],
 )
 coll = COLLECT(
     exe,

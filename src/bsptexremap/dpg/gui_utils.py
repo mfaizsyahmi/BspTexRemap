@@ -33,9 +33,9 @@ def create_file_dialog(label,callback, exts,
     kwargs = {"tag":tag} if tag else {} # a way to optionally pass tag
     with dpg.file_dialog(
             label=label,
-            directory_selector=directory_selector, 
+            directory_selector=directory_selector,
             show=show, modal=modal,
-            callback=callback, 
+            callback=callback,
             width=width ,height=height,
             **kwargs) as dlg_tag:
 
@@ -43,32 +43,32 @@ def create_file_dialog(label,callback, exts,
             text = file_dlg_exts[ext_conf][0]
             kwargs = file_dlg_exts[ext_conf][1]
             dpg.add_file_extension(text, **kwargs)
-            
+
     return dlg_tag
 
 
-def populate_table(target, 
-                   headers:list[str], 
+def populate_table(target,
+                   headers:list[str],
                    data:list[list[str|tuple]]):
     ''' clears and repopulates target table
         header item can be label str or a tuple of label and weight
         cell item can be a text str or a tuple of text and kwargs dict
-    '''    
+    '''
     dpg.delete_item(target, children_only=True)
     dpg.push_container_stack(target)
-    
+
     for this_header in headers:
         try:    label, weight = this_header # try unpack
         except: label, weight = this_header, 1
         dpg.add_table_column(label=label,init_width_or_weight=weight)
-    
+
     for row in data:
         with dpg.table_row():
             for col in row:
                 try:    text, kwargs = col     # try unpack
                 except: text, kwargs = col, {}
                 dpg.add_text(text,**kwargs)
-    
+
     dpg.pop_container_stack()
 
 
@@ -93,14 +93,14 @@ def populate_imglist(target, items:list[ImglistEntry], max_length=48, grow=False
     '''
     dpg.delete_item(target, children_only=True)
     dpg.push_container_stack(target)
-        
+
     try:
         for item in items:
             scale = min(max_length/item.width,max_length/item.height)
             factors = (scale,) if grow else (scale,1)
             w,h = item.width*min(*factors), item.height*min(*factors)
             x,y = max_length/2-w/2, max_length/2-h/2
-                
+
             with dpg.group(horizontal=True):
                 with dpg.drawlist(width=max_length,height=max_length):
                     if item.image is None:
@@ -112,10 +112,10 @@ def populate_imglist(target, items:list[ImglistEntry], max_length=48, grow=False
                         dpg.add_text(line)
     finally:
         dpg.pop_container_stack()
-    
+
 
 def traverse_children(root, paths: str):
-    ''' traverse item hierarchy by position 
+    ''' traverse item hierarchy by position
         paths is in the form of "1.3.12" or "0:1.3"
         path part is separated by dot. slot is defined by #: before number
         traversal is on slot 1 by default
@@ -133,12 +133,12 @@ def sort_table(sender, sort_specs):
         1. no sorting -> sort_specs == None
         2. single sorting -> sort_specs == [[column_id, direction]]
         3. multi sorting -> sort_specs == [[column_id, direction], [column_id, direction], ...]
-        
+
         notes:
         1. direction is ascending if == 1
         2. direction is ascending if == -1
     '''
-    
+
     # no sorting case
     if sort_specs is None: return
 
@@ -161,7 +161,7 @@ def sort_table(sender, sort_specs):
     new_order = []
     for pair in sortable_list:
         new_order.append(pair[0])
-    
+
     dpg.reorder_items(sender, 1, new_order)
 
 
@@ -174,18 +174,18 @@ class DpgLogHandler(logging.Handler):
         logging.CRITICAL: (150,  0,255)  # purple
     }
     TAG = "log_console_window"
-    
+
     def __init__(self, level=logging.NOTSET,**kwargs):
         super().__init__(level)
         try:
             dpg.add_window(tag=DpgLogHandler.TAG, label="Log Console",
                            width=420, height=200, **kwargs)
         except: pass
-        
+
     def emit(self, record):
         try: dpg.configure_item(self._last_item,tracked=False)
         except: pass
-        
+
         msg = self.format(record)
         self._last_item = dpg.add_text(
                 msg, parent=DpgLogHandler.TAG, user_data=record, wrap=0,
@@ -195,7 +195,7 @@ class DpgLogHandler(logging.Handler):
         # scroll to end?
         #dpg.set_y_scroll(DpgLogHandler.TAG,dpg.get_y_scroll_max(DpgLogHandler.TAG))
         dpg.set_frame_callback(dpg.get_frame_count() + 2, self._untrack_all)
-    
+
     def _untrack_all(self,*_):
         for item in dpg.get_item_children(DpgLogHandler.TAG,1):
             dpg.configure_item(item,tracked=False)
@@ -206,36 +206,51 @@ class DpgLogToTextItemHandler(logging.Handler):
         super().__init__(level)
         self._target = target
         self._set_colors = set_colors
-        
+
     def emit(self, record):
         msg = self.format(record)
         dpg.set_value(self._target,msg)
-        
+
         dpg.configure_item(self._target, user_data=record)
         if self._set_colors:
             dpg.configure_item(self._target, color=DpgLogHandler.COLORS[record.levelno])
 
+def __wtf(): pass
 
 def show_loading(show=True):
     ''' shows a little window with a loading spinner at the bottom right corner '''
     TAG = "SPINNER_WINDOW"
+    VAR_TAG = "var:SPINNER_WINDOW"
+
     if dpg.get_alias_id(TAG):
         dpg.configure_item(TAG,show=show)
+        dpg.set_value(VAR_TAG, show)
     elif show:
-        with dpg.window(tag=TAG, no_title_bar=True, no_resize=True,min_size=[64,32]):
+        with dpg.value_registry():
+            dpg.add_bool_value(tag=VAR_TAG, default_value=show)
+        with dpg.window(tag=TAG, no_title_bar=True, no_resize=True,
+                        min_size=[64,32]):
             with dpg.group(horizontal=True):
                 dpg.add_loading_indicator(circle_count=8)
                 dpg.add_text("Loading...")
 
-    if not show: return
-    w_vp = dpg.get_viewport_client_width()
-    h_vp = dpg.get_viewport_client_height()
-    
-    dpg.split_frame()
-    w = dpg.get_item_width(TAG)
-    h = dpg.get_item_height(TAG)
-    dpg.set_item_pos(TAG, [w_vp - w - 16, h_vp - h - 16])
-    
+    def _update_position(self, *_):
+        if not dpg.get_value(VAR_TAG): return
+
+        w_vp = dpg.get_viewport_client_width()
+        h_vp = dpg.get_viewport_client_height()
+
+        w = dpg.get_item_width(TAG)
+        h = dpg.get_item_height(TAG)
+        dpg.set_item_pos(TAG, [w_vp - w - 16, h_vp - h - 16])
+
+        dpg.set_frame_callback(dpg.get_frame_count()+1,
+                               callback=lambda:self(self))
+
+    if show:
+        dpg.set_frame_callback(dpg.get_frame_count()+1,
+                               callback=lambda:_update_position(_update_position))
+
 
 ### MESSAGE BOX ----------------------------------------------------------------
 class MsgBoxResult(IntEnum): # unused
@@ -243,10 +258,12 @@ class MsgBoxResult(IntEnum): # unused
     OK = 1
     Yes = 2
     No = 3
-    
 
-def wrap_message_box_callback(fn, *args, 
-                              _result_arg="confirm", _drop_on_false=True, 
+def __wtf2(): pass
+
+
+def wrap_message_box_callback(fn, *args,
+                              _result_arg="confirm", _drop_on_false=True,
                               **kwargs):
     ''' given a function, returns a callable that a messagebox callback will call,
         adding the result of the message box in an arg of given name
@@ -259,25 +276,24 @@ def wrap_message_box_callback(fn, *args,
         if not user_data[0] and _drop_on_false: return
         # else, call the function being wrapped
         fn(*args, **kwargs, **{_result_arg:user_data[1]})
-        
+
     return wrap
 
-def message_box(title, message, selection_callback:callable=None, 
+def message_box(title, message, selection_callback:callable=None,
                 buttons={True:"OK"}):
     ''' selection_callback must use a callback created with wrap_msgbox_callback
     '''
     if not selection_callback:
         selection_callback = wrap_message_box_callback(lambda *_,**__:True)
-                
+
     # guarantee these commands happen in the same frame
     with dpg.mutex():
 
         viewport_width  = dpg.get_viewport_client_width()
         viewport_height = dpg.get_viewport_client_height()
 
-        with dpg.window(label=title, modal=True, 
-                        no_close=True, no_resize=True) as modal_id:
-                        
+        with dpg.window(label=title, modal=True, no_close=True) as modal_id:
+
             dpg.add_text()
             with dpg.group(horizontal=True):
                 dpg.add_text(" ")
@@ -285,20 +301,23 @@ def message_box(title, message, selection_callback:callable=None,
                 dpg.add_text(" ")
             dpg.add_text()
             dpg.add_separator()
-            
+
             with dpg.group(horizontal=True):
                 for retval, label in buttons.items():
                     width = max(75,dpg.get_text_size(label)[0]+16)
-                    dpg.add_button(label=label, 
-                                   width=width, 
-                                   user_data=(modal_id, retval), 
+                    dpg.add_button(label=label,
+                                   width=width,
+                                   user_data=(modal_id, retval),
                                    callback=selection_callback)
 
     # guarantee these commands happen in another frame
     dpg.split_frame()
+    dpg.show_item(modal_id)
+    dpg.split_frame()
     width = dpg.get_item_width(modal_id)
     height = dpg.get_item_height(modal_id)
     dpg.set_item_pos(modal_id, [viewport_width // 2 - width // 2, viewport_height // 2 - height // 2])
+
 
 def confirm(title, message, selection_callback:callable):
     message_box(title, message, selection_callback,
@@ -306,5 +325,6 @@ def confirm(title, message, selection_callback:callable):
 
 def confirm_replace(filename, selection_callback:callable):
     confirm("Confirm file overwrite",
-            f'"{filename}"\nFile already exists. Overwrite?')
+            f'"{filename}"\nFile already exists. Overwrite?',
+            selection_callback)
 

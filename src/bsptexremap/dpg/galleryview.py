@@ -37,12 +37,18 @@ class GalleryView(UserList):
 
     def render(self, data=None, datafilter=None, *args, **kwargs):
         # an attempt at throttling render calls
+        if dpg.get_frame_count() < 4:  # reject early calls
+            dpg.set_frame_callback(4,callback=lambda:\
+                    self.render(data,datafilter,*args,**kwargs)
+            )
+            return
         if not data and not datafilter \
         and self._render_on_frame == dpg.get_frame_count(): return
 
         if not data: data=self.data
         if datafilter: data = filter(datafilter,data)
 
+        log.debug(f"gallery: {len(data)} items to render")
         self._render_on_frame = dpg.get_frame_count()
         dpg.delete_item(self.parent, children_only=True)
 
@@ -68,24 +74,6 @@ class GalleryView(UserList):
                             i += 1; row_items += 1
 
             dpg.pop_container_stack()
-        '''
-        row = self._new_row(True);
-        row_w, row_items = 0, 0
-        for i, item in enumerate(data):
-            item_w = item.estimate_group_width(self.scale, self.max_length)
-            if row_items \
-            and row_w + self.spacing + item_w > win_w:
-                row = self._new_row()
-                row_w, row_items = 0, 0
-
-            dpg.push_container_stack(row)
-            self._items.append(item.render(self.scale, self.max_length))
-            dpg.pop_container_stack()
-
-            row_w += self.spacing + item_w
-            row_items += 1
-        dpg.pop_container_stack()
-        '''
 
 
     def reflow(self): # DON'T USE, BUGGY AF

@@ -4,7 +4,10 @@ from collections import namedtuple
 
 class Subscriptable:
     ''' support for class[item] '''
-    def __class_getitem__(cls, item): return cls.__dict__[item]
+    def __class_getitem__(cls, item):
+        ''' support for class[item] (prefered way)'''
+        if item in cls.__dict__: return cls.__dict__[item] 
+        return None
 
 
 _c = namedtuple("ColorRegistry", ["color","bg","fg"])
@@ -30,16 +33,21 @@ class MaterialColors(Subscriptable):
     A = _c(( 76,152,  0,255), ( 76,152,  0,255), (255,255,255,255)) # Grass
     X = _c(( 76,152,  0,255), ( 76,152,  0,255), (255,255,255,255)) # GrassCZ
     R = _c((192,192,192,255), (192,192,192,255), (  0,  0,  0,255)) # Gravel
+    unknown = \
+        _c((170,170,170,255), (170,170,170,255), (  0,  0,  0,255)) # unknown
 
 class AppColors(Subscriptable):
     #              text color         background         fg over bg
     # Texts        (?)                unused             unused
-    Help     = _c((  0,200,  0,255), (100,100,100,255), (  0,255,  0,255))
-    #              texview name      texview label bg    texview label fg
-    Embedded = _c((255,255,255,255), (128, 64,  0,255), (  0,  0,  0,255))
-    External = _c((150,150,150,255), (100,100,100,255), (255,255,255,255))
+    Help      = _c((  0,200,  0,255), (100,100,100,255), (  0,255,  0,255))
+    #               texview name      texview label bg    texview label fg
+    Embedded  = _c((255,255,255,255), (128, 64,  0,255), (  0,  0,  0,255))
+    External  = _c((150,150,150,255), (100,100,100,255), (255,255,255,255))
+    #               unused            texview label bg    texview label fg
+    ToEmbed   = _c((  0,  0,  0,255), (  0,200,  0,255), (255,255,255,255))
+    ToUnembed = _c((  0,  0,  0,255), (200,  0,  0,255), (255,255,255,255))
 
-    Selected = _c((  0,170,255,255), (  0,170,255,255), (  0,170,255,255))
+    Selected  = _c((  0,170,255,255), (  0,170,255,255), (  0,170,255,255))
 
 class AppThemes(Subscriptable):             # applies to:
     Embedded   = "theme:texlabel_embedded"  # texview src button
@@ -68,6 +76,8 @@ class AppThemes(Subscriptable):             # applies to:
     Material_A = "theme:texview_mat_A"      # texview slider
     Material_X = "theme:texview_mat_X"      # texview slider
     Material_R = "theme:texview_mat_R"      # texview slider
+    Material_unknown = \
+                 "theme:texview_mat_unknown"# texview slider
 
 def add_themes():
     with dpg.theme(tag="theme:main_window"):
@@ -82,6 +92,10 @@ def add_themes():
     with dpg.theme(tag="theme:normal_table"):
         with dpg.theme_component(0): pass
             #dpg.add_theme_color(dpg.mvThemeCol_TableHeaderBg ,(48,48,51,255))
+
+    with dpg.theme(tag="theme:texview_popup"):
+        with dpg.theme_component(dpg.mvWindowAppItem):
+            dpg.add_theme_style(dpg.mvStyleVar_WindowPadding,0,0)
 
     #### TexView Themes ####
     ### Normal/Selected  ###
@@ -108,13 +122,13 @@ def add_themes():
 
     with dpg.theme(tag=AppThemes.ToEmbed):
         with dpg.theme_component(dpg.mvButton):
-            dpg.add_theme_style(dpg.mvStyleVar_FrameBorderSize, 1)
-            dpg.add_theme_color(dpg.mvThemeCol_Border, (0,255,0,255))
+            dpg.add_theme_color(dpg.mvThemeCol_Button, AppColors.ToEmbed.bg)
+            dpg.add_theme_color(dpg.mvThemeCol_Text,   AppColors.ToEmbed.fg)
 
     with dpg.theme(tag=AppThemes.ToUnembed):
         with dpg.theme_component(dpg.mvButton):
-            dpg.add_theme_style(dpg.mvStyleVar_FrameBorderSize, 1)
-            dpg.add_theme_color(dpg.mvThemeCol_Border, (255,0,0,255))
+            dpg.add_theme_color(dpg.mvThemeCol_Button, AppColors.ToUnembed.bg)
+            dpg.add_theme_color(dpg.mvThemeCol_Text,   AppColors.ToUnembed.fg)
 
     with dpg.theme(tag=AppThemes.Uneditable):
         with dpg.theme_component(dpg.mvSliderInt, enabled_state=False): # slider only
@@ -131,13 +145,15 @@ def add_themes():
             pass
 
     for mat in MaterialEnum:
-        with dpg.theme(tag=AppThemes[f"Material_{mat.value}"]):
+        tag = AppThemes[f"Material_{mat.value}"] or AppThemes.Material_unknown
+        mat_color_entry = MaterialColors[mat.value] or MaterialColors.unknown
+        with dpg.theme(tag=tag):
             with dpg.theme_component(dpg.mvSliderInt): # slider only
                 dpg.add_theme_color(dpg.mvThemeCol_SliderGrab,
-                                    MaterialColors[mat.value].bg)
+                                    mat_color_entry.bg)
                 dpg.add_theme_color(dpg.mvThemeCol_SliderGrabActive,
-                                    MaterialColors[mat.value].bg)
+                                    mat_color_entry.bg)
                 dpg.add_theme_color(dpg.mvThemeCol_Text,
-                                    MaterialColors[mat.value].color)
+                                    mat_color_entry.color)
 
 

@@ -32,6 +32,8 @@ class TextureView:
     uuid : int             = field(init=False,default=None) # of the image
     _view_uuid : int       = field(init=False,default=None) # of the view widget
     selected : bool        = field(init=False,default=False) # view state
+    _handlers_initialized  = False
+
 
     ## static reference to the app model to get the mat_set and wannabe_sets
     app : ClassVar = None
@@ -46,7 +48,7 @@ class TextureView:
     matchars_disabled : ClassVar[str] = "_" + MaterialSet.MATCHARS.lower()
 
     @classmethod
-    def class_init(cls, app, mat_update_cb, mouse_event_registrar):
+    def class_init(cls, app, mat_update_cb, mouse_event_registrar, global_texture_registry):
         ''' inits class vars and inserts the static components (e.g. handlers and popups)
             app = reference to app
             collection = reference to the list where all the instances are
@@ -57,31 +59,24 @@ class TextureView:
         cls.app = app # used to get/set materials
         cls.mat_update_cb = mat_update_cb
         cls.mouse_event_registrar = mouse_event_registrar
+        cls.global_texture_registry = global_texture_registry
 
-        with dpg.item_handler_registry() as mouse_hover_tracker:
-            dpg.add_item_hover_handler(callback=cls.static_item_hover_handler)
+        ## the popup for embedded/external button
+        with dpg.window(tag="TEXVIEW:POPUP", popup=True, 
+                        show=False, autosize=True) as mx_popup:
+            mx_list = dpg.add_listbox(("Embedded","External"),num_items=2)
+            
+        dpg.bind_item_theme(mx_popup,"theme:texview_popup")
+        
+        cls._mx_popup = mx_popup
+        cls._mx_list = mx_list
 
-        cls.mouse_hover_tracker = mouse_hover_tracker
-    
+
     @classmethod
     def class_set_matchars(cls, matchars):
         cls.matchars_base = matchars.upper()
         cls.matchars      = "-" + cls.matchars_base
         cls.matchars_disabled = "_" + cls.matchars_base.lower()
-        
-        
-    @classmethod
-    def static_item_hover_handler(cls,sender,target):
-        ''' this fn is continuously called when the target is hovered
-            target is the item being hovered
-        '''
-        if dpg.get_item_alias(target).startswith("MATVAL:"):
-            cls.mouse_event_registrar(target,{
-                "mouse_wheel": lambda data:\
-                    dpg.get_item_callback(target)(0,data) # dpg.get_value(target)
-            })
-        elif dpg.get_item_user_data(target)[1]._view_uuid == target:
-            dpg.get_item_user_data(target)[1]._on_hover(True)
 
 
     @classmethod
@@ -107,17 +102,53 @@ class TextureView:
 
     def __post_init__(self):
         self.matname = MaterialSet.strip(self.name).upper()
-        if not self.data: return
-        with dpg.texture_registry():
-            self.uuid = dpg.add_static_texture(
-                width=self.width, height=self.height,
-                default_value=self.data,
-                label=self.name
-            )
+
+        if self.data:
+            dpg.push_container_stack(TextureView.global_texture_registry)
+            try:
+                self.uuid = dpg.add_static_texture(
+                    width=self.width, height=self.height,
+                    default_value=self.data,
+                    label=self.name
+                )
+            except:
+                log.warning(f"Failed to load texture image for: {self.name}")
+            finally:
+                dpg.pop_container_stack()
+
+
+    def _init_handlers(self):
+        ''' handlers for the rendered dpg items, created once per lifetime.
+            it's easier to have handlers per instance, as it's cumbersome to get
+            instance reference from class handlers.
+        '''
+
+        ## gallery item hover
+        with dpg.item_handler_registry() as gallery_hover_tracker:
+            dpg.add_item_hover_handler(callback=lambda:self._on_hover(True))
+        self.gallery_hover_tracker = gallery_hover_tracker
+
+        ## material slider
+        with dpg.item_handler_registry() as matslider_hover_handler:
+            dpg.add_item_hover_handler(callback=lambda:self._slider_hover())
+        self.matslider_hover_handler = matslider_hover_handler
+
+        ## embed/extern button click
+        with dpg.item_handler_registry() as mx_button_handler:
+            dpg.add_item_clicked_handler(callback=lambda:self._mx_button_click())
+        self.mx_button_handler = mx_button_handler
+
+        self._handlers_initialized = True
 
     def __del__(self):
-        ''' make sure item is freed '''
-        if self.uuid: dpg.delete_item(self.uuid)
+        ''' make sure all items are freed '''
+        if self._handlers_initialized:
+            dpg.delete_item(self.gallery_hover_tracker)
+            dpg.delete_item(self.matslider_hover_handler)
+            dpg.delete_item(self.mx_button_handler)
+        if self.uuid:
+            try: dpg.delete_item(self.uuid)
+            except: pass
 
     def update_miptex(self, miptex, source_name, precedence=999):
         ''' if found wad that has this texture, update here
@@ -138,12 +169,14 @@ class TextureView:
         self.__post_init__() # run this again now that we have data
 
     @property
-    def mat_editable(self): return self.matname not in TextureView.app.data.mat_set
+    def mat_editable(self):
+        return (self.become_external==False or self.is_external==False) #\
+        #and self.matname not in TextureView.app.data.mat_set
 
     @property
     def mat(self):
         ''' returns material that matches itself '''
-        for matset in (TextureView.app.data.mat_set,TextureView.app.data.wannabe_set):
+        for matset in (TextureView.app.data.wannabe_set,TextureView.app.data.mat_set):
             if (m := matset.get_mattype_of(self.matname)): break
         if self.mat_editable: return m if m else "-"
         return m.lower() if m else "_"
@@ -168,27 +201,25 @@ class TextureView:
                     )
 
     def draw_size(self, scale=1.0, max_length=float('inf')):
-        # w = min(self.width * scale, max_length)
-        # h = self.height / self.width * w
-
         max_scale = min(max_length/self.width,max_length/self.height)
         w = self.width * min(scale, max_scale)
         h = self.height * min(scale, max_scale)
         return (w,h)
 
     def render(self, scale=1.0, max_length=float('inf')):
+        if not self._handlers_initialized:
+            self._init_handlers()
+
         #with dpg.child_window(width=w) as galleryItem:
         w_estimate = self.estimate_group_width(scale, max_length)
         w,h = self.draw_size(scale, max_length)
-        mx_color= AppColors.External if self.is_external else AppColors.Embedded
-        mx_theme= AppThemes.External if self.is_external else AppThemes.Embedded
-        mx_text = "X" if self.is_external else "M"
 
         with dpg.group(user_data=[self.matname,self]) as galleryItem: #
+
             ## first row: texture name
             with dpg.group(horizontal=True):
                 # probably change this to a button, as popups probably needs one
-                dpg.add_text(self.name,color=mx_color.color)
+                self._label_uuid = dpg.add_text(self.name)
 
                 self._selector_uuid = dpg.add_checkbox(
                         indent=w_estimate-20,show=False,
@@ -196,58 +227,70 @@ class TextureView:
                         **self._get_tag_and_source_kwargs("TEXSELECT")
                 )
 
-            ## second row: image, and selected checkbox (show on hover)
-            with dpg.group(horizontal=True):
-                with dpg.drawlist(width=w, height=h):
-                    if self.uuid:
-                        dpg.draw_image(self.uuid,(0,0),(w,h))
-                    else:
-                        gui_utils.draw_crossed_rectangle((0,0),(w,h))
-                    if self.become_external:
-                        gui_utils.draw_crossed_rectangle((0,0),(w,h),color=(255,0,0))
-                        #dpg.draw_rectangle((0,0),(w,h))
-                        #dpg.draw_line((0,0),(w,h))
-                        #dpg.draw_line((w,0),(0,h))
+            ## second row: image
+            with dpg.drawlist(width=w, height=h):
+                if self.uuid:
+                    dpg.draw_image(self.uuid,(0,0),(w,h))
+                else:
+                    gui_utils.draw_crossed_rectangle((0,0),(w,h))
 
+                with dpg.draw_layer(show=False) as overlay_to_embed: # green plus
+                    dpg.draw_rectangle((0,0),(w,h),color=(0,255,0))  # rectangle
+                    dpg.draw_rectangle((0,0),(16,16),color=(0,255,0))
+                    dpg.draw_line((0,8),(16,8),color=(0,255,0)) # horz line
+                    dpg.draw_line((8,0),(8,16),color=(0,255,0)) # vert line
+                self._layer_to_embed = overlay_to_embed
 
+                with dpg.draw_layer(show=False) as overlay_to_unembed: # red cross
+                    dpg.draw_rectangle((0,0),(w,h),color=(255,0,0))
+                    gui_utils.draw_crossed_rectangle((0,0),(16,16),color=(255,0,0))
+                self._layer_to_unembed = overlay_to_unembed
+
+                with dpg.draw_layer(show=False) as overlay_selected:
+                    dpg.draw_rectangle((0,0),(w,h),color=AppColors.Selected.bg)
+                self._layer_selected = overlay_selected
+
+            ## third row: dims, embedded/external indicator
             with dpg.group(horizontal=True):
                 dpg.add_text(f"{self.width}x{self.height}")
-                dpg.add_button(label=mx_text,small=True,indent=w_estimate-16) #
-                dpg.bind_item_theme(dpg.last_item(),mx_theme)
+                mx_btn = dpg.add_button(label="-",small=True,indent=w_estimate-16)
+            self._mx_btn = mx_btn
+            dpg.bind_item_handler_registry(mx_btn, self.mx_button_handler)
 
-            # inserts the material slider
+            ## last row: material slider
             matslider = dpg.add_slider_int(
                     format="",width=w_estimate-16,
                     max_value=len(TextureView.matchars)-1,
                     default_value=0 if self.mat in "-_" \
                                   else TextureView.matchars.find(self.mat.upper()),
-                    label=self.mat, # if self.mat_editable else self.mat.lower(),
+                    label=self.mat,
                     enabled=self.mat_editable,
                     callback=self._slider_cb,
                     # stuff the tag and source values
                     **self._get_tag_and_source_kwargs("MATVAL")
             )
-            dpg.bind_item_theme(matslider,self._slider_get_theme())
-            dpg.bind_item_handler_registry(matslider, TextureView.mouse_hover_tracker)
             self._slider_uuid = matslider
+            dpg.bind_item_handler_registry(matslider, self.matslider_hover_handler)
 
-        dpg.bind_item_handler_registry(galleryItem, TextureView.mouse_hover_tracker)
-        dpg.bind_item_theme(galleryItem,self._selection_theme())
         self._view_uuid = galleryItem
+        dpg.bind_item_handler_registry(galleryItem, self.gallery_hover_tracker)
+
+        ## applies the state and theme
+        self.update_state()
 
         return galleryItem
 
     def _get_tag_and_source_kwargs(self,prefix="MATVAL"):
         ''' a common function to get a tag name that's unique but also related,
-            such that related tags share the same prefix, with differing suffix
-            so it takes the form of
+            such that related tags share the same prefix, with differing suffix,
+            so it takes the form of:
                 {PREFIX}{fixed width material name}{index}
-                
+
             then the first of such series is designated the primary source tag
-            and all the other items point to it for their source value
+            and all the other items point to it for their source value.
 
             returns a kwargs dict containing tag (+source) that you can tag onto
-            a add_item call
+            an add_item call.
         '''
         kwargs={}
         for i in range(32): # finding next empty unique tag
@@ -283,38 +326,113 @@ class TextureView:
         else:
             return AppThemes[f"Material_{self.mat}"]
 
+    def update_state(self):
+        ''' sets labels, show/hide stuff, applies themes '''
+
+        ### Get values ---------------------------------------------------------
+        ## label
+        label_color = AppColors.External if self.is_external else AppColors.Embedded
+
+        ## mx button
+        if self.become_external is not None:
+            mx_color= AppColors.ToUnembed if self.become_external else AppColors.ToEmbed
+            mx_theme= AppThemes.ToUnembed if self.become_external else AppThemes.ToEmbed
+            mx_text = "X" if self.become_external else "M"
+        else:
+            mx_color= AppColors.External if self.is_external else AppColors.Embedded
+            mx_theme= AppThemes.External if self.is_external else AppThemes.Embedded
+            mx_text = "X" if self.is_external else "M"
+
+        ## matslider
+        slider_val = 0 if self.mat in "-_" \
+                     else TextureView.matchars.find(self.mat.upper())
+        slider_theme = AppThemes.Uneditable if not self.mat_editable \
+                       else AppThemes.Material__ if self.mat in "-_" \
+                       else AppThemes[f"Material_{self.mat}"]
+
+        ## selection theme
+        selection_theme = AppThemes.Selected if self.selected else AppThemes.Normal
+
+        ### Apply theme/state --------------------------------------------------
+        ## label
+        dpg.configure_item(self._label_uuid,color=label_color.color)
+
+        ## mx button/state
+        dpg.configure_item(self._mx_btn, label=mx_text) #, color=mx_color.color)
+        dpg.bind_item_theme(self._mx_btn, mx_theme)
+        dpg.configure_item(self._layer_to_embed, show=self.become_external==False)
+        dpg.configure_item(self._layer_to_unembed, show=self.become_external==True)
+
+        ## matslider
+        dpg.configure_item(self._slider_uuid,label=self.mat,enabled=self.mat_editable)
+        dpg.set_value(self._slider_uuid,slider_val)
+        dpg.bind_item_theme(self._slider_uuid,slider_theme)
+
+        ## selected state
+        dpg.bind_item_theme(self._view_uuid,selection_theme)
+        dpg.configure_item(self._selector_uuid, show=self.selected)
+        dpg.configure_item(self._layer_selected, show=self.selected)
+        dpg.set_value(self._selector_uuid,self.selected)
+
+
     def update_relatives_state(self):
         ''' updates selection/material/embed state of all related textures '''
-        target_selection_theme = self._selection_theme()
-        target_slider_theme = self._slider_get_theme()
-        slider_label = self.mat
-        slider_val = 0 if self.mat in "-_" else TextureView.matchars.find(self.mat.upper())
-
         with dpg.mutex():
             for item in TextureView.app.view.textures:
                 if item.matname != self.matname: continue
+
                 if item != self:
                     item.selected = self.selected # select the other entries
+                    item.become_external = self.become_external
 
-                dpg.bind_item_theme(item._view_uuid,target_selection_theme)
-
-                dpg.configure_item(item._slider_uuid,label=slider_label)
-                dpg.set_value(item._slider_uuid,slider_val)
-                dpg.bind_item_theme(item._slider_uuid,target_slider_theme)
-
-                dpg.configure_item(item._selector_uuid, show=self.selected)
-                dpg.set_value(item._selector_uuid,self.selected)
+                item.update_state()
 
 
+    ## embed/extern button click callback
+    def _mx_button_click(self,*_):
+        if self.become_external is not None:
+            val = "External" if self.become_external else "Embedded"
+        else:
+            val = "External" if self.is_external else "Embedded"
+
+        dpg.set_value(TextureView._mx_list, val)
+        dpg.set_item_callback(TextureView._mx_list, self._mx_cb)
+        dpg.configure_item(TextureView._mx_popup, show=True)
+
+    def _mx_cb(self, sender, data):
+        dpg.configure_item(TextureView._mx_popup, show=False)
+
+        print(f"change embed state of {self.matname} to {data}")
+        data = True if data=="External" else False
+        # same state as original -> unset
+        if data == self.is_external:
+            self.become_external = None
+        else:
+            self.become_external = data
+
+        self.update_relatives_state()
+
+
+    ## matslider hovered callback
+    def _slider_hover(self,*_):
+        TextureView.mouse_event_registrar(self._slider_uuid, {
+            "mouse_wheel": lambda data: self._slider_cb(0,data)
+        })
+
+    ## matslider value change callback
     def _slider_cb(self,sender,val):
         if not self.mat_editable: return
+
         if sender==0: # from wheel event
             # we used to add dpg.get_value() to the delta in the callback
             # but that produced wonky results
             # so we pass delta directly, and calculate value here
+
+            # only work when ctrl key is down (to avoid gallery window scrolling)
             if not dpg.is_key_down(dpg.mvKey_Control): return
+
             val += 0 if self.mat in "-_" else TextureView.matchars.find(self.mat.upper())
-            # wrap around on the positive side, because it does so 
+            # wrap around on the positive side, because it does so
             # automatically on the negative side
             if val >= len(TextureView.matchars):
                 val %= len(TextureView.matchars)
@@ -323,36 +441,19 @@ class TextureView:
         self.mat = TextureView.matchars[val]
 
         self.update_relatives_state()
-        '''
-        label = TextureView.matchars[val]
-        target_theme = self._slider_get_theme()
 
-        # update all linked material names
-        for i in range(32):
-            tag = f"MATVAL:{self.matname:15s}{i}"
-            if not dpg.get_alias_id(tag): break
 
-            dpg.configure_item(tag,label=label)
-            dpg.bind_item_theme(tag,target_theme)
-        '''
-
-    def _select_cb(self,sender,val=False): # checkbox callback
+    ## checkbox callback
+    def _select_cb(self,sender,val=False):
         self.selected=val
         self.update_relatives_state()
-        '''
-        target_theme = self._selection_theme()
 
-        # apply selection and theme to all related textures of the same matname
-        for item in TextureView.app.view.textures:
-            if item.matname != self.matname: continue
-            if item != self: item.selected = val # select the other entries
-            dpg.set_value(item._selector_uuid,val)
-            dpg.bind_item_theme(item._view_uuid,target_theme)
-        '''
 
+    ## gallery item hover event handler
     def _on_hover(self, hovering=True):
         if hovering:
             dpg.configure_item(self._selector_uuid, show=True)
             dpg.set_frame_callback(dpg.get_frame_count()+1, lambda:self._on_hover(False))
         elif not self.selected:
             dpg.configure_item(self._selector_uuid, show=False)
+

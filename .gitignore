@@ -11,3 +11,4 @@ build
 dist
 src/cmd venv.lnk
 src/bsptexremap/dpg/_old_mvc.txt
+src/assets/fonts/FiraCode-VariableFont_wght.ttf
