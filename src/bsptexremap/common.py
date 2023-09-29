@@ -101,6 +101,11 @@ def setup_logger(level:str|int):
     log.debug(f"log level set to {root_logger.getEffectiveLevel()}")
 
 
+def matchars_by_mod(modname:str):
+    return consts.MATCHARS_BY_MOD[modname.lower()] \
+    or consts.MATCHARS_BY_MOD.valve
+
+
 def modpath_fallbacks(modpath:Path) -> Path:
     ''' generator that yields mod paths, all the way to "valve"
         use cases:

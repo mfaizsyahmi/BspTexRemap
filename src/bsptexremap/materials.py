@@ -90,17 +90,18 @@ class MaterialSet:
     P : set = field(default_factory=lambda:set()) # computer
     Y : set = field(default_factory=lambda:set()) # glass
     F : set = field(default_factory=lambda:set()) # flesh
-    N : set = field(default_factory=lambda:set()) # snow
+    O : set = field(default_factory=lambda:set()) # snow OF
+    N : set = field(default_factory=lambda:set()) # snow CS
     # new in CZDS
-    E : set = field(init=False,default_factory=lambda:set()) # Carpet
-    A : set = field(init=False,default_factory=lambda:set()) # Grass
-    R : set = field(init=False,default_factory=lambda:set()) # Gravel
+    E : set = field(default_factory=lambda:set()) # Carpet
+    A : set = field(default_factory=lambda:set()) # Grass
+    R : set = field(default_factory=lambda:set()) # Gravel
     # new in CZ
-    X : set = field(init=False,default_factory=lambda:set()) # Grass
+    X : set = field(default_factory=lambda:set()) # Grass
 
-    # change this value if working with CZ|CZDS 
-    # (though they probably don't support the hack anyway)
-    MATCHARS = "CMDVGTSWPYFN"
+    # change this value if working with OF|CZ|CZDS 
+    # (though only OF seem to support the hack)
+    MATCHARS = "CMDVGTSWPYF"
 
     @classmethod
     def strip(cls, instr:str) -> str:
@@ -185,7 +186,7 @@ class MaterialSet:
 
     def asdict(self):
         ''' this purposefully enumerates by the class internal MATCHARS so that
-            we don't over-report sets in CZDS otherwise not supported in vanilla
+            we don't over-report sets in OF/CS/CZ/DS otherwise not supported in vanilla
         '''
         return {m:self[m] for m in self.__class__.MATCHARS}
     def astuple(self):

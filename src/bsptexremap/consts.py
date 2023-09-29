@@ -5,6 +5,7 @@
     >>> import .consts
     >>> consts.CHARSEQUENCE
 '''
+from enum import Enum
 # general info
 APPNAME     = "BspTexRemap"
 VERSION     = "v0.2"
@@ -58,10 +59,15 @@ CHARSEQUENCE = r"~}|{`_^]\[@?>=<;:/.-,+*)(&%$#!ZYXWVUTSRQPONMLKJIHGFEDCBA9876543
 
 
 class MATCHARS_BY_MOD:
-    CZERO  = "CMDVGTSWPYFNX"
-    CZEROR = "CMDVGTSWPYFNEAR"
-    ''' support for class[item] '''
-    def __class_getitem__(cls, item): return cls.__dict__[item]
+    valve   = 'CMDVGTSWPYF'
+    gearbox = 'CMDVGTSWPYFO'
+    cstrike = 'CMDVGTSWPYFNX'
+    czero   = 'CMDVGTSWPYFNX'
+    czeror  = 'CMDVGTSWPYFNEAR'
+    def __class_getitem__(cls, item):
+        ''' support for class[item] (prefered way)'''
+        if item in cls.__dict__: return cls.__dict__[item] 
+        return None
 
 
 # dump_texinfo

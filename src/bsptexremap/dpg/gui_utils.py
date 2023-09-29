@@ -1,6 +1,7 @@
 import dearpygui.dearpygui as dpg
 import logging
 from typing import NamedTuple
+from enum import IntEnum
 from .colors import AppColors
 
 
@@ -193,8 +194,11 @@ class DpgLogHandler(logging.Handler):
                 tracked=True, track_offset=1)
         # scroll to end?
         #dpg.set_y_scroll(DpgLogHandler.TAG,dpg.get_y_scroll_max(DpgLogHandler.TAG))
-        dpg.set_frame_callback(dpg.get_frame_count() + 2,
-                               lambda:dpg.configure_item(self._last_item,tracked=False))
+        dpg.set_frame_callback(dpg.get_frame_count() + 2, self._untrack_all)
+    
+    def _untrack_all(self,*_):
+        for item in dpg.get_item_children(DpgLogHandler.TAG,1):
+            dpg.configure_item(item,tracked=False)
 
 
 class DpgLogToTextItemHandler(logging.Handler):
@@ -211,4 +215,96 @@ class DpgLogToTextItemHandler(logging.Handler):
         if self._set_colors:
             dpg.configure_item(self._target, color=DpgLogHandler.COLORS[record.levelno])
 
+
+def show_loading(show=True):
+    ''' shows a little window with a loading spinner at the bottom right corner '''
+    TAG = "SPINNER_WINDOW"
+    if dpg.get_alias_id(TAG):
+        dpg.configure_item(TAG,show=show)
+    elif show:
+        with dpg.window(tag=TAG, no_title_bar=True, no_resize=True,min_size=[64,32]):
+            with dpg.group(horizontal=True):
+                dpg.add_loading_indicator(circle_count=8)
+                dpg.add_text("Loading...")
+
+    if not show: return
+    w_vp = dpg.get_viewport_client_width()
+    h_vp = dpg.get_viewport_client_height()
+    
+    dpg.split_frame()
+    w = dpg.get_item_width(TAG)
+    h = dpg.get_item_height(TAG)
+    dpg.set_item_pos(TAG, [w_vp - w - 16, h_vp - h - 16])
+    
+
+### MESSAGE BOX ----------------------------------------------------------------
+class MsgBoxResult(IntEnum): # unused
+    Cancel = 0
+    OK = 1
+    Yes = 2
+    No = 3
+    
+
+def wrap_message_box_callback(fn, *args, 
+                              _result_arg="confirm", _drop_on_false=True, 
+                              **kwargs):
+    ''' given a function, returns a callable that a messagebox callback will call,
+        adding the result of the message box in an arg of given name
+        if drop on false is set, don't call back on false
+    '''
+    def wrap(sender, unused, user_data):
+        # delete window
+        dpg.delete_item(user_data[0])
+        # drop the callback if user selected Cancel
+        if not user_data[0] and _drop_on_false: return
+        # else, call the function being wrapped
+        fn(*args, **kwargs, **{_result_arg:user_data[1]})
+        
+    return wrap
+
+def message_box(title, message, selection_callback:callable=None, 
+                buttons={True:"OK"}):
+    ''' selection_callback must use a callback created with wrap_msgbox_callback
+    '''
+    if not selection_callback:
+        selection_callback = wrap_message_box_callback(lambda *_,**__:True)
+                
+    # guarantee these commands happen in the same frame
+    with dpg.mutex():
+
+        viewport_width  = dpg.get_viewport_client_width()
+        viewport_height = dpg.get_viewport_client_height()
+
+        with dpg.window(label=title, modal=True, 
+                        no_close=True, no_resize=True) as modal_id:
+                        
+            dpg.add_text()
+            with dpg.group(horizontal=True):
+                dpg.add_text(" ")
+                dpg.add_text(message,wrap=500)
+                dpg.add_text(" ")
+            dpg.add_text()
+            dpg.add_separator()
+            
+            with dpg.group(horizontal=True):
+                for retval, label in buttons.items():
+                    width = max(75,dpg.get_text_size(label)[0]+16)
+                    dpg.add_button(label=label, 
+                                   width=width, 
+                                   user_data=(modal_id, retval), 
+                                   callback=selection_callback)
+
+    # guarantee these commands happen in another frame
+    dpg.split_frame()
+    width = dpg.get_item_width(modal_id)
+    height = dpg.get_item_height(modal_id)
+    dpg.set_item_pos(modal_id, [viewport_width // 2 - width // 2, viewport_height // 2 - height // 2])
+
+def confirm(title, message, selection_callback:callable):
+    message_box(title, message, selection_callback,
+                {True:"OK",False:"Cancel"})
+
+def confirm_replace(filename, selection_callback:callable):
+    confirm("Confirm file overwrite",
+            f'"{filename}"\nFile already exists. Overwrite?')
 

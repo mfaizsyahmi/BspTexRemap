@@ -403,7 +403,8 @@ def add_main_window(app):
                            len(view.app.data.bsp.textures_x),
                            len(view.app.data.bsp.textures),
                            len(view.gallery.data)
-                   ) if view.app.data.bsp else ""])
+                   ) if view.app.data.bsp else "({}T, {}V)"\
+                   .format(len(view.textures),len(view.gallery.data))])
 
             dpg.add_table_column(label="Options/Actions",width=200)
 

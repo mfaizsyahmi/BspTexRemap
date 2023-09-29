@@ -39,6 +39,8 @@ class TextureView:
     mouse_event_registrar : ClassVar = None
 
     ## material choices. "-" is prepended to mean "not selected"
+    ## Please call class_set_matchars to properly set all of these
+    matchars_base : ClassVar[str] = MaterialSet.MATCHARS
     matchars : ClassVar[str] = "-" + MaterialSet.MATCHARS
     # uneditable = lowercase
     matchars_disabled : ClassVar[str] = "_" + MaterialSet.MATCHARS.lower()
@@ -60,7 +62,14 @@ class TextureView:
             dpg.add_item_hover_handler(callback=cls.static_item_hover_handler)
 
         cls.mouse_hover_tracker = mouse_hover_tracker
-
+    
+    @classmethod
+    def class_set_matchars(cls, matchars):
+        cls.matchars_base = matchars.upper()
+        cls.matchars      = "-" + cls.matchars_base
+        cls.matchars_disabled = "_" + cls.matchars_base.lower()
+        
+        
     @classmethod
     def static_item_hover_handler(cls,sender,target):
         ''' this fn is continuously called when the target is hovered

@@ -7,10 +7,14 @@ from .materials import MaterialSet
 from jankbsp import BspFile
 from jankbsp.enums import Lumps, BlueShiftLumps
 from pathlib import Path
+import re
 
 ##------------------------------
 ## routines working with bsppath
 ##------------------------------
+
+def bsp_modname_from_path(bsppath:Path):
+    return re.sub(consts.MODNAME_SUFFIX_RE, '', bsppath.parents[1].name)
 
 def bsp_texinfo_path(bsppath:Path) -> Path:
     return bsppath.with_name(bsppath.stem + consts.TEXINFO_SUFFIX + consts.TEXINFO_FMT)

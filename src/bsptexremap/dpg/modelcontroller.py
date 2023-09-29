@@ -96,18 +96,25 @@ class AppModel:
 
     # info (generally read-only from other places)
     remap_entity_count  : int  = 0
-    matchars : str    = MaterialSet.MATCHARS # edit if loading CZ/CZDS
+    matchars : str    = MaterialSet.MATCHARS # edit if loading OF/CZ/CZ/DS
 
     def load_bsp(self, bsppath):
         ''' loads given bsp, and kickstarts some post-load operations
             (has side effects)
         '''
-        ## load bsp
         log.info(f"Loading BSP: {bsppath!s}")
+        gui_utils.show_loading(True)
+        
+        ## load bsp
         self.bsppath = Path(bsppath)
         with open(self.bsppath, "rb") as f:
             self.bsp = BspFile(f, lump_enum=guess_lumpenum(self.bsppath))
-
+        
+        ## reset all the matchars
+        self.matchars = matchars_by_mod(bsp_modname_from_path(self.bsppath))
+        MaterialSet.MATCHARS = self.matchars
+        TextureView.class_set_matchars(self.matchars)
+        
         ## load textures
         self.app.view.load_textures(self.bsp.textures)
 
@@ -137,7 +144,9 @@ class AppModel:
             self.app.view.load_external_wad_textures(paths_to_load)
 
         log.info("Done.")
-    
+        gui_utils.show_loading(False)
+
+
     def parse_remap_entities(self):
         if not self.bsp: return
         for texremap_ent in iter_texremap_entities(self.bsp.entities):
@@ -148,7 +157,7 @@ class AppModel:
         self.mat_set = MaterialSet.from_materials_file(self.matpath)
         self.app.view.reflect()
         self.app.view.render_material_tables()
-    
+
     def TEST_load_wad(self,wadpath):
         ''' TEST of loading a wad file directly '''
         with time_it():
@@ -227,7 +236,7 @@ class AppView:
             update_predicate is a callable that checks whether it should update
             reflect_predicate is a callable that checks whether it should run on reflect
         '''
-        if tag not in self.bound_items: 
+        if tag not in self.bound_items:
             self.bound_items[tag] = []
         self.bound_items[tag].append(BindingEntry(type, prop, data))
         if type in mappings.writeable_binding_types:
@@ -370,9 +379,10 @@ class AppView:
             # transpose list i.e. list 1 is all the texview, #2 is all the miptex, etc.
             argsT = [[row[i] for row in update_args] for i in range(len(update_args[0]))]
             log.debug(f"START UPDATE TEXTURES ({len(argsT[0])})")
+            taskfn = failure_returns_none(TextureView.static_update)
             with time_it():
                 with ThreadPoolExecutor() as executor:
-                    for result in executor.map(TextureView.static_update,*argsT):
+                    for result in executor.map(taskfn,*argsT):
                         pass
             result = len(argsT[0])
 
@@ -403,7 +413,7 @@ class AppView:
         if not len(wanted_list): return
 
         log.info(f"loading all wad files simultaneously-ish...")
-        taskfn = get_textures_from_wad# failure_returns_none(get_textures_from_wad)
+        taskfn = failure_returns_none(get_textures_from_wad)
         results = {}
         log.debug("START")
         with time_it():
@@ -523,7 +533,8 @@ class AppView:
                                 {"color" : avail_colors(len(choice_set[mat]))} ),
                                 ra(len(wannabe_set[mat])) ])
             # totals row
-            data.append(["", "TOTAL", len(mat_set), len(choice_set), len(wannabe_set)])
+            data.append(["", "TOTAL", 
+                        ra(len(mat_set)), ra(len(choice_set)), ra(len(wannabe_set))])
 
             table = self.get_dpg_item(type=BindingType.MaterialSummaryTable)
             gui_utils.populate_table(table, header, data)
@@ -546,15 +557,18 @@ class AppView:
 
     def update_wannabe_material_tables(self):
         ''' update the summary table display of wannabe set items '''
+        mat_set = self.app.data.mat_set
+        table_entry_width = 1 if not len(mat_set) else ceil(log10(len(mat_set)))
+        ra = lambda num: str(num).rjust(table_entry_width)        
         table = self.get_dpg_item(type=BindingType.MaterialSummaryTable)
 
         for i, mat in enumerate(self.app.data.wannabe_set.MATCHARS):
             table_cell = gui_utils.traverse_children(table, f"{i}.4")
-            dpg.set_value(table_cell, len(self.app.data.wannabe_set[mat]))
+            dpg.set_value(table_cell, ra(len(self.app.data.wannabe_set[mat])))
 
         totals_row = len(self.app.data.wannabe_set.MATCHARS)
         table_cell = gui_utils.traverse_children(table, f"{totals_row}.4")
-        dpg.set_value(table_cell, len(self.app.data.wannabe_set))
+        dpg.set_value(table_cell, ra(len(self.app.data.wannabe_set)))
 
         ### START RENDERING THE TEXTURE REMAP LIST ###
         ME = MaterialEnum
@@ -628,16 +642,23 @@ class AppActions:
         kwargs = {}
         if init_path: kwargs["default_path"] = init_path
         if init_filename: kwargs["default_filename"] = init_filename
-        
+
         dpg.configure_item(dlg, **kwargs)
         dpg.show_item(dlg)
 
-    ### File load/save/export ###
+    ''' File load/save/export ==================================================
+        these file dialogs are already set up to call back the same fn with the name
+
+        gui_utils.message_box calls should use gui_utils.wrap_message_box_callback
+        to wrap a callback back to itself, with the "confirm" argument filled with
+        the result
+        ------------------------------------------------------------------------
+    '''
     def open_bsp_file(self, bsppath:str|Path=None): # dialog callback
         ''' load bsp, then load wadstats '''
         if not bsppath:
-            self.show_file_dialog(BindingType.BspOpenFileDialog)
-            return 
+            self.show_file_dialog(BindingType.BspOpenFileDialog) # callbacks already set
+            return
         self.app.data.load_bsp(bsppath)
 
     def reload(self, *_): # menu callback
@@ -645,50 +666,81 @@ class AppActions:
             self.app.data.load_bsp(self.app.data.bsppath)
 
     def save_bsp_file(self, backup:bool=None, confirm=None):
-        if not backup:
-            pass #TODO: confirm
-        
+        bakpath = self.app.data.bsppath.with_name(self.app.data.bsppath.name + ".bak")
+        should_backup = not bakpath.exists()
+
+        if confirm == 0: return
+        elif confirm == 1: backup=True
+        elif should_backup and not backup and confirm is None:
+            cb_wrap = gui_utils.wrap_message_box_callback(self.save_bsp_file,backup)
+            gui_utils.message_box(
+                    "Confirm overwrite",
+                    f'Are you sure you want to overwrite "{self.app.data.bsppath.name}" without backup?', cb_wrap,
+                    {1:"Backup and save",2:"Save WITHOUT backup",0:"Cancel"})
+            return
+
+        if backup:
+            backup_file(self.app.data.bsppath)
+
+        print("BSP FILE SHOULD SAVE HERE, BUT NOT NOW"); return
+        with open(self.app.data.bsppath, "wb") as f:
+            self.app.data.bsp.dump(f)
+
+
     def save_bsp_file_as(self, bsppath:str|Path=None, confirm=None):
+        if confirm==False: return
         if not bsppath:
-            try:
+            kwargs = {}
+            if self.app.data.bsppath:
                 def_path = self.app.data.bsppath
-                init_path = def_path.parent
-                init_filename = def_path.with_name(def_path.stem + "_output.bsp")
-            except:
-                init_path, init_filename = None, None
-                
-            self.show_file_dialog(BindingType.BspSaveFileDialog)
-            return 
-            
+                kwargs["init_path"] = def_path.parent
+                kwargs["init_filename"] = def_path.with_name(def_path.stem + "_output.bsp")
+
+            # callbacks already set
+            self.show_file_dialog(BindingType.BspSaveFileDialog,**kwargs)
+            return
+
         elif Path(bsppath).exists() and not confirm:
-            return # show confirmation dialog
+            cb_wrap = gui_utils.wrap_message_box_callback(self.save_bsp_file_as,bsppath)
+            gui_utils.confirm_replace(bsppath, cb_wrap)
+            return
         # todo: save file
-        
+        print("BSP FILE SHOULD SAVE HERE, BUT NOT NOW"); return
+        with open(bsppath, "wb") as f:
+            self.app.data.bsp.dump(f)
+
+
     def load_mat_file(self, matpath:str|Path=None): # dialog callback
         if not matpath:
-            self.show_file_dialog(BindingType.MatLoadFileDialog)
-            return 
+            self.show_file_dialog(BindingType.MatLoadFileDialog) # callbacks already set
+            return
         self.app.data.load_materials(matpath)
 
     def export_custommat(self, outpath:str|Path=None, confirm=None):
+        if confirm==False: return
         if not outpath:
-            try:
+            kwargs = {}
+            if self.app.data.bsppath:
                 def_path = bsp_custommat_path(self.app.data.bsppath)
-                init_path = def_path.parent
-                init_filename = def_path.with_name(def_path.stem + "_output.bsp")
-            except:
-                init_path, init_filename = None, None
-                
-            self.show_file_dialog(BindingType.MatExportFileDialog)
-            return 
-            
-        elif outpath.exists() and not confirm:
-            return # show confirmation dialog
-        
-        dump_texinfo(self.app.data.bsppath,0b1110000000000, None,
-                     material_set=self.app.data.wannabe_set,
-                     outpath=Path(app_data["file_path_name"]))
+                kwargs["init_path"] = def_path.parent
+                kwargs["init_filename"] = def_path.name
 
+            # callbacks already set
+            self.show_file_dialog(BindingType.MatExportFileDialog,**kwargs)
+            return
+
+        elif Path(outpath).exists() and not confirm:
+            cb_wrap = gui_utils.wrap_message_box_callback(self.export_custommat,outpath)
+            gui_utils.confirm_replace(outpath, cb_wrap)
+            return
+
+        try:
+            dump_texinfo(self.app.data.bsppath,0b1110000000000, None,
+                        material_set=self.app.data.wannabe_set,
+                        outpath=Path(outpath))
+            log.info(f"Exported custom material file: \"{outpath}\"")
+        except Exception as error:
+            log.error(f"Failed to export custom material file: \"{outpath}\"\n\t{error}")
 
     ## parse entity in bsp (just a passthrough)
     def parse_remap_entities(self, *_):
@@ -760,7 +812,7 @@ class App:
         TextureView.class_init(app=self,
                                mat_update_cb=self.view.update_wannabe_material_tables,
                                mouse_event_registrar=self.do.set_mouse_event_target)
-                               
+
     def load_config(self,cfgpath):
         pass
 

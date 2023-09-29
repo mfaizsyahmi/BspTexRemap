@@ -13,7 +13,8 @@ class MaterialEnum(StrEnum):
     Computer = 'P'
     Glass    = 'Y'
     Flesh    = 'F'
-    Snow     = 'N'
+    SnowOF   = 'O' # OpFor
+    SnowCS   = 'N' # CS
     Carpet   = 'E' # new in CZDS
     Grass    = 'A' # new in CZDS
     GrassCZ  = 'X' # new in CZ
