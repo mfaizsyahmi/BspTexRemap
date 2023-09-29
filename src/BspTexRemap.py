@@ -98,8 +98,7 @@ def main():
     
     # texinfo dump zenpen (embedded/external/grouped)
     if args.dump_texinfo:
-        print(flag_str_parser(DumpTexInfoParts)(args.dump_texinfo))
-        texinfo_parts = int(args.dump_texinfo)
+        texinfo_parts = flag_str_parser(DumpTexInfoParts)(args.dump_texinfo)
         dump_texinfo(bsppath, 3072|(texinfo_parts&7), bsp)
     
     # look for materials path
