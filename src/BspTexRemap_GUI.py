@@ -9,7 +9,7 @@ from bsptexremap.common import parse_arguments, setup_logger
 from bsptexremap.enums import MaterialEnum as ME
 from bsptexremap.materials import MaterialSet # matchars
 
-from bsptexremap.dpg import mappings, gui_utils, colors
+from bsptexremap.dpg import mappings, gui_utils, colors, consts
 from bsptexremap.dpg.modelcontroller import App
 
 BindingType = mappings.BindingType # puts it onto the main scope
@@ -97,7 +97,7 @@ def add_materials_pane(app):
 
             ## Material summary table
             ## X | Material | Total | Usable | Assigned
-            dpg.add_table(resizable=True)
+            dpg.add_table(resizable=True,pad_outerX=True)
             _bind(_BT.MaterialSummaryTable)
 
         with dpg.collapsing_header(label="Entries"):
@@ -113,7 +113,8 @@ def add_materials_pane(app):
 
             ## Material entries table
             ## Mat | Name | Usable
-            dpg.add_table(resizable=True,sortable=True,callback=_sort_table)
+            dpg.add_table(resizable=True,sortable=True,pad_outerX=True,
+                          callback=_sort_table)
             _bind(_BT.MaterialEntriesTable)
 
         with dpg.collapsing_header(label="Remaps",default_open=True):
@@ -305,17 +306,7 @@ def add_right_pane(app):
 
         dpg.add_text("Before save:")
         dpg.add_text("info_texture_remap action:",indent=8)
-        _help(f"""
-info_texture_remap is an entity that mappers can insert to remap entities.
-It is primarily used with the command line version BspTexRemap as part of the
-post-compilation step.
-
-Options:
-- {mappings.remap_entity_actions[0]}: Inserts this entity, or updates its entries.
-If you forgo this step, the texture renamings would be irreversible.
-- {mappings.remap_entity_actions[1]}: Removes all instances of this entity.
-- {mappings.remap_entity_actions[2]}
-        """.strip())
+        _help(consts.REMAP_ENTITY_ACTION_HELP.format(*mappings.remap_entity_actions))
 
         ## ( ) Insert   ( ) Remove   ( ) Do nothing
         dpg.add_radio_button(mappings.remap_entity_actions,indent=16)
@@ -388,9 +379,9 @@ def add_main_window(app, default_font=None):
                 _bind(_BT.Value, _prop(app.data,"auto_load_wads"))
 
             with dpg.menu(label="Tools"):
-                _mi(label="Log console",check=True,
+                _mi(label="Log console",
                     callback=lambda s,a,u:\
-                             dpg.configure_item(gui_utils.DpgLogHandler.TAG,show=a))
+                             dpg.show_item(gui_utils.DpgLogHandler.TAG))
                 _mi(label="GUI item registry",
                     callback=lambda *_:dpg.show_item_registry())
                 _mi(label="GUI style editor",
@@ -445,24 +436,24 @@ def main():
     log = logging.getLogger() ## "__main__" should use the root logger
     log.addHandler(gui_utils.DpgLogHandler(0,show=False))
 
+    colors.add_themes()
+    default_font = setup_fonts()
     app = App()
     dpg_dnd.set_drop(app.do.handle_drop)
 
-    default_font = setup_fonts()
-    colors.add_themes()
     add_file_dialogs(app)
     add_main_window(app, default_font)
     #app.view.reflect()
     
     if args.bsppath:
         app.data.load_bsp(args.bsppath)
+    app.view.set_viewport_ready() # this will reschedule itself to run later
 
     dpg.create_viewport(title='BspTexRemap GUI', width=1200, height=800)
     dpg.set_viewport_decorated(True)
     dpg.setup_dearpygui()
     dpg.show_viewport()
     dpg.set_primary_window("Primary Window", True)
-    dpg.set_frame_callback(4,callback=app.view.set_viewport_ready)
 
     dpg.start_dearpygui()
     dpg.destroy_context()

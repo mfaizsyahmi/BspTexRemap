@@ -1,3 +1,7 @@
+''' colors.py
+    colors and theming
+'''
+
 import dearpygui.dearpygui as dpg
 from ..enums import MaterialEnum
 from collections import namedtuple
@@ -93,11 +97,12 @@ def add_themes():
         with dpg.theme_component(0): pass
             #dpg.add_theme_color(dpg.mvThemeCol_TableHeaderBg ,(48,48,51,255))
 
+    #### TexView Themes ####
+    ### Popup ###
     with dpg.theme(tag="theme:texview_popup"):
-        with dpg.theme_component(dpg.mvWindowAppItem):
+        with dpg.theme_component(0):
             dpg.add_theme_style(dpg.mvStyleVar_WindowPadding,0,0)
 
-    #### TexView Themes ####
     ### Normal/Selected  ###
     with dpg.theme(tag=AppThemes.Normal):
         with dpg.theme_component(dpg.mvGroup):

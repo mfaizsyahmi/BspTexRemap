@@ -42,6 +42,10 @@ def main():
         return 1 # error
     print(f'Found materials.txt file: "{matpath}"')
     
+    # adjust matchars to match those for the game/mod the materials file resides in
+    mod_matchars = matchars_by_mod(bsp_modname_from_path(matpath))
+    MaterialSet.MATCHARS = mod_matchars
+    
     # load THE materials set
     material_set = MaterialSet.from_materials_file(matpath)
     print(f'{len(material_set):>3d} entries read from materials file.')

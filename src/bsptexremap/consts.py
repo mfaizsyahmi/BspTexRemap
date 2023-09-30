@@ -2,7 +2,7 @@
     all constants go here
 
     to use it in other files:
-    >>> import .consts
+    >>> from . import consts
     >>> consts.CHARSEQUENCE
 '''
 from enum import Enum

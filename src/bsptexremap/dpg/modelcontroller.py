@@ -354,8 +354,13 @@ class AppView:
         return dpg.get_frame_count() > 3
 
     def set_viewport_ready(self,*_):
+        if not dpg.get_frame_count():
+            # so apparently this fn will _only_ run if frame is 1
+            dpg.set_frame_callback(1,callback=lambda:self.set_viewport_ready())
+            return
         self.reflect()
-        self.update_gallery()
+        if len(self.textures):
+            self.update_gallery()
 
 
     def load_textures(self, miptexes, update=False, new_source=None):

@@ -1,5 +1,5 @@
 import dearpygui.dearpygui as dpg
-from . import dbgtools, gui_utils
+from . import dbgtools, gui_utils, consts
 from ..materials import MaterialSet
 from .ntuple import ntuple
 from .colors import MaterialColors, AppColors, AppThemes
@@ -7,6 +7,7 @@ from dataclasses import dataclass, field # TextureView
 from itertools import chain
 from typing import ClassVar
 from logging import getLogger
+import re
 log = getLogger(__name__)
 
 def flatten_imgdata(imgdata):
@@ -63,8 +64,10 @@ class TextureView:
 
         ## the popup for embedded/external button
         with dpg.window(tag="TEXVIEW:POPUP", popup=True, 
-                        show=False, autosize=True) as mx_popup:
-            mx_list = dpg.add_listbox(("Embedded","External"),num_items=2)
+                        show=False, autosize=True,
+                        min_size=(80,20)) as mx_popup:
+            # width is arbitrarym as dpg.get_text_size is unavailable at the point of execution
+            mx_list = dpg.add_listbox(consts.TEXVIEW_MX,num_items=2,width=80)
             
         dpg.bind_item_theme(mx_popup,"theme:texview_popup")
         
@@ -77,7 +80,6 @@ class TextureView:
         cls.matchars_base = matchars.upper()
         cls.matchars      = "-" + cls.matchars_base
         cls.matchars_disabled = "_" + cls.matchars_base.lower()
-
 
     @classmethod
     def from_img(cls, img, name):
@@ -111,8 +113,8 @@ class TextureView:
                     default_value=self.data,
                     label=self.name
                 )
-            except:
-                log.warning(f"Failed to load texture image for: {self.name}")
+            except Exception as e:
+                log.warning(f"Failed to load texture image for: {self.name}\n{e}")
             finally:
                 dpg.pop_container_stack()
 
@@ -170,7 +172,8 @@ class TextureView:
 
     @property
     def mat_editable(self):
-        return (self.become_external==False or self.is_external==False) #\
+        return (self.become_external==False or self.is_external==False) \
+        and not re.match(consts.TEX_IGNORE_RE, self.name)
         #and self.matname not in TextureView.app.data.mat_set
 
     @property
@@ -390,20 +393,27 @@ class TextureView:
 
     ## embed/extern button click callback
     def _mx_button_click(self,*_):
+        val_map = {False:0, True:1}
         if self.become_external is not None:
-            val = "External" if self.become_external else "Embedded"
+            #val = "External" if self.become_external else "Embedded"
+            val = consts.TEXVIEW_MX[val_map[self.become_external]]
         else:
-            val = "External" if self.is_external else "Embedded"
-
+            #val = "External" if self.is_external else "Embedded"
+            val = consts.TEXVIEW_MX[val_map[self.is_external]]
+    
+        width = max(*(dpg.get_text_size(x)[0] for x in consts.TEXVIEW_MX)) + 24
         dpg.set_value(TextureView._mx_list, val)
+        dpg.configure_item(TextureView._mx_list, width=width)
         dpg.set_item_callback(TextureView._mx_list, self._mx_cb)
+        
         dpg.configure_item(TextureView._mx_popup, show=True)
 
     def _mx_cb(self, sender, data):
         dpg.configure_item(TextureView._mx_popup, show=False)
 
-        print(f"change embed state of {self.matname} to {data}")
-        data = True if data=="External" else False
+        log.debug(f"change embed state of {self.matname} to {data}")
+        val_map = {0:False, 1:True}
+        data = val_map[consts.TEXVIEW_MX.index(data)]
         # same state as original -> unset
         if data == self.is_external:
             self.become_external = None
