@@ -24,5 +24,11 @@ Options:
 - {2}
 """.strip()
 
+ALLOW_UNEMBED_HELP = """
+A check against unembedding embedded textures without the corresponding WAD.
+It is your responsibility to ensure that the wad list contains a WAD that has
+the textures you're unembedding, or you'll have missing textures.
+""".strip()
+
 # texview.py
 TEXVIEW_MX = ("Embedded", "External")

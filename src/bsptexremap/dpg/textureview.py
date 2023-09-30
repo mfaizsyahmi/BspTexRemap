@@ -411,9 +411,16 @@ class TextureView:
     def _mx_cb(self, sender, data):
         dpg.configure_item(TextureView._mx_popup, show=False)
 
-        log.debug(f"change embed state of {self.matname} to {data}")
         val_map = {0:False, 1:True}
         data = val_map[consts.TEXVIEW_MX.index(data)]
+
+        # check that we are allowed to unembed
+        if not TextureView.app.data.allow_unembed \
+        and not self.is_external and data:
+            log.warning("current settings disallow unembedding textures! ignoring change")
+            return
+        
+        log.info(f"change embed state of {self.matname} to {not data}")
         # same state as original -> unset
         if data == self.is_external:
             self.become_external = None

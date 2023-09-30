@@ -4,10 +4,12 @@ import dearpygui.dearpygui as dpg
 
 from . import mappings, gui_utils
 from .mappings import BindingType, RemapEntityActions
+from .wadstatus import WadStatus, WadList
 from .textureview import TextureView
 from .galleryview import GalleryView
 from .dbgtools import *
 from .colors import MaterialColors
+from .pickleddict import PickledDict
 
 from .. import consts, utils
 from ..enums import MaterialEnum, DumpTexInfoParts
@@ -33,47 +35,6 @@ import re, logging
 log = logging.getLogger(__name__)
 
 
-@dataclass
-class WadStatus:
-    #app: any # reference to app
-    name : str
-    found : bool = None # true=yes,false=no,none=no action
-    loaded : bool = None # true=yes,no=can't load,none=no action
-    selected : bool = False
-    uuid : any = None
-    path : Path = None
-    loaded_count : int = 0
-    _found_str = {True:"found",False:"not found",None:""}
-    _loaded_str = {True:"loaded",False:"can't load",None:""}
-    _parent: ClassVar = None
-
-    def _fmt(self):
-        # 1: found/not found, 2: loaded, 3: loaded_count
-        if self.loaded:              fmt_str = "{0} ({1}, {3} {2})"
-        elif self.loaded == False:   fmt_str = "{0} ({1}, {2})"
-        elif self.found is not None: fmt_str = "{0} ({1})"
-        else: return self.name
-        return fmt_str.format(self.name, self._found_str[self.found],
-                                         self._loaded_str[self.loaded],
-                              self.loaded_count)
-
-    def __post_init__(self):
-        callback = lambda s,a,u: setattr(self,"selected",a)
-        self.uuid = dpg.add_selectable(label=self._fmt(),
-                                       parent=self._parent,
-                                       disable_popup_close=True,
-                                       callback=callback)
-
-    def delete(self):
-        if self.uuid: dpg.delete_item(self.uuid)
-
-    def update(self, found=None, loaded=None, loaded_count=None):
-        if found is not None: self.found = found
-        if loaded: self.loaded = loaded
-        if loaded_count: self.loaded_count = loaded_count
-        dpg.configure_item(self.uuid,
-                           label=self._fmt(),
-                           enabled=False if self.found is False else True)
 
 
 @dataclass
@@ -91,6 +52,7 @@ class AppModel:
     auto_load_materials : bool = True # try find materials.path
     auto_load_wads      : bool = True # try find wads
     auto_parse_ents     : bool = True # parse entity
+    allow_unembed       : bool = False
     remap_entity_action : int  = 0    # RemapEntityActions.Insert
     backup              : bool = True # creates backup file if saving in same file
 
@@ -138,10 +100,10 @@ class AppModel:
         self.app.view.update_wannabe_material_tables()
 
         ## setup wad
-        self.app.view.update_wadlist() # populates app.view.wad_found_paths
+        self.app.view.update_wadlist() # populates wadstats list
         if self.auto_load_wads:
-            paths_to_load = tuple(v for k,v in self.app.view.wad_found_paths.items() if v)
-            self.app.view.load_external_wad_textures(paths_to_load)
+            entries = {x.order: x.path for x in self.app.view.wadstats if x.path}
+            self.app.view.load_external_wad_textures(entries)
 
         log.info("Done.")
         gui_utils.show_loading(False)
@@ -183,9 +145,12 @@ class AppView:
     # dict of bound items
     bound_items : dict           = field(default_factory=dict)
 
-    # list of wadstatus
+    # primary struct to hold the name, path, and entry list info
+    # and to present the items in the texture pane's wadlist
     wadstats: list[WadStatus]    = field(default_factory=list)
     wad_found_paths : dict       = field(default_factory=dict)
+    # holds the miptexes on disk in case user wants to embed them later
+    wad_cache : PickledDict      = field(default_factory=PickledDict)
     # all textures in the bsp
     textures : list[TextureView] = field(default_factory=list)
     # gallery view (only store the filtered items in its data)
@@ -363,7 +328,7 @@ class AppView:
             self.update_gallery()
 
 
-    def load_textures(self, miptexes, update=False, new_source=None):
+    def load_textures(self, miptexes, update=False, new_source=None, precedence=999):
         ''' populates app.view.textures with TextureView items.
             if updating, the miptexes are from wads, and new_source must be
             the wad's filename.
@@ -380,7 +345,7 @@ class AppView:
             update_args = [] # tuple of texview,newmiptex,source_location
             for newtex in miptexes:
                 if (oldtex := next(filter(finder,self.textures),None)):
-                    update_args.append((oldtex,newtex,new_source))
+                    update_args.append((oldtex,newtex,new_source, precedence))
 
             if not len(update_args): return
             log.info(f"{len(update_args)} texture entries will be updated with {new_source}")
@@ -412,16 +377,20 @@ class AppView:
         return result
 
 
-    def load_external_wad_textures(self,wadpaths:tuple[Path]):
+    def load_external_wad_textures(self, entries:dict[int,Path]):
         ''' loads the textures from the wads, *in order*, then update textures list.
-            caller should filter the wad paths, and make sure it's in the same
-            order as in the bsp, to preserve game engine presumed load order.
+            the input is a dict of entries
+            - key being order of precedence
+            - value being the path
         '''
         wanted_list = [x.name for x in self.app.data.bsp.textures_x]
         log.info(f"{len(wanted_list)} external textures wanted")
         if not len(wanted_list): return
 
+        wadpaths = entries.values()
+
         log.info(f"loading all wad files simultaneously-ish...")
+        _resultparts = namedtuple("ResultParts", ["miptexes","names"])
         taskfn = failure_returns_none(get_textures_from_wad)
         results = {}
         log.debug("START")
@@ -430,15 +399,18 @@ class AppView:
                 for wadpath, result \
                 in zip(wadpaths, executor.map(taskfn, wadpaths,
                                               [wanted_list]*len(wadpaths))):
-                    results[wadpath] = result
+                                              
+                    # result is a tuple of loaded miptex list and name list
+                    results[wadpath] = _resultparts(*result)
 
-        for wadpath in wadpaths:
+        for order, wadpath in entries.items():
             wadname = Path(wadpath).name
             status = {"loaded": False if results[wadpath] is None else True}
-            if results[wadpath] is None:
+            
+            if results[wadpath].miptexes is None:
                 log.warning(f"failed to load textures from {wadname}")
 
-            elif len(results[wadpath]):
+            elif len(results[wadpath].miptexes):
                 # something is loaded (empty means can load but found nothing)
                 log.debug(f"updating textures with {wadname} ({len(results[wadpath])} items)")
 
@@ -447,13 +419,18 @@ class AppView:
                 # but it makes sense
                 # NOTE: result is a dict. translate to list
                 miptexes = []
-                for direntryname, miptex in results[wadpath].items():
+                for direntryname, miptex in results[wadpath].miptexes.items():
                     miptex.name = direntryname
                     miptexes.append(miptex)
 
-                status["loaded_count"] = self.load_textures(miptexes, True, wadname)
+                status["loaded_count"] = self.load_textures(miptexes, True, wadname, order)
+                
             else:
                 status["loaded_count"] = 0
+                
+            # cache the miptexes
+            if results[wadpath].miptexes:
+                self.wad_cache[wadpath] = results[wadpath].miptexes
 
             log.debug(f"updating wadstats for {wadname}")
             item = next(filter(lambda x:x.name==wadname,self.wadstats),None)
@@ -462,16 +439,15 @@ class AppView:
 
     def update_wadlist(self):
         WadStatus._parent = self.get_dpg_item(type=BindingType.WadListGroup)
-        wads = wadlist(self.app.data.bsp.entities,True)
+        wads = list_wads(self.app.data.bsp.entities,True)
 
         list(x.delete() for x in self.wadstats) # make sure the bound dpg item is deleted
-        self.wadstats = [WadStatus(w) for w in wads]
+        self.wadstats = [WadStatus(w,i) for i,w in enumerate(wads)]
 
         wad_found_paths = search_wads(self.app.data.bsppath, wads)
         for item in self.wadstats:
             item.update(found=bool(wad_found_paths[item.name]))
             item.path = wad_found_paths[item.name]
-        self.wad_found_paths = wad_found_paths
 
         self.reflect() #prop=_propbind(self, "wadstats"))
 
@@ -758,8 +734,8 @@ class AppActions:
 
     ## wad selection callback
     def load_selected_wads(self, *_): # button callback
-        # TODO: use self.view.wad_found_paths as the only source of truth please
-        selection_paths = tuple(x.path for x in self.view.wadstats if x.selected)
+        selection_paths = [x.path for x in self.view.wadstats if x.selected]
+        selection_paths.sort(key=lambda x:x.order)
         self.view.load_external_wad_textures(selection_paths)
 
     ## Gallery actions

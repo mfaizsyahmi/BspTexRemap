@@ -1,7 +1,7 @@
 import dearpygui.dearpygui as dpg
 import DearPyGui_DragAndDrop as dpg_dnd
 
-import logging
+import logging, sys
 from collections import namedtuple
 from pathlib import Path
 
@@ -302,9 +302,17 @@ def add_right_pane(app):
 
         dpg.add_checkbox(label="Parse info_texture_remap entity in map")
         _bind(_BT.Value, _prop(app.data,"auto_parse_ents"))
-        _help("TODO")
 
+        dpg.add_separator()
+        dpg.add_text("Editing:")
+        
+        dpg.add_checkbox(label="Allow stripping embedded textures")
+        _bind(_BT.Value, _prop(app.data,"allow_unembed"))
+        _help(consts.ALLOW_UNEMBED_HELP)
+        
+        dpg.add_separator()
         dpg.add_text("Before save:")
+        
         dpg.add_text("info_texture_remap action:",indent=8)
         _help(consts.REMAP_ENTITY_ACTION_HELP.format(*mappings.remap_entity_actions))
 
@@ -313,7 +321,8 @@ def add_right_pane(app):
         _bind(_BT.TextMappedValue, _prop(app.data,"remap_entity_action"),
               data=mappings.remap_entity_actions )
 
-        dpg.add_text("")
+        dpg.add_separator()
+        dpg.add_text("Save/Export:")
 
         dpg.add_button(label="Save BSP", width=128, 
                        callback=lambda:app.do.save_bsp_file(app.data.backup))
@@ -450,7 +459,8 @@ def main():
     app.view.set_viewport_ready() # this will reschedule itself to run later
 
     dpg.create_viewport(title='BspTexRemap GUI', width=1200, height=800)
-    dpg.set_viewport_decorated(True)
+    dpg.set_viewport_large_icon(Path(sys.path[0]) / "assets/images/BspTexRemap_64.ico")
+    dpg.set_viewport_small_icon(Path(sys.path[0]) / "assets/images/BspTexRemap_64.ico")
     dpg.setup_dearpygui()
     dpg.show_viewport()
     dpg.set_primary_window("Primary Window", True)

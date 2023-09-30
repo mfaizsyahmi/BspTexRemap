@@ -5,7 +5,6 @@
     >>> from . import consts
     >>> consts.CHARSEQUENCE
 '''
-from enum import Enum
 # general info
 APPNAME     = "BspTexRemap"
 VERSION     = "v0.2"

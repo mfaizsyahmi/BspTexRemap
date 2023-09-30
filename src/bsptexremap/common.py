@@ -330,9 +330,13 @@ def filter_materials(source, matchars, names):
     return result
 
 
-def get_textures_from_wad(wadpath:str|Path, texture_names:str) -> dict:
+def get_textures_from_wad(wadpath:str|Path, texture_names:str) -> tuple[dict,list]:
     ''' loads miptexes of any of the textures in texture_names found in wad file.
-        this is so that we only read miptexes referenced in bsp file
+        this is so that we only read miptexes referenced in bsp file.
+        
+        returns a tuple of the miptexes and a list of all textures.
+        the latter would be used to check that unembedding textures don't leave
+        orphans
     '''
     texture_names = [x.lower() for x in texture_names]
     result = {}
@@ -345,7 +349,7 @@ def get_textures_from_wad(wadpath:str|Path, texture_names:str) -> dict:
             fp.seek(item.offset)
             result[item.name] = WadMipTex.load(fp,item.sizeondisk)
 
-    return result
+    return (result, tuple((item.name for item in wad.entries)))
 
 
 def backup_file(filepath:Path|str):

@@ -215,6 +215,7 @@ class DpgLogToTextItemHandler(logging.Handler):
         if self._set_colors:
             dpg.configure_item(self._target, color=DpgLogHandler.COLORS[record.levelno])
 
+
 def __wtf(): pass
 
 def show_loading(show=True):
