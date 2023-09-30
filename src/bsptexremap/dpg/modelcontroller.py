@@ -2,7 +2,18 @@
 '''
 import dearpygui.dearpygui as dpg
 
-from . import mappings, gui_utils
+from jankbsp import BspFileBasic as BspFile, WadFile
+from jankbsp.types import EntityList
+from jankbsp.types.wad import WadMipTex
+
+from .. import utils
+from ..enums import MaterialEnum, DumpTexInfoParts
+from ..common import * # This inserts consts, so must come before .consts!!!
+from ..utils import failure_returns_none
+from ..bsputil import wadlist, guess_lumpenum, bsp_custommat_path
+from ..materials import MaterialSet, TextureRemapper
+
+from . import consts, mappings, gui_utils
 from .mappings import BindingType, RemapEntityActions
 from .wadstatus import WadStatus, WadList
 from .textureview import TextureView
@@ -10,17 +21,6 @@ from .galleryview import GalleryView
 from .dbgtools import *
 from .colors import MaterialColors
 from .pickleddict import PickledDict
-
-from .. import consts, utils
-from ..enums import MaterialEnum, DumpTexInfoParts
-from ..common import *
-from ..utils import failure_returns_none
-from ..bsputil import wadlist, guess_lumpenum, bsp_custommat_path
-from ..materials import MaterialSet, TextureRemapper
-
-from jankbsp import BspFileBasic as BspFile, WadFile
-from jankbsp.types import EntityList
-from jankbsp.types.wad import WadMipTex
 
 from pathlib import Path
 from dataclasses import dataclass, field #, asdict
@@ -30,11 +30,9 @@ from operator import attrgetter
 from itertools import chain
 from concurrent.futures import ThreadPoolExecutor
 from math import log10, ceil
-import re, logging
+import re, logging, json
 
 log = logging.getLogger(__name__)
-
-
 
 
 @dataclass
@@ -164,9 +162,9 @@ class AppView:
     filter_matnames : str        = ""
 
     # texture remap list settings
-    texremap_sort : bool         = False
-    texremap_revsort : bool      = False
-    texremap_grouped : bool      = False
+    texremap_sort      : bool    = False
+    texremap_revsort   : bool    = False
+    texremap_grouped   : bool    = False
     texremap_not_empty : bool    = False
 
     # texture gallery view settings
@@ -798,6 +796,7 @@ class App:
         self.data = AppModel(self)
         self.view = AppView(self)
         self.do = AppActions(self,self.view)
+        self.load_config()
 
         self.global_texture_registry = dpg.add_texture_registry()
 
@@ -810,8 +809,34 @@ class App:
             "use_multithread" : False
         }
 
-    def load_config(self,cfgpath):
-        pass
+
+    # loading and saving config
+    def load_config(self,cfgpath=None):
+        if not cfgpath: 
+            cfgpath = Path(sys.modules['__main__'].__file__).with_suffix(".cfg.json")
+            
+        try:
+            cfg = json.loads(Path(cfgpath).read_bytes())
+            if cfg["appname"] != consts.GUI_APPNAME: return
+        except: return
+
+        for part, prop in consts.CONFIG_MAP:
+            try: setattr(getattr(self, part),prop, cfg["config"][part][prop])
+            except: continue
+
+    def save_config(self,cfgpath=None):
+        if not cfgpath: 
+            cfgpath = Path(sys.modules['__main__'].__file__).with_suffix(".cfg.json")
+            
+        cfg = {
+            "appname" : consts.GUI_APPNAME,
+            "config": {}
+        }
+        for part, prop in consts.CONFIG_MAP:
+            cfg["config"].setdefault(part,{})[prop] = getattr(getattr(self, part), prop)
+
+        Path(cfgpath).write_text(json.dumps(cfg))
+
 
     def update(self,*args,**kwargs):
         ''' pass this to self.view.update '''

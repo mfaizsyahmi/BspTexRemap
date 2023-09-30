@@ -466,6 +466,8 @@ def main():
     dpg.set_primary_window("Primary Window", True)
 
     dpg.start_dearpygui()
+    
+    app.save_config()
     dpg.destroy_context()
 
 if __name__ == "__main__":

@@ -5,11 +5,29 @@
     >>> from . import consts
     >>> consts.CHARSEQUENCE
 '''
-from ..consts import * # base of this file
-
+from ..consts import *
 # these should overwrite the one in the base file
 GUI_APPNAME     = "BspTexRemap GUI"
 GUI_VERSION     = "v0.1"
+
+## CONFIG MAP
+CONFIG_MAP = (
+    ("data", "auto_load_materials"),
+    ("data", "auto_load_wads"     ),
+    ("data", "auto_parse_ents"    ),
+    ("data", "allow_unembed"      ),
+    ("data", "remap_entity_action"),
+    ("data", "backup"             ),
+    ("view", "texremap_sort"      ),
+    ("view", "texremap_revsort"   ),
+    ("view", "texremap_grouped"   ),
+    ("view", "texremap_not_empty" ),
+    ("view", "gallery_show_val"   ),
+    ("view", "gallery_size_val"   ),
+    ("view", "gallery_size_scale" ),
+    ("view", "gallery_size_maxlen"),
+    ("view", "gallery_sort_val"   )
+)
 
 # main file
 REMAP_ENTITY_ACTION_HELP = """
