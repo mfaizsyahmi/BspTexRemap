@@ -2,26 +2,27 @@ from enum import IntEnum, IntFlag, auto
 from collections import namedtuple
 
 class BindingType(IntEnum):
-                                    # Unique
-                                    #   Readonly
-                                    #      data desc
-    Value                = auto()   #      -
-    ValueIs              = auto()   #      associated val. gets/sets bool
-    TextMappedValue      = auto()   #      prop in mappings
-    FormatLabel          = auto()   #   R  [fmtstr, prop map]
-    FormatValue          = auto()   #   R  [fmtstr, prop map]
-    FilterValue          = auto()   #
-    FilterSet            = auto()   #
-    BspOpenFileDialog    = auto()   # U
-    BspSaveFileDialog    = auto()   # U
-    MatLoadFileDialog    = auto()   # U
-    MatExportFileDialog  = auto()   # U
-    MaterialSummaryTable = auto()   # U
-    MaterialEntriesTable = auto()   # U
-    TextureRemapList     = auto()   # U
-    WadListGroup         = auto()   # U
-    GallerySizeList      = auto()   # U
-    GalleryRoot          = auto()   # U
+                                         # Unique
+                                         #   Readonly
+                                         #      data desc
+    Value                     = auto()   #      -
+    ValueIs                   = auto()   #      associated val. gets/sets bool
+    TextMappedValue           = auto()   #      prop in mappings
+    FormatLabel               = auto()   #   R  [fmtstr, prop map]
+    FormatValue               = auto()   #   R  [fmtstr, prop map]
+    FilterValue               = auto()   #
+    FilterSet                 = auto()   #
+    BspOpenFileDialog         = auto()   # U
+    BspSaveFileDialog         = auto()   # U
+    MatLoadFileDialog         = auto()   # U
+    CustomMatLoadFileDialog   = auto()   # U
+    CustomMatExportFileDialog = auto()   # U
+    MaterialSummaryTable      = auto()   # U
+    MaterialEntriesTable      = auto()   # U
+    TextureRemapList          = auto()   # U
+    WadListGroup              = auto()   # U
+    GallerySizeList           = auto()   # U
+    GalleryRoot               = auto()   # U
 
 
 read_only_binding_types = (BindingType.FormatLabel,

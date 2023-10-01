@@ -49,7 +49,7 @@ class AppModel:
     # settings
     auto_load_materials : bool = True # try find materials.path
     auto_load_wads      : bool = True # try find wads
-    auto_parse_ents     : bool = True # parse entity
+    auto_load_wannabes  : bool = True # parse entity
     allow_unembed       : bool = False
     remap_entity_action : int  = 0    # RemapEntityActions.Insert
     backup              : bool = True # creates backup file if saving in same file
@@ -90,10 +90,15 @@ class AppModel:
         self.wannabe_set = MaterialSet()
         self.direct_remap = {}
         self.remap_entity_count = 0
+        
         for texremap_ent in iter_texremap_entities(self.bsp.entities):
             self.remap_entity_count += 1
-            if self.auto_parse_ents:
+            if self.auto_load_wannabes:
                 self.wannabe_set |= MaterialSet.from_entity(texremap_ent)
+        
+        def_path = bsp_custommat_path(self.app.data.bsppath)
+        if self.auto_load_wannabes and def_path.exists():
+            self.wannabe_set |= MaterialSet.from_materials_file(def_path)
 
         self.app.view.update_wannabe_material_tables()
 
@@ -117,6 +122,11 @@ class AppModel:
         self.mat_set = MaterialSet.from_materials_file(self.matpath)
         self.app.view.reflect()
         self.app.view.render_material_tables()
+    
+    def load_wannabes(self, matpath):
+        self.wannabe_set |= MaterialSet.from_materials_file(matpath)
+        self.app.view.reflect()
+        self.app.view.update_wannabe_material_tables()
 
     def TEST_load_wad(self,wadpath):
         ''' TEST of loading a wad file directly '''
@@ -623,13 +633,19 @@ class AppActions:
     ### GUI callbacks that opens a file dialog ###
     def show_file_dialog(self, type:BindingType, init_path=None, init_filename=None):
         dlg = self.view.get_dpg_item(type)
-        kwargs = {}
-        if init_path: kwargs["default_path"] = init_path
-        if init_filename: kwargs["default_filename"] = init_filename
+        defaults = {}
+        if init_path: defaults["default_path"] = init_path
+        if init_filename: defaults["default_filename"] = init_filename
 
-        dpg.configure_item(dlg, **kwargs)
+        dpg.configure_item(dlg, **defaults)
         dpg.show_item(dlg)
-
+    
+    def file_dialog_defaults(self,path,name=None,mapfn=None):
+        if not path: return {}
+        if callable(mapfn): path = mapfn(path)
+        if not name and not path.is_dir(): name, path = path.name, path.parent
+        return {"init_path": str(path), "init_filename": str(name)}
+    
     ''' File load/save/export ==================================================
         these file dialogs are already set up to call back the same fn with the name
 
@@ -674,13 +690,8 @@ class AppActions:
     def save_bsp_file_as(self, bsppath:str|Path=None, confirm=None):
         if confirm==False: return
         if not bsppath:
-            kwargs = {}
-            if self.app.data.bsppath:
-                def_path = self.app.data.bsppath
-                kwargs["init_path"] = def_path.parent
-                kwargs["init_filename"] = def_path.with_name(def_path.stem + "_output.bsp")
-
-            # callbacks already set
+            mapfn = lambda p:p.with_name(p.stem + "_output.bsp")
+            kwargs = self.file_dialog_defaults(self.app.data.bsppath,mapfn=mapfn)
             self.show_file_dialog(BindingType.BspSaveFileDialog,**kwargs)
             return
 
@@ -700,17 +711,21 @@ class AppActions:
             return
         self.app.data.load_materials(matpath)
 
+    def load_custommat_file(self, matpath:str|Path=None): # dialog callback
+        if not matpath:
+            mapfn = bsp_custommat_path
+            kwargs = self.file_dialog_defaults(self.app.data.bsppath,mapfn=mapfn)
+            self.show_file_dialog(BindingType.CustomMatLoadFileDialog,**kwargs)
+            return
+            
+        self.app.data.load_wannabes(matpath)
+        
     def export_custommat(self, outpath:str|Path=None, confirm=None):
         if confirm==False: return
         if not outpath:
-            kwargs = {}
-            if self.app.data.bsppath:
-                def_path = bsp_custommat_path(self.app.data.bsppath)
-                kwargs["init_path"] = def_path.parent
-                kwargs["init_filename"] = def_path.name
-
-            # callbacks already set
-            self.show_file_dialog(BindingType.MatExportFileDialog,**kwargs)
+            mapfn = bsp_custommat_path
+            kwargs = self.file_dialog_defaults(self.app.data.bsppath,mapfn=mapfn)
+            self.show_file_dialog(BindingType.CustomMatExportFileDialog,**kwargs)
             return
 
         elif Path(outpath).exists() and not confirm:
@@ -720,8 +735,8 @@ class AppActions:
 
         try:
             dump_texinfo(self.app.data.bsppath,0b1110000000000, None,
-                        material_set=self.app.data.wannabe_set,
-                        outpath=Path(outpath))
+                         material_set=self.app.data.wannabe_set,
+                         outpath=Path(outpath))
             log.info(f"Exported custom material file: \"{outpath}\"")
         except Exception as error:
             log.error(f"Failed to export custom material file: \"{outpath}\"\n\t{error}")
@@ -732,9 +747,8 @@ class AppActions:
 
     ## wad selection callback
     def load_selected_wads(self, *_): # button callback
-        selection_paths = [x.path for x in self.view.wadstats if x.selected]
-        selection_paths.sort(key=lambda x:x.order)
-        self.view.load_external_wad_textures(selection_paths)
+        entries = {x.order: x.path for x in self.view.wadstats if x.selected}
+        self.app.view.load_external_wad_textures(entries)
 
     ## Gallery actions
     def select_all_textures(self, sender, app_data, value:bool=False):

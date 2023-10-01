@@ -66,9 +66,15 @@ def add_file_dialogs(app):
             "callback": _filedlg_cb(app.do.load_mat_file),
             "exts": ("txt","all")
         },
-        BindingType.MatExportFileDialog : {
-            "tag" : "dlgMatFileExport",
+        BindingType.CustomMatLoadFileDialog : {
+            "tag" : "dlgCustomMatFileLoad",
             "label": "Export custom materials file",
+            "callback": _filedlg_cb(app.do.load_custommat_file),
+            "exts": ("txt","all")
+        },
+        BindingType.CustomMatExportFileDialog : {
+            "tag" : "dlgCustomMatFileExport",
+            "label": "Load custom material entries file",
             "callback": _filedlg_cb(app.do.export_custommat),
             "exts": ("txt","all")
         }
@@ -294,14 +300,17 @@ def add_right_pane(app):
         dpg.bind_item_theme(dpg.last_item(),"theme:normal_table")
 
         dpg.add_text("On load:")
-        dpg.add_checkbox(label="Auto find and load materials")
+        dpg.add_text("Auto find and load:",indent=8)
+        dpg.add_checkbox(label="materials.txt",indent=16)
         _bind(_BT.Value, _prop(app.data,"auto_load_materials"))
+        _help("Looks for materials.txt")
 
-        dpg.add_checkbox(label="Auto find and load WADs")
+        dpg.add_checkbox(label="WADs",indent=16)
         _bind(_BT.Value, _prop(app.data,"auto_load_wads"))
 
-        dpg.add_checkbox(label="Parse info_texture_remap entity in map")
-        _bind(_BT.Value, _prop(app.data,"auto_parse_ents"))
+        dpg.add_checkbox(label="Custom remaps",indent=16)
+        _bind(_BT.Value, _prop(app.data,"auto_load_wannabes"))
+        _help(consts.AUTOLOAD_REMAPS_HELP)
 
         dpg.add_separator()
         dpg.add_text("Editing:")
@@ -378,9 +387,12 @@ def add_main_window(app, default_font=None):
                 _bind(_BT.Value, _prop(app.data,"auto_load_materials"))
                 ___()
                 
-                _mi(label="Parse info_texture_remap entity in map")
+                _mi(label="Parse info_texture_remap entity in map",
+                    callback=_bare_cb(app.do.parse_remap_entities))
+                _mi(label="Load custom material remap file",
+                    callback=_bare_cb(app.do.load_custommat_file))
                 _mi(label="Automatically on map load",indent=8,check=True)
-                _bind(_BT.Value, _prop(app.data,"auto_parse_ents"))
+                _bind(_BT.Value, _prop(app.data,"auto_load_wannabes"))
                 
 
             with dpg.menu(label="Textures"):

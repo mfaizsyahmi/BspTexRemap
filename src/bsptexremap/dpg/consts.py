@@ -14,7 +14,7 @@ GUI_VERSION     = "v0.1"
 CONFIG_MAP = (
     ("data", "auto_load_materials"),
     ("data", "auto_load_wads"     ),
-    ("data", "auto_parse_ents"    ),
+    ("data", "auto_load_wannabes" ),
     ("data", "allow_unembed"      ),
     ("data", "remap_entity_action"),
     ("data", "backup"             ),
@@ -30,6 +30,12 @@ CONFIG_MAP = (
 )
 
 # main file
+AUTOLOAD_REMAPS_HELP = """ 
+Loads existing texture remap entries from the following sources:
+  1. info_texture_remap entities in map
+  2. <mapname>_custommat.txt file
+""".strip()
+        
 REMAP_ENTITY_ACTION_HELP = """
 info_texture_remap is an entity that mappers can insert to remap entities.
 It is primarily used with the command line version BspTexRemap as part of the
