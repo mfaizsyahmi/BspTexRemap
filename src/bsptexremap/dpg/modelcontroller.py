@@ -90,15 +90,16 @@ class AppModel:
         self.wannabe_set = MaterialSet()
         self.direct_remap = {}
         self.remap_entity_count = 0
-        
+
         for texremap_ent in iter_texremap_entities(self.bsp.entities):
             self.remap_entity_count += 1
             if self.auto_load_wannabes:
                 self.wannabe_set |= MaterialSet.from_entity(texremap_ent)
-        
+
         def_path = bsp_custommat_path(self.app.data.bsppath)
         if self.auto_load_wannabes and def_path.exists():
             self.wannabe_set |= MaterialSet.from_materials_file(def_path)
+            self.app.view.update_gallery_items()
 
         self.app.view.update_wannabe_material_tables()
 
@@ -122,7 +123,7 @@ class AppModel:
         self.mat_set = MaterialSet.from_materials_file(self.matpath)
         self.app.view.reflect()
         self.app.view.render_material_tables()
-    
+
     def load_wannabes(self, matpath):
         self.wannabe_set |= MaterialSet.from_materials_file(matpath)
         self.app.view.reflect()
@@ -135,6 +136,22 @@ class AppModel:
             with open(wadpath, "rb") as fp:
                 wad = WadFile.load(fp)
         self.app.view.load_textures([item._miptex for item in wad.entries])
+
+    def commit_bsp_edits(self):
+        ''' returns a new bsp object with the edits applied, namely:
+            1. embed/unembed textures
+            2. rename textures
+            3. add/remove info_texture_remap
+        '''
+        ## 0. load a fresh instance
+        with open(self.bsppath, "rb") as f:
+            newbsp = BspFile(f, lump_enum=guess_lumpenum(self.bsppath))
+
+        ## 1. embeds/unembeds textures
+        for miptex in newbsp.textures:
+            pass
+
+        return newbsp
 
 
 @dataclass(frozen=True)
@@ -407,14 +424,14 @@ class AppView:
                 for wadpath, result \
                 in zip(wadpaths, executor.map(taskfn, wadpaths,
                                               [wanted_list]*len(wadpaths))):
-                                              
+
                     # result is a tuple of loaded miptex list and name list
                     results[wadpath] = _resultparts(*result)
 
         for order, wadpath in entries.items():
             wadname = Path(wadpath).name
             status = {"loaded": False if results[wadpath] is None else True}
-            
+
             if results[wadpath].miptexes is None:
                 log.warning(f"failed to load textures from {wadname}")
 
@@ -432,10 +449,10 @@ class AppView:
                     miptexes.append(miptex)
 
                 status["loaded_count"] = self.load_textures(miptexes, True, wadname, order)
-                
+
             else:
                 status["loaded_count"] = 0
-                
+
             # cache the miptexes
             if results[wadpath].miptexes:
                 self.wad_cache[wadpath] = results[wadpath].miptexes
@@ -498,6 +515,13 @@ class AppView:
         if not self._viewport_ready: return
         self.gallery.render()
         self.reflect(prop=(self.app,"view"))
+    
+    def update_gallery_items(self,matname=None):
+        ''' update the state of TextureView items '''
+        with dpg.mutex():
+            for item in (item for item in self.textures):
+                if not matname or item.matname == matname:
+                    item.update_state()
 
 
     def render_material_tables(self, summary=True, entries=True):
@@ -569,6 +593,13 @@ class AppView:
         _E = gui_utils.ImglistEntry
         dict_of_lists = {}
         target_len = 48
+        
+        def _del_cb(xmat,xmatname):
+            def _called(*_):
+                self.app.data.wannabe_set[xmat].discard(xmatname.upper())
+                self.update_gallery_items(xmatname)
+                self.update_wannabe_material_tables()
+            return _called
 
         for mat in self.app.data.wannabe_set.MATCHARS:
             sublist = []
@@ -576,16 +607,28 @@ class AppView:
             for matname in self.app.data.wannabe_set[mat]:
 
                 textures = [x for x in self.textures if x.matname==matname]
-                text = f"{matname}" if self.texremap_grouped else \
-                       f"{matname} {'-'*(15-len(matname))}> {mat}"
+                with dpg.stage() as content_stage:
+                    with dpg.group(horizontal=True):
+                        if not self.texremap_grouped:
+                            dpg.add_text(f"{matname} {'-'*(15-len(matname))}>")
+                            dpg.add_text(mat,color=MaterialColors[mat].color\
+                                                   or MaterialColors.unknown.color)
+                        else:
+                            dpg.add_text(matname)
+                            
+                    with dpg.group(horizontal=True):
+                        dpg.add_text(f"{len(textures)} items")
+                        dpg.add_button(label="Del.",
+                                       callback=_del_cb(mat,matname))
+                        
 
                 if len(textures):
                     sample = textures[0]
                     entry = _E(sample.uuid,sample.width,sample.height,
-                               [text, f"{len(textures)} items"], matname)
+                               [], matname, content_stage)
                 else:
                     entry = _E(None,target_len,target_len,
-                               [text, "0 items"], matname)
+                               [], matname, content_stage)
 
                 sublist.append(entry)
 
@@ -610,12 +653,12 @@ class AppView:
                                    default_open=True) as node:
                     gui_utils.populate_imglist(node,imglist,target_len)
 
-                dpg.add_separator()
-
         finally:
             dpg.pop_container_stack()
 
-###################################### AppActions ##############################
+###=============================================================================
+###                                   AppActions
+###=============================================================================
 class AppActions:
     def __init__(self,app,view):
         self.app = app
@@ -639,13 +682,13 @@ class AppActions:
 
         dpg.configure_item(dlg, **defaults)
         dpg.show_item(dlg)
-    
+
     def file_dialog_defaults(self,path,name=None,mapfn=None):
         if not path: return {}
         if callable(mapfn): path = mapfn(path)
         if not name and not path.is_dir(): name, path = path.name, path.parent
         return {"init_path": str(path), "init_filename": str(name)}
-    
+
     ''' File load/save/export ==================================================
         these file dialogs are already set up to call back the same fn with the name
 
@@ -666,6 +709,7 @@ class AppActions:
             self.app.data.load_bsp(self.app.data.bsppath)
 
     def save_bsp_file(self, backup:bool=None, confirm=None):
+        print("view.save_bsp_file", backup, confirm)
         bakpath = self.app.data.bsppath.with_name(self.app.data.bsppath.name + ".bak")
         should_backup = not bakpath.exists()
 
@@ -684,7 +728,7 @@ class AppActions:
 
         print("BSP FILE SHOULD SAVE HERE, BUT NOT NOW"); return
         with open(self.app.data.bsppath, "wb") as f:
-            self.app.data.bsp.dump(f)
+            self.app.data.commit_bsp_edits().dump(f)
 
 
     def save_bsp_file_as(self, bsppath:str|Path=None, confirm=None):
@@ -699,10 +743,10 @@ class AppActions:
             cb_wrap = gui_utils.wrap_message_box_callback(self.save_bsp_file_as,bsppath)
             gui_utils.confirm_replace(bsppath, cb_wrap)
             return
-        # todo: save file
+        
         print("BSP FILE SHOULD SAVE HERE, BUT NOT NOW"); return
         with open(bsppath, "wb") as f:
-            self.app.data.bsp.dump(f)
+            self.app.data.commit_bsp_edits().dump(f)
 
 
     def load_mat_file(self, matpath:str|Path=None): # dialog callback
@@ -717,11 +761,12 @@ class AppActions:
             kwargs = self.file_dialog_defaults(self.app.data.bsppath,mapfn=mapfn)
             self.show_file_dialog(BindingType.CustomMatLoadFileDialog,**kwargs)
             return
-            
+
         self.app.data.load_wannabes(matpath)
-        
+
     def export_custommat(self, outpath:str|Path=None, confirm=None):
         if confirm==False: return
+        elif not len(self.app.data.wannabe_set): return
         if not outpath:
             mapfn = bsp_custommat_path
             kwargs = self.file_dialog_defaults(self.app.data.bsppath,mapfn=mapfn)
@@ -734,12 +779,26 @@ class AppActions:
             return
 
         try:
-            dump_texinfo(self.app.data.bsppath,0b1110000000000, None,
+            dump_texinfo(self.app.data.bsppath,7168, None, # header|matchars|mat_set
                          material_set=self.app.data.wannabe_set,
                          outpath=Path(outpath))
             log.info(f"Exported custom material file: \"{outpath}\"")
         except Exception as error:
             log.error(f"Failed to export custom material file: \"{outpath}\"\n\t{error}")
+
+    def clear_wannabes(self,confirm=None):
+        if confirm==False: return
+        elif not len(self.app.data.wannabe_set): return
+        elif confirm is None:
+            cb_wrap = gui_utils.wrap_message_box_callback(self.clear_wannabes)
+            gui_utils.confirm("Clear remap list", 
+                              f"{len(self.app.data.wannabe_set)} entries will be cleared. continue?", cb_wrap)
+            return
+        
+        self.app.data.wannabe_set = MaterialSet()
+        self.view.update_gallery_items()
+        self.view.update_wannabe_material_tables()
+        
 
     ## parse entity in bsp (just a passthrough)
     def parse_remap_entities(self, *_):
@@ -751,19 +810,19 @@ class AppActions:
         self.app.view.load_external_wad_textures(entries)
 
     ## Gallery actions
-    def select_all_textures(self, sender, app_data, value:bool=False):
+    def select_all_textures(self, sender, _, value:bool=False):
         log.debug(f"selection: {value}")
         for item in self.view.gallery.data: # only the list in gallery data is selectable
             item._select_cb(sender,value)
             item.update_state()
 
-    def selection_set_material(self, sender, app_data, mat:str):
+    def selection_set_material(self, sender, _, mat:str):
         for item in self.view.gallery.data:
             if item.selected:
                 item.mat = mat
                 item.update_state()
 
-    def selection_embed(self, sender, app_data, embed:bool):
+    def selection_embed(self, sender, _, embed:bool):
         for item in self.view.gallery.data:
             if item.selected:
                 item.become_external = not embed if embed != item.is_external else None
@@ -810,8 +869,8 @@ class App:
         self.data = AppModel(self)
         self.view = AppView(self)
         self.do = AppActions(self,self.view)
-        self.load_config()
 
+        self.load_config()
         self.global_texture_registry = dpg.add_texture_registry()
 
         TextureView.class_init(app=self,
@@ -824,11 +883,11 @@ class App:
         }
 
 
-    # loading and saving config
+    ## loading and saving config
     def load_config(self,cfgpath=None):
-        if not cfgpath: 
+        if not cfgpath:
             cfgpath = Path(sys.modules['__main__'].__file__).with_suffix(".cfg.json")
-            
+
         try:
             cfg = json.loads(Path(cfgpath).read_bytes())
             if cfg["appname"] != consts.GUI_APPNAME: return
@@ -839,20 +898,12 @@ class App:
             except: continue
 
     def save_config(self,cfgpath=None):
-        if not cfgpath: 
+        if not cfgpath:
             cfgpath = Path(sys.modules['__main__'].__file__).with_suffix(".cfg.json")
-            
-        cfg = {
-            "appname" : consts.GUI_APPNAME,
-            "config": {}
-        }
+
+        cfg = {"appname" : consts.GUI_APPNAME, "config": {} }
         for part, prop in consts.CONFIG_MAP:
             cfg["config"].setdefault(part,{})[prop] = getattr(getattr(self, part), prop)
 
         Path(cfgpath).write_text(json.dumps(cfg))
-
-
-    def update(self,*args,**kwargs):
-        ''' pass this to self.view.update '''
-        return self.view.update(*args,**kwargs)
 

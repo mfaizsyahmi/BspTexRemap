@@ -5,6 +5,8 @@
 import dearpygui.dearpygui as dpg
 from ..enums import MaterialEnum
 from collections import namedtuple
+from pathlib import Path
+import sys
 
 class Subscriptable:
     ''' support for class[item] '''
@@ -12,6 +14,8 @@ class Subscriptable:
         ''' support for class[item] (prefered way)'''
         if item in cls.__dict__: return cls.__dict__[item] 
         return None
+    @classmethod
+    def items(cls): return cls.__dict__.items()
 
 
 _c = namedtuple("ColorRegistry", ["color","bg","fg"])
@@ -161,4 +165,20 @@ def add_themes():
                 dpg.add_theme_color(dpg.mvThemeCol_Text,
                                     mat_color_entry.color)
 
+### FONTS ----------------------------------------------------------------------
+_f = namedtuple("FontRegistry", ["tag","filename","size"])
+class AppFonts(Subscriptable):
+    Regular = _f("font:regular", "FiraMono-Regular.ttf", 16)
+    Bold    = _f("font:bold"   , "FiraMono-Bold.ttf"   , 16)
+
+def setup_fonts(fontassetpath=None):
+    if not fontassetpath:
+        fontassetpath = Path(sys.modules['__main__'].__file__).parent/"assets/fonts"
+    
+    # add a font registry
+    with dpg.font_registry():
+        # first argument ids the path to the .ttf or .otf file
+        for k,fontcfg in AppFonts.items():
+            if not isinstance(fontcfg, _f): continue
+            dpg.add_font(fontassetpath/fontcfg.filename, fontcfg.size, tag=fontcfg.tag)
 

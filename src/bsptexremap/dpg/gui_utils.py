@@ -78,6 +78,7 @@ class ImglistEntry(NamedTuple):
     height : int
     text   : list[str]
     key    : any  = 0 # sorting aid
+    content_stage_tag : int = None
 def _x(): pass # this gets consumed by npp
 
 
@@ -108,8 +109,11 @@ def populate_imglist(target, items:list[ImglistEntry], max_length=48, grow=False
                     else:
                         dpg.draw_image(item.image, (x,y), (x+w,y+h))
                 with dpg.group():
-                    for line in item.text:
-                        dpg.add_text(line)
+                    if item.content_stage_tag:
+                        dpg.unstage(item.content_stage_tag)
+                    else:
+                        for line in item.text:
+                            dpg.add_text(line)
     finally:
         dpg.pop_container_stack()
 
@@ -167,7 +171,7 @@ def sort_table(sender, sort_specs):
 
 class DpgLogHandler(logging.Handler):
     COLORS = {
-        logging.DEBUG:    (127,159,127), # olive
+        logging.DEBUG:    (127,200,127), # ???
         logging.INFO:     (  0,160,255), # light blue
         logging.WARNING:  (255,127,  0), # orange
         logging.ERROR:    (255,  0,  0), # red

@@ -13,7 +13,7 @@ class PickledDict(DictMixin):
     
     def __init__(self,_cache_path:Path=None, **kwargs):
         if _cache_path is None:
-            _cache_path = Path(sys.path[0]) / "cache"
+            _cache_path = Path(sys.path[0]) / "temp"
             
         _cache_path.mkdir(parents=True, exist_ok=True)
         for extras in _cache_path.iterdir(): 

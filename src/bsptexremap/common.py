@@ -301,10 +301,10 @@ def dump_texinfo(bsppath,
             f.write("\n// Material types: \n")
             f.write("\n".join([f"//  {m} - {me(m).name}" for m in MaterialSet.MATCHARS]) + "\n")
         if parts&4096: # material set
-            f.write("\n// Material entries: \n")
+            f.write("\n// Material entries: ")
             for m in material_set.MATCHARS:
                 if not len(material_set[m]): continue # skip empty sets
-                f.write(f"//  {m} - {me(m).name}\n")
+                f.write(f"\n//  {m} - {me(m).name}\n")
                 f.write("\n".join([f"{m.upper()} {item.upper()}" \
                         for item in material_set[m]]))
 

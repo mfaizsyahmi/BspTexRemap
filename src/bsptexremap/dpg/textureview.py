@@ -142,6 +142,7 @@ class TextureView:
 
         self._handlers_initialized = True
 
+
     def __del__(self):
         ''' make sure all items are freed '''
         if self._handlers_initialized:
@@ -151,6 +152,7 @@ class TextureView:
         if self.uuid:
             try: dpg.delete_item(self.uuid)
             except: pass
+
 
     def update_miptex(self, miptex, source_name, precedence=999):
         ''' if found wad that has this texture, update here
@@ -199,9 +201,7 @@ class TextureView:
     def estimate_group_width(self, scale=1.0, max_length=float('inf')):
         return max( int(self.draw_size(scale, max_length)[0]),
                     int(dpg.get_text_size(self.name)[0]),
-                    int(dpg.get_text_size(f"{self.width}x{self.height}")[0]) + 24,
-                    int(dpg.get_text_size("external")[0]), # temp
-                    )
+                    int(dpg.get_text_size(f"{self.width}x{self.height}")[0]) + 24 )
 
     def draw_size(self, scale=1.0, max_length=float('inf')):
         max_scale = min(max_length/self.width,max_length/self.height)
@@ -216,6 +216,7 @@ class TextureView:
         #with dpg.child_window(width=w) as galleryItem:
         w_estimate = self.estimate_group_width(scale, max_length)
         w,h = self.draw_size(scale, max_length)
+        ch = dpg.get_text_size("X")[1] # char height, used to estimate checkbox size
 
         with dpg.group(user_data=[self.matname,self]) as galleryItem: #
 
@@ -225,7 +226,7 @@ class TextureView:
                 self._label_uuid = dpg.add_text(self.name)
 
                 self._selector_uuid = dpg.add_checkbox(
-                        indent=w_estimate-20,show=False,
+                        indent=w_estimate-ch-6, show=False,
                         callback=self._select_cb,
                         **self._get_tag_and_source_kwargs("TEXSELECT")
                 )

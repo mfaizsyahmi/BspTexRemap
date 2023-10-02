@@ -35,16 +35,6 @@ def _bare_cb(fn):
     cb = lambda sender, app_data: fn()
     return cb
     
-
-def setup_fonts():
-    return # nah...
-    font_path = __file__ + "/../assets/fonts/FiraCode-VariableFont_wght.ttf"
-    # add a font registry
-    with dpg.font_registry():
-        # first argument ids the path to the .ttf or .otf file
-        default_font = dpg.add_font(font_path, 18)
-    return default_font
-    
     
 def add_file_dialogs(app):
     file_dlg_cfg = {
@@ -149,6 +139,12 @@ def add_materials_pane(app):
             ## Texture remap list
             dpg.add_group()
             _bind(_BT.TextureRemapList)
+            
+            dpg.add_separator()
+            with dpg.group(horizontal=True):
+                dpg.add_button(label="Import", callback=_bare_cb(app.do.load_mat_file))
+                dpg.add_button(label="Export", callback=_bare_cb(app.do.export_custommat))
+                dpg.add_button(label="Clear ", callback=_bare_cb(app.do.clear_wannabes))
 
         app.view.render_material_tables()
 
@@ -219,7 +215,7 @@ def add_textures_pane(app):
                        lambda val:mappings.gallery_sort_map[val].short])
 
                 ## Mapped sort values
-                sep = (5,)
+                sep = mappings.gallery_sort_separators
                 for i, text in enumerate(mappings.gallery_sortings):
                     if i in sep: dpg.add_separator()
                     dpg.add_menu_item(label=text,check=True)
@@ -350,7 +346,7 @@ def add_right_pane(app):
         _help("Generates custom material file that can be used\nwith BspTexRemap.exe (the console program)")
 
 
-def add_main_window(app, default_font=None):
+def add_main_window(app):
     ''' main window layout '''
     _bind = lambda *args,**kwargs: _bind_last_item(app,*args,**kwargs) # shorthand
     _mi = dpg.add_menu_item
@@ -441,11 +437,8 @@ def add_main_window(app, default_font=None):
                 add_textures_pane(app)
 
                 ### options/actions pane ###
-                add_right_pane(app)
+                add_right_pane(app)        
 
-    # set font of specific widget
-    if default_font:
-        dpg.bind_font(default_font)
     ### END OF WINDOW LAYOUT
 
 
@@ -458,12 +451,14 @@ def main():
     log.addHandler(gui_utils.DpgLogHandler(0,show=False))
 
     colors.add_themes()
-    default_font = setup_fonts()
+    colors.setup_fonts()
+    dpg.bind_font(colors.AppFonts.Regular.tag)
+    
     app = App()
     dpg_dnd.set_drop(app.do.handle_drop)
 
     add_file_dialogs(app)
-    add_main_window(app, default_font)
+    add_main_window(app)
     #app.view.reflect()
     
     if args.bsppath:
