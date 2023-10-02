@@ -517,13 +517,14 @@ class AppView:
         if not self._viewport_ready: return
         self.gallery.render()
         self.reflect(prop=(self.app,"view"))
-    
-    def update_gallery_items(self,matname=None):
+
+    def update_gallery_items(self,matname=None,selected=None):
         ''' update the state of TextureView items '''
         with dpg.mutex():
             for item in (item for item in self.textures):
-                if not matname or item.matname == matname:
-                    item.update_state()
+                if selected and not item.selected: continue
+                elif matname and item.matname != matname: continue
+                item.update_state()
 
 
     def render_material_tables(self, summary=True, entries=True):
@@ -595,7 +596,7 @@ class AppView:
         _E = gui_utils.ImglistEntry
         dict_of_lists = {}
         target_len = 48
-        
+
         def _del_cb(xmat,xmatname):
             def _called(*_):
                 self.app.data.wannabe_set[xmat].discard(xmatname.upper())
@@ -617,12 +618,12 @@ class AppView:
                                                    or MaterialColors.unknown.color)
                         else:
                             dpg.add_text(matname)
-                            
+
                     with dpg.group(horizontal=True):
                         dpg.add_text(f"{len(textures)} items")
                         dpg.add_button(label="Del.",
                                        callback=_del_cb(mat,matname))
-                        
+
 
                 if len(textures):
                     sample = textures[0]
@@ -655,10 +656,12 @@ class AppView:
                                    default_open=True) as node:
                     gui_utils.populate_imglist(node,imglist,target_len)
 
+                dpg.add_separator()
+
         finally:
             dpg.pop_container_stack()
-            
-        
+
+
     def update_window_state(self,sender,app_data):
         ''' synchronize the view menu item's checkbox state
             with the window visibility
@@ -668,7 +671,7 @@ class AppView:
                 dpg.configure_item(tagmap["window"], show=app_data)
             else:
                 dpg.set_value(tagmap["menu"], dpg.is_item_shown(tagmap["window"]))
-            
+
 
 ###=============================================================================
 ###                                   AppActions
@@ -677,7 +680,7 @@ class AppActions:
     def __init__(self,app,view):
         self.app = app
         self.view = view
-        
+
         self._init_global_handlers()
 
     ### GUI callbacks that opens a file dialog ###
@@ -716,7 +719,8 @@ class AppActions:
             self.app.data.load_bsp(self.app.data.bsppath)
 
     def save_bsp_file(self, backup:bool=None, confirm=None):
-        print("view.save_bsp_file", backup, confirm)
+        if not self.app.data.bsppath: return # nothing to save
+
         bakpath = self.app.data.bsppath.with_name(self.app.data.bsppath.name + ".bak")
         should_backup = not bakpath.exists()
 
@@ -739,7 +743,7 @@ class AppActions:
 
 
     def save_bsp_file_as(self, bsppath:str|Path=None, confirm=None):
-        if confirm==False: return
+        if not self.app.data.bsppath: return # nothing to save
         if not bsppath:
             mapfn = lambda p:p.with_name(p.stem + "_output.bsp")
             kwargs = self.file_dialog_defaults(self.app.data.bsppath,mapfn=mapfn)
@@ -750,7 +754,7 @@ class AppActions:
             cb_wrap = gui_utils.wrap_message_box_callback(self.save_bsp_file_as,bsppath)
             gui_utils.confirm_replace(bsppath, cb_wrap)
             return
-        
+
         print("BSP FILE SHOULD SAVE HERE, BUT NOT NOW"); return
         with open(bsppath, "wb") as f:
             self.app.data.commit_bsp_edits().dump(f)
@@ -798,14 +802,14 @@ class AppActions:
         elif not len(self.app.data.wannabe_set): return
         elif confirm is None:
             cb_wrap = gui_utils.wrap_message_box_callback(self.clear_wannabes)
-            gui_utils.confirm("Clear remap list", 
+            gui_utils.confirm("Clear remap list",
                               f"{len(self.app.data.wannabe_set)} entries will be cleared. continue?", cb_wrap)
             return
-        
+
         self.app.data.wannabe_set = MaterialSet()
         self.view.update_gallery_items()
         self.view.update_wannabe_material_tables()
-        
+
 
     ## parse entity in bsp (just a passthrough)
     def parse_remap_entities(self, *_):
@@ -821,19 +825,35 @@ class AppActions:
         log.debug(f"selection: {value}")
         for item in self.view.gallery.data: # only the list in gallery data is selectable
             item._select_cb(sender,value)
-            item.update_state()
+        self.view.update_gallery_items()
 
     def selection_set_material(self, sender, _, mat:str):
         for item in self.view.gallery.data:
             if item.selected:
                 item.mat = mat
-                item.update_state()
+        self.view.update_gallery_items(selected=True)
 
     def selection_embed(self, sender, _, embed:bool):
         for item in self.view.gallery.data:
             if item.selected:
-                item.become_external = not embed if embed != item.is_external else None
-                item.update_state()
+                item.become_external = None if embed != item.is_external else not embed
+        self.view.update_gallery_items(selected=True)
+
+    def open_text_file_as(self, filepath, type=None):
+        if type==1 or Path(filepath).name.lower() == "materials.txt":
+            self.app.data.load_materials(Path(filepath))
+        elif type==2:
+            self.app.data.load_wannabes(Path(filepath))
+        elif type is None:
+            cb = gui_utils.wrap_message_box_callback(self.open_text_file_as, filepath,
+                                                     _result_arg="type")
+            btns = {1: "Reference materials.txt",
+                    2: "Custom material remap file",
+                    0: "Cancel"}
+            gui_utils.message_box("Open file as", f'"{Path(filepath).name}" is a:',
+                                  cb, btns, gui_utils.MsgBoxOptions.VerticalButtons)
+            return
+
 
     ## file drop
     def handle_drop(self, data, keys): # DearPyGui_DragAndDrop
@@ -842,7 +862,7 @@ class AppActions:
         if suffix == ".bsp":
             self.app.data.load_bsp(data[0])
         elif suffix == ".txt":
-            self.app.data.load_materials(data[0])
+            self.open_text_file_as(Path(data[0]))
         elif suffix == ".wad":
             # TEST
             self.app.data.TEST_load_wad(data[0])
@@ -861,8 +881,8 @@ class AppActions:
             dpg.add_mouse_double_click_handler(callback=self.on_mouse_dblclick)
             dpg.add_mouse_wheel_handler(callback=self.on_mouse_wheel)
             dpg.add_mouse_move_handler(callback=self.on_mouse_move)
-            dpg.add_mouse_drag_handler(callback=self.on_mouse_drag)  
-    
+            dpg.add_mouse_drag_handler(callback=self.on_mouse_drag)
+
     def on_mouse_x(self,cbname,sender,data):
         try: self._mouse_callbacks[cbname](data)
         except (AttributeError, KeyError, TypeError): pass
@@ -918,7 +938,7 @@ class App:
             if cfg["appname"] != consts.GUI_APPNAME: return
         except: return
 
-        for part, prop in consts.CONFIG_MAP:
+        for part, prop in mappings.CONFIG_MAP:
             try: setattr(getattr(self, part),prop, cfg["config"][part][prop])
             except: continue
 
@@ -927,7 +947,7 @@ class App:
             cfgpath = Path(sys.modules['__main__'].__file__).with_suffix(".cfg.json")
 
         cfg = {"appname" : consts.GUI_APPNAME, "config": {} }
-        for part, prop in consts.CONFIG_MAP:
+        for part, prop in mappings.CONFIG_MAP:
             cfg["config"].setdefault(part,{})[prop] = getattr(getattr(self, part), prop)
 
         Path(cfgpath).write_text(json.dumps(cfg))

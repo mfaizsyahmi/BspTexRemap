@@ -51,6 +51,7 @@ class GalleryView(UserList):
         log.debug(f"gallery: {len(data)} items to render")
         self._render_on_frame = dpg.get_frame_count()
         dpg.delete_item(self.parent, children_only=True)
+        if not len(data): return # nothing to render
 
         #win_w = dpg.get_item_width(self.parent)
         #win_w = dpg.get_item_rect_size(self.parent)[0]
@@ -60,8 +61,7 @@ class GalleryView(UserList):
         self._items = []
         with time_it():
             log.debug("RENDERING GALLERY")
-            dpg.push_container_stack(self.parent)
-            with dpg.mutex():
+            with dpg.stage() as staging:
                 while i < end:
                     if i: dpg.add_separator()
                     with dpg.group(horizontal=True, horizontal_spacing=self.spacing):
@@ -73,10 +73,17 @@ class GalleryView(UserList):
                             self._items.append(data[i].render(self.scale, self.max_length))
                             i += 1; row_items += 1
 
-            dpg.pop_container_stack()
+            with dpg.mutex():
+                dpg.push_container_stack(self.parent)
+                dpg.unstage(staging)
+                dpg.pop_container_stack()
+                dpg.delete_item(staging)
 
 
     def reflow(self): # DON'T USE, BUGGY AF
+        # trying to throttle call spam when window is actively moving with mouse
+        #if dpg.is_mouse_button_down(dpg.mvMouseButton_Left): return
+        
         # redirect to render until we can sort this out
         return self.render()
 

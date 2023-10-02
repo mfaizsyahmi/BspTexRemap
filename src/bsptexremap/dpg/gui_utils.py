@@ -1,7 +1,7 @@
 import dearpygui.dearpygui as dpg
 import logging
 from typing import NamedTuple
-from enum import IntEnum
+from enum import IntEnum, IntFlag, auto
 from .colors import AppColors
 
 
@@ -200,12 +200,14 @@ class DpgLogHandler(logging.Handler):
                 
             with dpg.window(tag=DpgLogHandler.TAG_POPUP, popup=True, 
                             show=False, autosize=True, min_size=(80,120)) as log_popup:
-                #dpg.add_text("Log level",indent=4)
-                #dpg.add_separator()
+
                 dpg.add_listbox(list(DpgLogHandler.LABELS.values()),
                                 default_value=DpgLogHandler.LABELS[self.displevel],
                                 num_items=len(DpgLogHandler.LABELS), width=80,
                                 callback=self._displevel_cb)
+
+                dpg.add_separator()
+                dpg.add_button(label="Clear",callback=lambda:self.clear())
             dpg.bind_item_theme(log_popup,"theme:_popup")
             
         except: pass
@@ -229,6 +231,9 @@ class DpgLogHandler(logging.Handler):
         for item in dpg.get_item_children(DpgLogHandler.TAG,1):
             record = dpg.get_item_user_data(item)
             dpg.configure_item(item,show=record.levelno>=self.displevel)
+            
+    def clear(self):
+        dpg.delete_item(DpgLogHandler.TAG, children_only=True)
 
     def _displevel_cb(self, _, level):
         dpg.hide_item(DpgLogHandler.TAG_POPUP)
@@ -297,34 +302,49 @@ def show_loading(show=True):
 
 
 ### MESSAGE BOX ----------------------------------------------------------------
-class MsgBoxResult(IntEnum): # unused
-    Cancel = 0
-    OK = 1
-    Yes = 2
-    No = 3
+MSGBOX_THEME = None
 
-def __wtf2(): pass
+class MsgBoxOptions(IntFlag):
+    # OK = 0
+    # OKCancel = 1
+    # YesNo = 4
+    # YesNoCancel = 5
+    VerticalButtons = auto()
+    
+#class MsgBoxResult(IntEnum): # unused
+#    Cancel = 0
+#    OK = 1
+#    Yes = 2
+#    No = 3
 
+def _get_msgbox_message_theme():
+    global MSGBOX_THEME
+    if MSGBOX_THEME is None:
+        with dpg.theme() as msgbox_theme:
+            with dpg.theme_component(dpg.mvText):
+                dpg.add_theme_style(dpg.mvStyleVar_FramePadding,12,12)
+        MSGBOX_THEME = msgbox_theme
+    return MSGBOX_THEME
 
 def wrap_message_box_callback(fn, *args,
-                              _result_arg="confirm", _drop_on_false=True,
+                              _result_arg="confirm", _drop_on_falsy=True,
                               **kwargs):
     ''' given a function, returns a callable that a messagebox callback will call,
-        adding the result of the message box in an arg of given name
-        if drop on false is set, don't call back on false
+        adding the result of the message box in an arg of given name.
+        if drop on falsy is set, don't call back on false
     '''
     def wrap(sender, unused, user_data):
         # delete window
         dpg.delete_item(user_data[0])
         # drop the callback if user selected Cancel
-        if not user_data[0] and _drop_on_false: return
+        if not user_data[0] and _drop_on_falsy: return
         # else, call the function being wrapped
         fn(*args, **kwargs, **{_result_arg:user_data[1]})
 
     return wrap
 
 def message_box(title, message, selection_callback:callable=None,
-                buttons={True:"OK"}):
+                buttons={True:"OK"}, options:MsgBoxOptions=0):
     ''' selection_callback must use a callback created with wrap_msgbox_callback
     '''
     if not selection_callback:
@@ -345,8 +365,9 @@ def message_box(title, message, selection_callback:callable=None,
                 dpg.add_text(" ")
             dpg.add_text()
             dpg.add_separator()
-
-            with dpg.group(horizontal=True):
+            
+            horz = not options&MsgBoxOptions.VerticalButtons
+            with dpg.group(horizontal=horz):
                 for retval, label in buttons.items():
                     width = max(75,dpg.get_text_size(label)[0]+16)
                     dpg.add_button(label=label,

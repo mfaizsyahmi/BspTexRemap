@@ -23,7 +23,7 @@ def _sort_table(sender, sort_specs):
 def _bind_last_item(app,*args,**kwargs):
     return app.view.bind(dpg.last_item(),*args,**kwargs)
 
-def _filedlg_cb(fn): 
+def _filedlg_cb(fn):
     ''' for feeding the action fn that accepts a path as the first argument
         intended to back-feed the caller fn i.e. same_fn -> dlg -> same_fn
     '''
@@ -34,8 +34,8 @@ def _bare_cb(fn):
     ''' discards the sender,app_data,user_data trio from callback '''
     cb = lambda sender, app_data: fn()
     return cb
-    
-    
+
+
 def add_file_dialogs(app):
     file_dlg_cfg = {
         BindingType.BspOpenFileDialog : {
@@ -142,7 +142,7 @@ def add_wannabe_window(app,tag):
         ## Texture remap list
         dpg.add_group()
         _bind(_BT.TextureRemapList)
-        
+
         dpg.add_separator()
         with dpg.group(horizontal=True):
             dpg.add_button(label="Import", callback=_bare_cb(app.do.load_mat_file))
@@ -158,7 +158,6 @@ def add_textures_window(app, tag):
 
     with dpg.window(label="Textures", tag=tag, no_close=True,
                     on_close=app.view.update_window_state) as winTextures:
-        #dpg.bind_item_theme(dpg.last_item(),"theme:main_window") #"theme:normal_table"
 
         with dpg.menu_bar():
 
@@ -277,6 +276,19 @@ def add_textures_window(app, tag):
             dpg.add_menu_item(label="Refresh", tag="gallery refresh",
                               callback=lambda s,a,u:app.view.gallery.render())
 
+            gallery_status = dpg.add_text("")
+            _bind(_BT.FormatValue, _prop(app,"view"),
+                  ["{}",lambda view: "({}M + {}X = {}T, {}V)"\
+                   .format(len(view.app.data.bsp.textures_m),
+                           len(view.app.data.bsp.textures_x),
+                           len(view.app.data.bsp.textures),
+                           len(view.gallery.data)
+                   ) if view.app.data.bsp else "({}T, {}V)"\
+                   .format(len(view.textures),len(view.gallery.data))])
+
+            with dpg.tooltip(gallery_status):
+                dpg.add_text(consts.GALLERY_STATUS_LEGEND)
+
         #with dpg.child_window(border=False,horizontal_scrollbar=True) as gallery_root:
         with dpg.group() as gallery_root:
             app.view.bind( gallery_root, _BT.GalleryRoot )
@@ -289,16 +301,15 @@ def add_textures_window(app, tag):
 
     app.view.gallery.submit(gallery_root)
     dpg.bind_item_handler_registry(winTextures, resize_handler)
-    #dpg.bind_item_handler_registry("Primary Window", resize_handler)
 
 
 def add_options_window(app,tag):
     ### options/actions pane ###
     _bind = lambda *args,**kwargs: _bind_last_item(app,*args,**kwargs) # shorthand
 
-    with dpg.window(label="Options/Actions", tag=tag, 
+    with dpg.window(label="Options/Actions", tag=tag,
                     on_close=app.view.update_window_state):
-        
+
         dpg.add_text("On load:")
         dpg.add_text("Auto find and load:",indent=8)
         dpg.add_checkbox(label="materials.txt",indent=16)
@@ -314,14 +325,14 @@ def add_options_window(app,tag):
 
         dpg.add_separator()
         dpg.add_text("Editing:")
-        
+
         dpg.add_checkbox(label="Allow stripping embedded textures")
         _bind(_BT.Value, _prop(app.data,"allow_unembed"))
         _help(consts.ALLOW_UNEMBED_HELP)
-        
+
         dpg.add_separator()
         dpg.add_text("Before save:")
-        
+
         dpg.add_text("info_texture_remap action:",indent=8)
         _help(consts.REMAP_ENTITY_ACTION_HELP.format(*mappings.remap_entity_actions))
 
@@ -333,7 +344,7 @@ def add_options_window(app,tag):
         dpg.add_separator()
         dpg.add_text("Save/Export:")
 
-        dpg.add_button(label="Save BSP", width=128, 
+        dpg.add_button(label="Save BSP", width=128,
                        callback=lambda:app.do.save_bsp_file(app.data.backup))
         _help("Remaps texture and save in the same file")
 
@@ -341,11 +352,11 @@ def add_options_window(app,tag):
         _bind(_BT.Value, _prop(app.data,"backup"))
         _help("Makes backup before saving")
 
-        dpg.add_button(label="Save BSP as...", width=128, 
+        dpg.add_button(label="Save BSP as...", width=128,
                        callback=_bare_cb(app.do.save_bsp_file_as))
         _help("Remaps texture and save in another file")
 
-        dpg.add_button(label="Export custom materials", 
+        dpg.add_button(label="Export custom materials",
                        callback=_bare_cb(app.do.export_custommat))
         _help("Generates custom material file that can be used\nwith BspTexRemap.exe (the console program)")
 
@@ -359,38 +370,38 @@ def add_viewport_menu(app):
     with dpg.viewport_menu_bar():
 
         with dpg.menu(label="BSP"):
-        
+
             _mi(label="Open",    callback=_bare_cb(app.do.open_bsp_file))
-            ___() # separtor
-            
+            ___() # separator
+
             _mi(label="Save",    callback=lambda:app.do.save_bsp_file(app.data.backup))
             _mi(label="Save As", callback=_bare_cb(app.do.save_bsp_file_as))
             ___()
-            
+
             _mi(label="Reload",  callback=app.do.reload)
             ___()
-            
+
             _mi(label="Exit",    callback=exit)
 
         with dpg.menu(label="Materials"):
-        
+
             _mi(label="Load",
                               callback=_bare_cb(app.do.load_mat_file))
             _mi(label="Export custom materials",
                               callback=_bare_cb(app.do.export_custommat))
             ___()
-            
+
             _mi(label="Auto-load from BSP path",check=True)
             _bind(_BT.Value, _prop(app.data,"auto_load_materials"))
             ___()
-            
-            _mi(label="Parse info_texture_remap entity in map",
-                callback=_bare_cb(app.do.parse_remap_entities))
-            _mi(label="Load custom material remap file",
-                callback=_bare_cb(app.do.load_custommat_file))
-            _mi(label="Automatically on map load",indent=8,check=True)
+
+            _mi(label="Automatically on map load:",check=True)
             _bind(_BT.Value, _prop(app.data,"auto_load_wannabes"))
-            
+            _mi(label="Parse info_texture_remap entity in map",indent=8,
+                callback=_bare_cb(app.do.parse_remap_entities))
+            _mi(label="Load custom material remap file",indent=8,
+                callback=_bare_cb(app.do.load_custommat_file))
+
 
         with dpg.menu(label="Textures"):
             _mi(label="Auto-load WADs from BSP path",check=True)
@@ -403,6 +414,7 @@ def add_viewport_menu(app):
             v_r = _mi(label="Remaps",      check=True,callback=_cb)
             v_o = _mi(label="Options",     check=True,callback=_cb)
             v_l = _mi(label="Log messages",check=True,callback=_cb)
+            ___()
             _mi(label="Save layout",
                 callback=lambda: dpg.save_init_file(consts.LAYOUT_INI_PATH))
         app.view.window_binds[_BT.TexturesWindow]["menu"] = v_t
@@ -411,10 +423,7 @@ def add_viewport_menu(app):
         app.view.window_binds[_BT.OptionsWindow]["menu"] = v_o
         app.view.window_binds[_BT.LogWindow]["menu"] = v_l
 
-        with dpg.menu(label="Tools"):
-            _mi(label="Log console",
-                callback=lambda s,a,u:\
-                         dpg.show_item(gui_utils.DpgLogHandler.TAG))
+        with dpg.menu(label="Debug"):
             _mi(label="GUI item registry",
                 callback=lambda *_:dpg.show_item_registry())
             _mi(label="GUI style editor",
@@ -427,7 +436,7 @@ def main():
     args = parse_arguments(gui=True)
     setup_logger(args.log) # for console log
     log = logging.getLogger() ## "__main__" should use the root logger
-    
+
     dpg.create_context(); dpg_dnd.initialize()
     # must be called before create_viewport
     dpg.configure_app(docking=True, docking_space=True,
@@ -440,7 +449,7 @@ def main():
     textures_window  = dpg.generate_uuid()
     options_window   = dpg.generate_uuid()
     log_window       = dpg.generate_uuid()
-    
+
     window_binds = {
         _BT.TexturesWindow : {"window": textures_window},
         _BT.MaterialsWindow: {"window": materials_window},
@@ -448,16 +457,16 @@ def main():
         _BT.OptionsWindow  : {"window": options_window},
         _BT.LogWindow      : {"window": log_window},
     }
-    
+
 
     colors.add_themes()
     colors.setup_fonts()
     dpg.bind_font(colors.AppFonts.Regular.tag)
-    
+
     app = App()
     dpg_dnd.set_drop(app.do.handle_drop)
     app.view.window_binds = window_binds
-    
+
     gui_utils.DpgLogHandler.TAG = log_window
     log.addHandler(gui_utils.DpgLogHandler(0,on_close=app.view.update_window_state))
 
@@ -471,22 +480,23 @@ def main():
 
     #app.view.reflect()
     app.view.update_window_state(0,0)
-    
+
     if args.bsppath:
         app.data.load_bsp(args.bsppath)
     app.view.set_viewport_ready() # this will reschedule itself to run later
 
-    dpg.create_viewport(title='BspTexRemap GUI', width=1200, height=800)
+    dpg.create_viewport(title=consts.GUI_APPNAME, width=1200, height=800)
     dpg.set_viewport_large_icon(Path(sys.path[0]) / "assets/images/BspTexRemap_64.ico")
     dpg.set_viewport_small_icon(Path(sys.path[0]) / "assets/images/BspTexRemap_64.ico")
     dpg.setup_dearpygui()
     dpg.show_viewport()
-    #dpg.set_primary_window("Primary Window", True)
 
     dpg.start_dearpygui()
-    
+
     app.save_config()
     dpg.destroy_context()
 
+
 if __name__ == "__main__":
     main()
+

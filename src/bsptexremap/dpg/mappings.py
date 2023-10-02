@@ -1,6 +1,27 @@
 from enum import IntEnum, IntFlag, auto
 from collections import namedtuple
 
+## CONFIG MAP
+CONFIG_MAP = (
+    ("data", "auto_load_materials"),
+    ("data", "auto_load_wads"     ),
+    ("data", "auto_load_wannabes" ),
+    ("data", "allow_unembed"      ),
+    ("data", "remap_entity_action"),
+    ("data", "backup"             ),
+    ("view", "texremap_sort"      ),
+    ("view", "texremap_revsort"   ),
+    ("view", "texremap_grouped"   ),
+    ("view", "texremap_not_empty" ),
+#    ("view", "gallery_show_val"   ),
+    ("view", "gallery_size_val"   ),
+    ("view", "gallery_size_scale" ),
+    ("view", "gallery_size_maxlen"),
+    ("view", "gallery_sort_val"   ),
+    ("view", "filter_unassigned"  ),
+    ("view", "filter_radiosity"   )
+)
+
 class BindingType(IntEnum):
                                          # Unique
                                          #   Readonly

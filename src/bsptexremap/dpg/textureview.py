@@ -380,7 +380,8 @@ class TextureView:
 
 
     def update_relatives_state(self):
-        ''' updates selection/material/embed state of all related textures '''
+        ''' updates selection/material/embed state of all related textures 
+        '''
         with dpg.mutex():
             for item in TextureView.app.view.textures:
                 if item.matname != self.matname: continue

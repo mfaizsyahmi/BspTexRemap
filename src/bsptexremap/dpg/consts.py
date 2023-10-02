@@ -16,32 +16,21 @@ GUI_VERSION     = "v0.1"
 LAYOUT_INI_PATH = str(Path(sys.modules['__main__'].__file__).with_suffix(".layout.ini"))
 CFGPATH = Path(sys.modules['__main__'].__file__).with_suffix(".cfg.json")
 
-## CONFIG MAP
-CONFIG_MAP = (
-    ("data", "auto_load_materials"),
-    ("data", "auto_load_wads"     ),
-    ("data", "auto_load_wannabes" ),
-    ("data", "allow_unembed"      ),
-    ("data", "remap_entity_action"),
-    ("data", "backup"             ),
-    ("view", "texremap_sort"      ),
-    ("view", "texremap_revsort"   ),
-    ("view", "texremap_grouped"   ),
-    ("view", "texremap_not_empty" ),
-    ("view", "gallery_show_val"   ),
-    ("view", "gallery_size_val"   ),
-    ("view", "gallery_size_scale" ),
-    ("view", "gallery_size_maxlen"),
-    ("view", "gallery_sort_val"   )
-)
-
 # main file
 AUTOLOAD_REMAPS_HELP = """ 
 Loads existing texture remap entries from the following sources:
   1. info_texture_remap entities in map
   2. <mapname>_custommat.txt file
 """.strip()
-        
+
+GALLERY_STATUS_LEGEND = """
+M - embedded textures
+X - external textures
+T - total textures
+V - textures in view
+S - textures selected
+""".strip()
+
 REMAP_ENTITY_ACTION_HELP = """
 info_texture_remap is an entity that mappers can insert to remap entities.
 It is primarily used with the command line version BspTexRemap as part of the
