@@ -6,9 +6,15 @@
     >>> consts.CHARSEQUENCE
 '''
 from ..consts import *
+from pathlib import Path
+import sys
+
 # these should overwrite the one in the base file
 GUI_APPNAME     = "BspTexRemap GUI"
 GUI_VERSION     = "v0.1"
+
+LAYOUT_INI_PATH = str(Path(sys.modules['__main__'].__file__).with_suffix(".layout.ini"))
+CFGPATH = Path(sys.modules['__main__'].__file__).with_suffix(".cfg.json")
 
 ## CONFIG MAP
 CONFIG_MAP = (

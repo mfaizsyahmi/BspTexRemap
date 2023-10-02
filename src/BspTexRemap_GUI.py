@@ -73,12 +73,11 @@ def add_file_dialogs(app):
         app.view.bind(gui_utils.create_file_dialog(**item), type)
 
 
-def add_materials_pane(app):
+def add_materials_window(app, tag):
     ### materials pane ###
     _bind = lambda *args,**kwargs: _bind_last_item(app,*args,**kwargs) # shorthand
 
-    with dpg.child_window(border=False):
-        dpg.bind_item_theme(dpg.last_item(),"theme:normal_table")
+    with dpg.window(label="Materials", tag=tag, on_close=app.view.update_window_state):
 
         matpath_box = dpg.add_input_text(label="path",readonly=True)
         _bind(_BT.Value,_prop(app.data,"matpath"))
@@ -113,47 +112,52 @@ def add_materials_pane(app):
                           callback=_sort_table)
             _bind(_BT.MaterialEntriesTable)
 
-        with dpg.collapsing_header(label="Remaps",default_open=True):
 
-            with dpg.table(header_row=False):
-                for i in range(2): dpg.add_table_column()
+def add_wannabe_window(app,tag):
+    _bind = lambda *args,**kwargs: _bind_last_item(app,*args,**kwargs) # shorthand
 
-                with dpg.table_row():
+    with dpg.window(label="Remaps", tag=tag, on_close=app.view.update_window_state):
 
-                    dpg.add_checkbox(label="grouped")
-                    _bind(_BT.Value,_prop(app.view,"texremap_grouped"))
+        with dpg.table(header_row=False):
+            for i in range(2): dpg.add_table_column()
 
-                    dpg.add_checkbox(label="hide empty")
-                    _bind(_BT.Value,_prop(app.view,"texremap_not_empty"))
+            with dpg.table_row():
 
-                with dpg.table_row():
+                dpg.add_checkbox(label="grouped")
+                _bind(_BT.Value,_prop(app.view,"texremap_grouped"))
 
-                    dpg.add_checkbox(label="sort")
-                    _bind(_BT.Value,_prop(app.view,"texremap_sort"))
+                dpg.add_checkbox(label="hide empty")
+                _bind(_BT.Value,_prop(app.view,"texremap_not_empty"))
 
-                    dpg.add_checkbox(label="reverse")
-                    _bind(_BT.Value,_prop(app.view,"texremap_revsort"))
+            with dpg.table_row():
 
-            dpg.add_separator()
+                dpg.add_checkbox(label="sort")
+                _bind(_BT.Value,_prop(app.view,"texremap_sort"))
 
-            ## Texture remap list
-            dpg.add_group()
-            _bind(_BT.TextureRemapList)
-            
-            dpg.add_separator()
-            with dpg.group(horizontal=True):
-                dpg.add_button(label="Import", callback=_bare_cb(app.do.load_mat_file))
-                dpg.add_button(label="Export", callback=_bare_cb(app.do.export_custommat))
-                dpg.add_button(label="Clear ", callback=_bare_cb(app.do.clear_wannabes))
+                dpg.add_checkbox(label="reverse")
+                _bind(_BT.Value,_prop(app.view,"texremap_revsort"))
 
-        app.view.render_material_tables()
+        dpg.add_separator()
+
+        ## Texture remap list
+        dpg.add_group()
+        _bind(_BT.TextureRemapList)
+        
+        dpg.add_separator()
+        with dpg.group(horizontal=True):
+            dpg.add_button(label="Import", callback=_bare_cb(app.do.load_mat_file))
+            dpg.add_button(label="Export", callback=_bare_cb(app.do.export_custommat))
+            dpg.add_button(label="Clear ", callback=_bare_cb(app.do.clear_wannabes))
+
+    app.view.render_material_tables()
 
 
-def add_textures_pane(app):
+def add_textures_window(app, tag):
     ### textures pane ###
     _bind = lambda *args,**kwargs: _bind_last_item(app,*args,**kwargs) # shorthand
 
-    with dpg.child_window(autosize_y=False,menubar=True) as winTextures:
+    with dpg.window(label="Textures", tag=tag, no_close=True,
+                    on_close=app.view.update_window_state) as winTextures:
         #dpg.bind_item_theme(dpg.last_item(),"theme:main_window") #"theme:normal_table"
 
         with dpg.menu_bar():
@@ -273,8 +277,8 @@ def add_textures_pane(app):
             dpg.add_menu_item(label="Refresh", tag="gallery refresh",
                               callback=lambda s,a,u:app.view.gallery.render())
 
-        #with dpg.group() as gallery_root:
-        with dpg.child_window(border=False,horizontal_scrollbar=True) as gallery_root:
+        #with dpg.child_window(border=False,horizontal_scrollbar=True) as gallery_root:
+        with dpg.group() as gallery_root:
             app.view.bind( gallery_root, _BT.GalleryRoot )
 
     def _center_resize(sender):
@@ -284,17 +288,17 @@ def add_textures_pane(app):
         dpg.add_item_resize_handler(callback=_center_resize)
 
     app.view.gallery.submit(gallery_root)
-    #dpg.bind_item_handler_registry(winTextures, resize_handler)
-    dpg.bind_item_handler_registry("Primary Window", resize_handler)
+    dpg.bind_item_handler_registry(winTextures, resize_handler)
+    #dpg.bind_item_handler_registry("Primary Window", resize_handler)
 
 
-def add_right_pane(app):
+def add_options_window(app,tag):
     ### options/actions pane ###
     _bind = lambda *args,**kwargs: _bind_last_item(app,*args,**kwargs) # shorthand
 
-    with dpg.child_window(border=False):
-        dpg.bind_item_theme(dpg.last_item(),"theme:normal_table")
-
+    with dpg.window(label="Options/Actions", tag=tag, 
+                    on_close=app.view.update_window_state):
+        
         dpg.add_text("On load:")
         dpg.add_text("Auto find and load:",indent=8)
         dpg.add_checkbox(label="materials.txt",indent=16)
@@ -346,109 +350,105 @@ def add_right_pane(app):
         _help("Generates custom material file that can be used\nwith BspTexRemap.exe (the console program)")
 
 
-def add_main_window(app):
+def add_viewport_menu(app):
     ''' main window layout '''
     _bind = lambda *args,**kwargs: _bind_last_item(app,*args,**kwargs) # shorthand
     _mi = dpg.add_menu_item
     ___ = dpg.add_separator
 
-    with dpg.window(tag="Primary Window",no_scrollbar=True):
-        dpg.bind_item_theme(dpg.last_item(),"theme:main_window")
+    with dpg.viewport_menu_bar():
 
-        with dpg.menu_bar() as menubar:
-
-            with dpg.menu(label="BSP"):
+        with dpg.menu(label="BSP"):
+        
+            _mi(label="Open",    callback=_bare_cb(app.do.open_bsp_file))
+            ___() # separtor
             
-                _mi(label="Open",    callback=_bare_cb(app.do.open_bsp_file))
-                ___() # separtor
-                
-                _mi(label="Save",    callback=lambda:app.do.save_bsp_file(app.data.backup))
-                _mi(label="Save As", callback=_bare_cb(app.do.save_bsp_file_as))
-                ___()
-                
-                _mi(label="Reload",  callback=app.do.reload)
-                ___()
-                
-                _mi(label="Exit",    callback=exit)
-
-            with dpg.menu(label="Materials"):
+            _mi(label="Save",    callback=lambda:app.do.save_bsp_file(app.data.backup))
+            _mi(label="Save As", callback=_bare_cb(app.do.save_bsp_file_as))
+            ___()
             
-                _mi(label="Load",
-                                  callback=_bare_cb(app.do.load_mat_file))
-                _mi(label="Export custom materials",
-                                  callback=_bare_cb(app.do.export_custommat))
-                ___()
-                
-                _mi(label="Auto-load from BSP path",check=True)
-                _bind(_BT.Value, _prop(app.data,"auto_load_materials"))
-                ___()
-                
-                _mi(label="Parse info_texture_remap entity in map",
-                    callback=_bare_cb(app.do.parse_remap_entities))
-                _mi(label="Load custom material remap file",
-                    callback=_bare_cb(app.do.load_custommat_file))
-                _mi(label="Automatically on map load",indent=8,check=True)
-                _bind(_BT.Value, _prop(app.data,"auto_load_wannabes"))
-                
+            _mi(label="Reload",  callback=app.do.reload)
+            ___()
+            
+            _mi(label="Exit",    callback=exit)
 
-            with dpg.menu(label="Textures"):
-                _mi(label="Auto-load WADs from BSP path",check=True)
-                _bind(_BT.Value, _prop(app.data,"auto_load_wads"))
+        with dpg.menu(label="Materials"):
+        
+            _mi(label="Load",
+                              callback=_bare_cb(app.do.load_mat_file))
+            _mi(label="Export custom materials",
+                              callback=_bare_cb(app.do.export_custommat))
+            ___()
+            
+            _mi(label="Auto-load from BSP path",check=True)
+            _bind(_BT.Value, _prop(app.data,"auto_load_materials"))
+            ___()
+            
+            _mi(label="Parse info_texture_remap entity in map",
+                callback=_bare_cb(app.do.parse_remap_entities))
+            _mi(label="Load custom material remap file",
+                callback=_bare_cb(app.do.load_custommat_file))
+            _mi(label="Automatically on map load",indent=8,check=True)
+            _bind(_BT.Value, _prop(app.data,"auto_load_wannabes"))
+            
 
-            with dpg.menu(label="Tools"):
-                _mi(label="Log console",
-                    callback=lambda s,a,u:\
-                             dpg.show_item(gui_utils.DpgLogHandler.TAG))
-                _mi(label="GUI item registry",
-                    callback=lambda *_:dpg.show_item_registry())
-                _mi(label="GUI style editor",
-                    callback=lambda *_:dpg.show_style_editor())
-                _mi(label="Show loading",check=True,
-                    callback=lambda s,a,u:gui_utils.show_loading(a))
+        with dpg.menu(label="Textures"):
+            _mi(label="Auto-load WADs from BSP path",check=True)
+            _bind(_BT.Value, _prop(app.data,"auto_load_wads"))
 
-        ### MAIN LAYOUT TABLE ###
-        with dpg.table(resizable=True,height=-8) as mainLayoutTable: # header_row=False,
-            dpg.bind_item_theme(dpg.last_item(),"theme:layout_table")
+        with dpg.menu(label="View"):
+            _cb = app.view.update_window_state
+            v_t = _mi(label="Textures",    check=True,callback=_cb,enabled=False)
+            v_m = _mi(label="Materials",   check=True,callback=_cb)
+            v_r = _mi(label="Remaps",      check=True,callback=_cb)
+            v_o = _mi(label="Options",     check=True,callback=_cb)
+            v_l = _mi(label="Log messages",check=True,callback=_cb)
+            _mi(label="Save layout",
+                callback=lambda: dpg.save_init_file(consts.LAYOUT_INI_PATH))
+        app.view.window_binds[_BT.TexturesWindow]["menu"] = v_t
+        app.view.window_binds[_BT.MaterialsWindow]["menu"] = v_m
+        app.view.window_binds[_BT.RemapsWindow]["menu"] = v_r
+        app.view.window_binds[_BT.OptionsWindow]["menu"] = v_o
+        app.view.window_binds[_BT.LogWindow]["menu"] = v_l
 
-            col1 = dpg.add_table_column(label="Materials",width=200)
-            _bind(_BT.FormatLabel, _prop(app.data,"mat_set"),
-                  ["Materials {}",
-                   lambda mat: f"({len(+mat)}/{len(mat)})" \
-                   if app.data.matpath else ""])
-
-            col2 = dpg.add_table_column(label="Textures",init_width_or_weight=3)
-            _bind(_BT.FormatLabel, _prop(app,"view"),
-                  ["Textures {}",lambda view: "({}M + {}X = {}T, {}V)"\
-                   .format(len(view.app.data.bsp.textures_m),
-                           len(view.app.data.bsp.textures_x),
-                           len(view.app.data.bsp.textures),
-                           len(view.gallery.data)
-                   ) if view.app.data.bsp else "({}T, {}V)"\
-                   .format(len(view.textures),len(view.gallery.data))])
-
-            dpg.add_table_column(label="Options/Actions",width=200)
-
-            with dpg.table_row() as mainLayoutRow:
-
-                ### materials pane ###
-                add_materials_pane(app)
-
-                ### textures pane ###
-                add_textures_pane(app)
-
-                ### options/actions pane ###
-                add_right_pane(app)        
-
-    ### END OF WINDOW LAYOUT
+        with dpg.menu(label="Tools"):
+            _mi(label="Log console",
+                callback=lambda s,a,u:\
+                         dpg.show_item(gui_utils.DpgLogHandler.TAG))
+            _mi(label="GUI item registry",
+                callback=lambda *_:dpg.show_item_registry())
+            _mi(label="GUI style editor",
+                callback=lambda *_:dpg.show_style_editor())
+            _mi(label="Show loading",check=True,
+                callback=lambda s,a,u:gui_utils.show_loading(a))
 
 
 def main():
-    dpg.create_context(); dpg_dnd.initialize()
-
     args = parse_arguments(gui=True)
     setup_logger(args.log) # for console log
     log = logging.getLogger() ## "__main__" should use the root logger
-    log.addHandler(gui_utils.DpgLogHandler(0,show=False))
+    
+    dpg.create_context(); dpg_dnd.initialize()
+    # must be called before create_viewport
+    dpg.configure_app(docking=True, docking_space=True,
+                      init_file=consts.LAYOUT_INI_PATH)
+
+    # generate IDs - the IDs are used by the init file, they must be the
+    #                same between sessions
+    materials_window = dpg.generate_uuid()
+    remaps_window    = dpg.generate_uuid()
+    textures_window  = dpg.generate_uuid()
+    options_window   = dpg.generate_uuid()
+    log_window       = dpg.generate_uuid()
+    
+    window_binds = {
+        _BT.TexturesWindow : {"window": textures_window},
+        _BT.MaterialsWindow: {"window": materials_window},
+        _BT.RemapsWindow   : {"window": remaps_window},
+        _BT.OptionsWindow  : {"window": options_window},
+        _BT.LogWindow      : {"window": log_window},
+    }
+    
 
     colors.add_themes()
     colors.setup_fonts()
@@ -456,10 +456,21 @@ def main():
     
     app = App()
     dpg_dnd.set_drop(app.do.handle_drop)
+    app.view.window_binds = window_binds
+    
+    gui_utils.DpgLogHandler.TAG = log_window
+    log.addHandler(gui_utils.DpgLogHandler(0,on_close=app.view.update_window_state))
 
+    # setup all the windows
     add_file_dialogs(app)
-    add_main_window(app)
+    add_viewport_menu(app)
+    add_materials_window(app,materials_window)
+    add_wannabe_window(app,remaps_window)
+    add_textures_window(app,textures_window)
+    add_options_window(app,options_window)
+
     #app.view.reflect()
+    app.view.update_window_state(0,0)
     
     if args.bsppath:
         app.data.load_bsp(args.bsppath)
@@ -470,7 +481,7 @@ def main():
     dpg.set_viewport_small_icon(Path(sys.path[0]) / "assets/images/BspTexRemap_64.ico")
     dpg.setup_dearpygui()
     dpg.show_viewport()
-    dpg.set_primary_window("Primary Window", True)
+    #dpg.set_primary_window("Primary Window", True)
 
     dpg.start_dearpygui()
     

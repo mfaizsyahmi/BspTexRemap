@@ -13,6 +13,12 @@ class BindingType(IntEnum):
     #FilterValue               = auto()   #
     #FilterSet                 = auto()   #
     
+    TexturesWindow            = auto()   # U
+    MaterialsWindow           = auto()   # U
+    RemapsWindow              = auto()   # U
+    OptionsWindow             = auto()   # U
+    LogWindow                 = auto()   # U
+    
     BspOpenFileDialog         = auto()   # U
     BspSaveFileDialog         = auto()   # U
     MatLoadFileDialog         = auto()   # U

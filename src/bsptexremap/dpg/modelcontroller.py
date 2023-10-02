@@ -167,6 +167,8 @@ class BindingEntry:
 class AppView:
     # the parent app
     app : any
+    # window binds (the window tag and the view menu item tag)
+    window_binds : dict          = field(default_factory=dict)
     # dict of bound items
     bound_items : dict           = field(default_factory=dict)
 
@@ -655,6 +657,18 @@ class AppView:
 
         finally:
             dpg.pop_container_stack()
+            
+        
+    def update_window_state(self,sender,app_data):
+        ''' synchronize the view menu item's checkbox state
+            with the window visibility
+        '''
+        for tagmap in self.window_binds.values():
+            if sender == tagmap["menu"]:
+                dpg.configure_item(tagmap["window"], show=app_data)
+            else:
+                dpg.set_value(tagmap["menu"], dpg.is_item_shown(tagmap["window"]))
+            
 
 ###=============================================================================
 ###                                   AppActions
@@ -663,15 +677,8 @@ class AppActions:
     def __init__(self,app,view):
         self.app = app
         self.view = view
-
-        with dpg.handler_registry() as global_handler:
-            dpg.add_mouse_down_handler(callback=self.on_mouse_down)
-            dpg.add_mouse_release_handler(callback=self.on_mouse_up)
-            dpg.add_mouse_click_handler(callback=self.on_mouse_click)
-            dpg.add_mouse_double_click_handler(callback=self.on_mouse_dblclick)
-            dpg.add_mouse_wheel_handler(callback=self.on_mouse_wheel)
-            dpg.add_mouse_move_handler(callback=self.on_mouse_move)
-            dpg.add_mouse_drag_handler(callback=self.on_mouse_drag)
+        
+        self._init_global_handlers()
 
     ### GUI callbacks that opens a file dialog ###
     def show_file_dialog(self, type:BindingType, init_path=None, init_filename=None):
@@ -841,16 +848,34 @@ class AppActions:
             self.app.data.TEST_load_wad(data[0])
 
     ### GLOBAL IO handlers ###
+    def _init_global_handlers(self):
+        with dpg.handler_registry() as global_handler:
+            dpg.add_mouse_down_handler(callback=self.on_mouse_down)
+            dpg.add_mouse_release_handler(callback=self.on_mouse_up)
+            dpg.add_mouse_click_handler(dpg.mvMouseButton_Left,
+                                        callback=self.on_mouse_click)
+            dpg.add_mouse_click_handler(dpg.mvMouseButton_Right,
+                                        callback=self.on_mouse_rclick)
+            dpg.add_mouse_click_handler(dpg.mvMouseButton_Middle,
+                                        callback=self.on_mouse_mclick)
+            dpg.add_mouse_double_click_handler(callback=self.on_mouse_dblclick)
+            dpg.add_mouse_wheel_handler(callback=self.on_mouse_wheel)
+            dpg.add_mouse_move_handler(callback=self.on_mouse_move)
+            dpg.add_mouse_drag_handler(callback=self.on_mouse_drag)  
+    
     def on_mouse_x(self,cbname,sender,data):
         try: self._mouse_callbacks[cbname](data)
         except (AttributeError, KeyError, TypeError): pass
-    def on_mouse_down (self,sender,data): self.on_mouse_x("mouse_down", sender,data)
-    def on_mouse_up   (self,sender,data): self.on_mouse_x("mouse_up",   sender,data)
-    def on_mouse_click(self,sender,data): self.on_mouse_x("mouse_click",sender,data)
+
+    def on_mouse_down (self,sender,data):  self.on_mouse_x("mouse_down", sender,data)
+    def on_mouse_up   (self,sender,data):  self.on_mouse_x("mouse_up",   sender,data)
+    def on_mouse_click(self,sender,data):  self.on_mouse_x("mouse_click",sender,data)
+    def on_mouse_rclick(self,sender,data): self.on_mouse_x("mouse_rclick",sender,data)
+    def on_mouse_mclick(self,sender,data): self.on_mouse_x("mouse_mclick",sender,data)
     def on_mouse_dblclick(self,sender,data): self.on_mouse_x("mouse_dblclick",sender,data)
-    def on_mouse_wheel(self,sender,data): self.on_mouse_x("mouse_wheel",sender,data)
-    def on_mouse_move (self,sender,data): self.on_mouse_x("mouse_move", sender,data)
-    def on_mouse_drag (self,sender,data): self.on_mouse_x("mouse_drag", sender,data)
+    def on_mouse_wheel(self,sender,data):  self.on_mouse_x("mouse_wheel",sender,data)
+    def on_mouse_move (self,sender,data):  self.on_mouse_x("mouse_move", sender,data)
+    def on_mouse_drag (self,sender,data):  self.on_mouse_x("mouse_drag", sender,data)
 
     def set_mouse_event_target(self,sender=None,callbacks=None):
         ''' on hover, call this to send the mouse event over to the callbacks
