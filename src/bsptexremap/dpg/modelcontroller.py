@@ -949,6 +949,7 @@ class App:
         cfg = {"appname" : consts.GUI_APPNAME, "config": {} }
         for part, prop in mappings.CONFIG_MAP:
             cfg["config"].setdefault(part,{})[prop] = getattr(getattr(self, part), prop)
-
-        Path(cfgpath).write_text(json.dumps(cfg))
+        
+        try: Path(cfgpath).write_text(json.dumps(cfg))
+        except: log.warning("Couldn't write layout config file")
 
