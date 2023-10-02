@@ -72,6 +72,12 @@ def populate_table(target,
     dpg.pop_container_stack()
 
 
+def draw_crossed_rectangle(p1:tuple, p2:tuple, **kwargs):
+    dpg.draw_rectangle(p1, p2, **kwargs)
+    dpg.draw_line(p1, p2, **kwargs)
+    dpg.draw_line((p2[0],p1[1]), (p1[0],p2[1]), **kwargs)
+
+
 class ImglistEntry(NamedTuple):
     image  : str|int
     width  : int
@@ -80,12 +86,6 @@ class ImglistEntry(NamedTuple):
     key    : any  = 0 # sorting aid
     content_stage_tag : int = None
 def _x(): pass # this gets consumed by npp
-
-
-def draw_crossed_rectangle(p1:tuple, p2:tuple, **kwargs):
-    dpg.draw_rectangle(p1, p2, **kwargs)
-    dpg.draw_line(p1, p2, **kwargs)
-    dpg.draw_line((p2[0],p1[1]), (p1[0],p2[1]), **kwargs)
 
 
 def populate_imglist(target, items:list[ImglistEntry], max_length=48, grow=False):
