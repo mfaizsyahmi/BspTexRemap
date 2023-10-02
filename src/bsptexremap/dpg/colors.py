@@ -103,7 +103,7 @@ def add_themes():
 
     #### TexView Themes ####
     ### Popup ###
-    with dpg.theme(tag="theme:texview_popup"):
+    with dpg.theme(tag="theme:_popup"):
         with dpg.theme_component(0):
             dpg.add_theme_style(dpg.mvStyleVar_WindowPadding,0,0)
 

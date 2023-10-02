@@ -177,13 +177,37 @@ class DpgLogHandler(logging.Handler):
         logging.ERROR:    (255,  0,  0), # red
         logging.CRITICAL: (150,  0,255)  # purple
     }
+    LABELS = {
+        logging.DEBUG:    "DEBUG",
+        logging.INFO:     "INFO",
+        logging.WARNING:  "WARNING",
+        logging.ERROR:    "ERROR",
+        logging.CRITICAL: "CRITICAL"
+    }
     TAG = "log_console_window"
+    TAG_POPUP = "log:popup"
 
-    def __init__(self, level=logging.NOTSET,**kwargs):
+    def __init__(self, level=logging.NOTSET, displevel=logging.INFO, **kwargs):
         super().__init__(level)
+        self.displevel=displevel
+        
         try:
-            dpg.add_window(tag=DpgLogHandler.TAG, label="Log Console",
-                           width=420, height=200, **kwargs)
+            log_window = dpg.add_window(tag=DpgLogHandler.TAG, label="Log Console",
+                                        width=420, height=200, **kwargs)
+            with dpg.handler_registry():
+                dpg.add_mouse_click_handler(button=dpg.mvMouseButton_Right,
+                                            callback=self._on_rclick)
+                
+            with dpg.window(tag=DpgLogHandler.TAG_POPUP, popup=True, 
+                            show=False, autosize=True, min_size=(80,120)) as log_popup:
+                #dpg.add_text("Log level",indent=4)
+                #dpg.add_separator()
+                dpg.add_listbox(list(DpgLogHandler.LABELS.values()),
+                                default_value=DpgLogHandler.LABELS[self.displevel],
+                                num_items=len(DpgLogHandler.LABELS), width=80,
+                                callback=self._displevel_cb)
+            dpg.bind_item_theme(log_popup,"theme:_popup")
+            
         except: pass
 
     def emit(self, record):
@@ -195,14 +219,29 @@ class DpgLogHandler(logging.Handler):
                 msg, parent=DpgLogHandler.TAG, user_data=record, wrap=0,
                 filter_key=record.levelno,
                 color=DpgLogHandler.COLORS[record.levelno],
-                tracked=True, track_offset=1)
+                tracked=True, track_offset=1, show=record.levelno>=self.displevel)
         # scroll to end?
         #dpg.set_y_scroll(DpgLogHandler.TAG,dpg.get_y_scroll_max(DpgLogHandler.TAG))
         dpg.set_frame_callback(dpg.get_frame_count() + 2, self._untrack_all)
+    
+    def setDisplayLevel(self, displevel):
+        self.displevel=displevel
+        for item in dpg.get_item_children(DpgLogHandler.TAG,1):
+            record = dpg.get_item_user_data(item)
+            dpg.configure_item(item,show=record.levelno>=self.displevel)
+
+    def _displevel_cb(self, _, level):
+        dpg.hide_item(DpgLogHandler.TAG_POPUP)
+        levelmap = {t:l for l,t in DpgLogHandler.LABELS.items()}
+        self.setDisplayLevel(levelmap[level])
 
     def _untrack_all(self,*_):
         for item in dpg.get_item_children(DpgLogHandler.TAG,1):
             dpg.configure_item(item,tracked=False)
+    
+    def _on_rclick(self,sender,target):
+        if dpg.is_item_hovered(DpgLogHandler.TAG):
+            dpg.show_item(DpgLogHandler.TAG_POPUP)
 
 
 class DpgLogToTextItemHandler(logging.Handler):

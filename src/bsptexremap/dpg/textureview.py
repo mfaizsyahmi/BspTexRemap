@@ -69,7 +69,7 @@ class TextureView:
             # width is arbitrarym as dpg.get_text_size is unavailable at the point of execution
             mx_list = dpg.add_listbox(consts.TEXVIEW_MX,num_items=2,width=80)
             
-        dpg.bind_item_theme(mx_popup,"theme:texview_popup")
+        dpg.bind_item_theme(mx_popup,"theme:_popup")
         
         cls._mx_popup = mx_popup
         cls._mx_list = mx_list
