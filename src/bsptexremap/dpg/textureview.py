@@ -172,6 +172,9 @@ class TextureView:
         self.precedende = precedence
         self.__post_init__() # run this again now that we have data
 
+    @property # to help with my sanity
+    def is_embedded(self): return not self.is_external
+
     @property
     def mat_editable(self):
         return (self.become_external==False or self.is_external==False) \
@@ -357,27 +360,28 @@ class TextureView:
         ## selection theme
         selection_theme = AppThemes.Selected if self.selected else AppThemes.Normal
 
-        ### Apply theme/state --------------------------------------------------
-        ## label
-        dpg.configure_item(self._label_uuid,color=label_color.color)
-
-        ## mx button/state
-        dpg.configure_item(self._mx_btn, label=mx_text) #, color=mx_color.color)
-        dpg.bind_item_theme(self._mx_btn, mx_theme)
-        dpg.configure_item(self._layer_to_embed, show=self.become_external==False)
-        dpg.configure_item(self._layer_to_unembed, show=self.become_external==True)
-
-        ## matslider
-        dpg.configure_item(self._slider_uuid,label=self.mat,enabled=self.mat_editable)
-        dpg.set_value(self._slider_uuid,slider_val)
-        dpg.bind_item_theme(self._slider_uuid,slider_theme)
-
-        ## selected state
-        dpg.bind_item_theme(self._view_uuid,selection_theme)
-        dpg.configure_item(self._selector_uuid, show=self.selected)
-        dpg.configure_item(self._layer_selected, show=self.selected)
-        dpg.set_value(self._selector_uuid,self.selected)
-
+        try:
+            ### Apply theme/state --------------------------------------------------
+            ## label
+            dpg.configure_item(self._label_uuid,color=label_color.color)
+    
+            ## mx button/state
+            dpg.configure_item(self._mx_btn, label=mx_text) #, color=mx_color.color)
+            dpg.bind_item_theme(self._mx_btn, mx_theme)
+            dpg.configure_item(self._layer_to_embed, show=self.become_external==False)
+            dpg.configure_item(self._layer_to_unembed, show=self.become_external==True)
+    
+            ## matslider
+            dpg.configure_item(self._slider_uuid,label=self.mat,enabled=self.mat_editable)
+            dpg.set_value(self._slider_uuid,slider_val)
+            dpg.bind_item_theme(self._slider_uuid,slider_theme)
+    
+            ## selected state
+            dpg.bind_item_theme(self._view_uuid,selection_theme)
+            dpg.configure_item(self._selector_uuid, show=self.selected)
+            dpg.configure_item(self._layer_selected, show=self.selected)
+            dpg.set_value(self._selector_uuid,self.selected)
+        except: pass
 
     def update_relatives_state(self):
         ''' updates selection/material/embed state of all related textures 
@@ -393,15 +397,36 @@ class TextureView:
                 item.update_state()
 
 
+    def set_embed(self, target_state:bool):
+        ''' sets the become_external prop, except that the target value is the
+            opposite to be in line with the convention on the gui
+        '''
+        # check that we are allowed to unembed
+        if not TextureView.app.data.allow_unembed \
+        and self.is_embedded and not target_state:
+            log.error("Current settings disallow unembedding textures! Discarding change.")
+            return
+        # check that we know where the source of the external textures are
+        elif not self.external_src and target_state:
+            log.error("The external WAD source for this texture is unknown. Please load them first.")
+            return
+        
+        log.info(f"change embed state of {self.matname} to {target_state}")
+        # same state as original -> unset
+        if target_state == self.is_embedded:
+            self.become_external = None
+        else:
+            self.become_external = not target_state
+
+        self.update_relatives_state()
+    
+
     ## embed/extern button click callback
     def _mx_button_click(self,*_):
         val_map = {False:0, True:1}
-        if self.become_external is not None:
-            #val = "External" if self.become_external else "Embedded"
-            val = consts.TEXVIEW_MX[val_map[self.become_external]]
-        else:
-            #val = "External" if self.is_external else "Embedded"
-            val = consts.TEXVIEW_MX[val_map[self.is_external]]
+        val = consts.TEXVIEW_MX[val_map[self.become_external]] \
+              if self.become_external is not None \
+              else consts.TEXVIEW_MX[val_map[self.is_external]]
     
         width = max(*(dpg.get_text_size(x)[0] for x in consts.TEXVIEW_MX)) + 24
         dpg.set_value(TextureView._mx_list, val)
@@ -414,13 +439,18 @@ class TextureView:
         dpg.configure_item(TextureView._mx_popup, show=False)
 
         val_map = {0:False, 1:True}
-        data = val_map[consts.TEXVIEW_MX.index(data)]
+        data = val_map[consts.TEXVIEW_MX.index(data)] if isinstance(data,str) else data
 
         # check that we are allowed to unembed
         if not TextureView.app.data.allow_unembed \
         and not self.is_external and data:
-            log.warning("current settings disallow unembedding textures! ignoring change")
+            log.error("Current settings disallow unembedding textures! Discarding change.")
             return
+        # check that we know where the source of the external textures are
+        elif not self.external_src and data:
+            log.error("The external WAD source for this texture is unknown. Please load them first.")
+            return
+
         
         log.info(f"change embed state of {self.matname} to {not data}")
         # same state as original -> unset

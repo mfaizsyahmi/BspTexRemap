@@ -49,5 +49,11 @@ It is your responsibility to ensure that the wad list contains a WAD that has
 the textures you're unembedding, or you'll have missing textures.
 """.strip()
 
+NOTES = """
+NOTES:
+1) You can only rename embedded textures. To rename WAD textures, load the WAD first, then embed them.
+2) Focus on textures for surfaces that can be walked on, since the step sounds have strategic value.
+""".strip()
+
 # texview.py
 TEXVIEW_MX = ("Embedded", "External")

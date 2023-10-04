@@ -125,9 +125,30 @@ class AppModel:
         self.app.view.render_material_tables()
 
     def load_wannabes(self, matpath):
-        self.wannabe_set |= MaterialSet.from_materials_file(matpath)
+        # load the set from file
+        wannabes = MaterialSet.from_materials_file(matpath)
+        # merge with set in appdata
+        self.wannabe_set |= wannabes
+        # update remap view
         self.app.view.reflect()
         self.app.view.update_wannabe_material_tables()
+
+        # force textures in the entries to be embedded
+        # which requires we know which wads are loaded during export
+        # TODO: move to a subroutine toggleable under a config
+        '''
+        wads = re.match(r"(?im)(?:^// wads:).*$", Path(matpath).read_text())
+        if wads:
+            wadlist = wads.split(",")
+            for wad_stat in self.app.view.wadstats:
+                if wad_stat.name in wadlist:
+                    dpg.set_value(wad_stat.uuid,True) # become selected
+            self.app.do.load_selected_wads()
+                
+        for item in self.app.view.textures:
+            if item.matname in wannabes:
+                item.set_embed(True)
+        '''
 
     def TEST_load_wad(self,wadpath):
         ''' TEST of loading a wad file directly '''
@@ -137,21 +158,127 @@ class AppModel:
                 wad = WadFile.load(fp)
         self.app.view.load_textures([item._miptex for item in wad.entries])
 
+
     def commit_bsp_edits(self):
         ''' returns a new bsp object with the edits applied, namely:
             1. embed/unembed textures
             2. rename textures
             3. add/remove info_texture_remap
         '''
-        ## 0. load a fresh instance
+        ###---------------------------------------------------------------------
+        ### PHASE ONE - Figuring out what edits need to be done
+        ###---------------------------------------------------------------------
+        ## 1. texture embedding/unembedding
+        # dict of name:data
+        things_to_embed  = {item.name: item.external_src \
+                            for item in self.app.view.textures \
+                            if item.become_external==False}
+        # get the names of wads with the textures
+        wadnames = set((src for src in things_to_embed.values()))
+        # fetch the cached miptexes and puts them into the dict
+        for wadname in wadnames:
+            for miptex in self.view.wad_cache[wadname]:
+                if miptex.name in things_to_embed:
+                    things_to_embed[miptex.name] = miptex
+        
+        things_to_unembed=[item.name for item in self.app.view.textures \
+                           if item.become_external==True]
+        
+        ## 2. texture renamings
+        tr = TextureRemapper(target_set = self.wannabe_set,
+                             choice_set = self.mat_set.choice_cut(),
+                             map_dict = self.direct_remap)
+
+        remap_dict = {item.name:tr(item.name) for item in self.bsp.textures}
+        remap_dict = {oldname:newname for oldname,newname in remap_dict.items() \
+                      if newname != oldname}
+
+        ## 3. info_texture_remap action -> RemapEntityActions enum
+        info_texture_remap_action \
+        = mappings.remap_entity_actions_map[self.remap_entity_action].value
+        
+        
+        ###---------------------------------------------------------------------
+        ### PHASE TWO - Load a new BspFile instance and commit the edits
+        ###---------------------------------------------------------------------
+        ## 0. create new BspFile instance
         with open(self.bsppath, "rb") as f:
             newbsp = BspFile(f, lump_enum=guess_lumpenum(self.bsppath))
+        
+        list_embedded = []
+        list_unembedded = []
+        dict_renamed = {}
+        for i in len(newbsp.textures):
+            this_miptex = newbsp.textures[i]
+            
+            ## 1. embed/unembed
+            if this_miptex.name in things_to_embed and this_miptex.is_external:
+                # replace itself with the entry
+                newbsp.textures[i] = things_to_embed[this_miptex.name] 
+                list_embedded.append(this_miptex.name)
+            elif this_miptex.name in things_to_unembed and not this_miptex.is_external:
+                this_miptex.unembed()
+                list_unembedded.append(this_miptex.name)
 
-        ## 1. embeds/unembeds textures
-        for miptex in newbsp.textures:
-            pass
-
-        return newbsp
+            ## 2. rename
+            if this_miptex.name in remap_dict:
+                dict_renamed[this_miptex.name] = remap_dict[this_miptex.name]
+                this_miptex.name = remap_dict[this_miptex.name]
+            
+        ## 3. entity
+        oldcount = len(newbsp.entities.data)
+        if info_texture_remap_action == RemapEntityActions.Insert:
+            _s = MaterialSet.strip
+            if (ent := next((ent for ent in newbsp.entities \
+                             if ent["classname"].lower() \
+                                == consts.TEXREMAP_ENTITY_CLASSNAME.lower()),\
+                            None)):
+                ent.update({_s(old): _s(new) for old,new in remap_dict.items()})
+            else:
+                newbsp.entities.data.append({
+                    **{_s(old): _s(new) for old,new in remap_dict.items()},
+                    "classname" : consts.TEXREMAP_ENTITY_CLASSNAME
+                })
+            
+        elif info_texture_remap_action == RemapEntityActions.Remove:
+            newbsp.entities.data = [ent for ent in newbsp.entities.data \
+                                    if ent["classname"].lower() \
+                                       == consts.TEXREMAP_ENTITY_CLASSNAME.lower()]
+        newcount = len(newbsp.entities.data)
+        
+        ### DONE
+        
+        ## prepare report:
+        ## - summary table
+        ## - details
+        report = {
+            "summary": (
+                ("Action", "Target", "Written"),
+                (
+                    ("embeds", len(things_to_embed), count_embedded),
+                    ("unembeds", len(things_to_unembed), count_unembedded),
+                    ("renames", len(remap_dict), count_renamed),
+                    ("remap_entity", info_texture_remap_action.name, newcount - oldcount)
+                )
+            ),
+            "details": {
+                "embeds": list_embedded,
+                "unembeds": list_unembedded,
+                "renames": dict_renamed
+            }
+        }
+        log.info("BSP Edit summary")
+        log.info("====================================")
+        log.info("| Action       | Target   | Written |")
+        log.info("|--------------|----------|---------|")
+        log.info("| embeds       | %8d | %7d |", len(things_to_embed), count_embedded)
+        log.info("| unembeds     | %8d | %7d |", len(things_to_unembed), count_unembedded)
+        log.info("| renames      | %8d | %7d |", len(remap_dict), count_renamed)
+        log.info("| remap entity | %8s | %7d |", info_texture_remap_action.name, newcount - oldcount)
+        
+        # return bsp and report in a named tuple
+        _r = namedtuple("BspEditResult", ["bsp","report"])
+        return _r(newbsp, report)
 
 
 @dataclass(frozen=True)
@@ -457,7 +584,7 @@ class AppView:
 
             # cache the miptexes
             if results[wadpath].miptexes:
-                self.wad_cache[wadpath] = results[wadpath].miptexes
+                self.wad_cache[wadname] = results[wadpath].miptexes
 
             log.debug(f"updating wadstats for {wadname}")
             item = next(filter(lambda x:x.name==wadname,self.wadstats),None)
@@ -483,7 +610,8 @@ class AppView:
         ''' filters the textures list, then passes it off to gallery to render '''
         # all the filters in modelcontroller assembled
         f_a = mappings.gallery_show_map[self.gallery_show_val].filter_fn
-        f_u = lambda item: item.matname not in self.app.data.mat_set
+        f_u = lambda item: item.matname not in self.app.data.mat_set \
+                           and item.matname not in self.app.data.wannabe_set
         f_r = lambda item: not item.name.lower().startswith("__rad")
         f_s = lambda item: utils.filterstring_to_filter(self.filter_str)(item.name)
         # the sort
@@ -520,11 +648,11 @@ class AppView:
 
     def update_gallery_items(self,matname=None,selected=None):
         ''' update the state of TextureView items '''
-        with dpg.mutex():
-            for item in (item for item in self.textures):
-                if selected and not item.selected: continue
-                elif matname and item.matname != matname: continue
-                item.update_state()
+        #with dpg.mutex():
+        for item in (item for item in self.textures):
+            if selected and not item.selected: continue
+            elif matname and item.matname != matname: continue
+            item.update_state()
 
 
     def render_material_tables(self, summary=True, entries=True):
@@ -646,20 +774,24 @@ class AppView:
 
         remap_list = self.get_dpg_item(type=BindingType.TextureRemapList)
         dpg.delete_item(remap_list, children_only=True)
-        dpg.push_container_stack(remap_list)
 
-        try:
-            for label, imglist in dict_of_lists.items():
-                if self.texremap_not_empty and not len(imglist): continue # hide empty
+        with dpg.mutex():
+            with dpg.stage() as staging:
+                for label, imglist in dict_of_lists.items():
+                    if self.texremap_not_empty and not len(imglist): continue # hide empty
 
-                with dpg.tree_node(label=f"{label:8s} ({len(imglist)} entries)",
-                                   default_open=True) as node:
-                    gui_utils.populate_imglist(node,imglist,target_len)
+                    with dpg.tree_node(label=f"{label:8s} ({len(imglist)} entries)",
+                                       default_open=True) as node:
+                        gui_utils.populate_imglist(node,imglist,target_len)
 
-                dpg.add_separator()
-
-        finally:
-            dpg.pop_container_stack()
+                    dpg.add_separator()
+            
+            dpg.push_container_stack(remap_list)
+            try:
+                dpg.unstage(staging)
+            finally:
+                dpg.pop_container_stack()
+                dpg.delete_item(staging)
 
 
     def update_window_state(self,sender,app_data):
@@ -737,9 +869,9 @@ class AppActions:
         if backup:
             backup_file(self.app.data.bsppath)
 
-        print("BSP FILE SHOULD SAVE HERE, BUT NOT NOW"); return
+        result = self.app.data.commit_bsp_edits()
         with open(self.app.data.bsppath, "wb") as f:
-            self.app.data.commit_bsp_edits().dump(f)
+            result.bsp.dump(f)
 
 
     def save_bsp_file_as(self, bsppath:str|Path=None, confirm=None):
@@ -755,9 +887,9 @@ class AppActions:
             gui_utils.confirm_replace(bsppath, cb_wrap)
             return
 
-        print("BSP FILE SHOULD SAVE HERE, BUT NOT NOW"); return
-        with open(bsppath, "wb") as f:
-            self.app.data.commit_bsp_edits().dump(f)
+        result = self.app.data.commit_bsp_edits()
+        with open(self.app.data.bsppath, "wb") as f:
+            result["bsp"].dump(f)
 
 
     def load_mat_file(self, matpath:str|Path=None): # dialog callback
@@ -792,7 +924,8 @@ class AppActions:
         try:
             dump_texinfo(self.app.data.bsppath,7168, None, # header|matchars|mat_set
                          material_set=self.app.data.wannabe_set,
-                         outpath=Path(outpath))
+                         outpath=Path(outpath),
+                         wadlist=[item.name for item in self.view.wadstats if item.loaded])
             log.info(f"Exported custom material file: \"{outpath}\"")
         except Exception as error:
             log.error(f"Failed to export custom material file: \"{outpath}\"\n\t{error}")
@@ -824,7 +957,18 @@ class AppActions:
     def select_all_textures(self, sender, _, value:bool=False):
         log.debug(f"selection: {value}")
         for item in self.view.gallery.data: # only the list in gallery data is selectable
-            item._select_cb(sender,value)
+            # item._select_cb(sender,value)
+            item.selected = True 
+        self.view.update_gallery_items()
+    
+    def select_wannabes(self,*_): # select textures in wannabe set
+        union = dpg.is_key_down(dpg.mvKey_Control)
+        print(self.app.data.wannabe_set)
+        for item in self.view.gallery.data:
+            if item.matname in self.app.data.wannabe_set:
+                item.selected = True 
+            elif not union:
+                item.selected = False
         self.view.update_gallery_items()
 
     def selection_set_material(self, sender, _, mat:str):
@@ -866,6 +1010,7 @@ class AppActions:
         elif suffix == ".wad":
             # TEST
             self.app.data.TEST_load_wad(data[0])
+
 
     ### GLOBAL IO handlers ###
     def _init_global_handlers(self):

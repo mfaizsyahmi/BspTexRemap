@@ -58,6 +58,7 @@ class AppColors(Subscriptable):
     Selected  = _c((  0,170,255,255), (  0,170,255,255), (  0,170,255,255))
 
 class AppThemes(Subscriptable):             # applies to:
+    LogMessage = "theme:log_message"        # log message
     Embedded   = "theme:texlabel_embedded"  # texview src button
     External   = "theme:texlabel_external"  # texview src button
     ToEmbed    = "theme:texlabel_to_embed"  # texview src button
@@ -100,7 +101,12 @@ def add_themes():
     with dpg.theme(tag="theme:normal_table"):
         with dpg.theme_component(0): pass
             #dpg.add_theme_color(dpg.mvThemeCol_TableHeaderBg ,(48,48,51,255))
-
+            
+    with dpg.theme(tag=AppThemes.LogMessage):
+        with dpg.theme_component(dpg.mvText):
+            dpg.add_theme_style(dpg.mvStyleVar_FramePadding, 4,0)
+            dpg.add_theme_style(dpg.mvStyleVar_ItemSpacing, 8,0)
+        
     #### TexView Themes ####
     ### Popup ###
     with dpg.theme(tag="theme:_popup"):

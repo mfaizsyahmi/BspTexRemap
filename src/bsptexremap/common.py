@@ -292,21 +292,28 @@ def dump_texinfo(bsppath,
 
     with open(outpath, mode) as f:
         log.info(f"Dumping texture info for {bsppath.name} --> {outpath.name}")
+        
         if parts&1024: # header
             f.write(consts.TEXINFO.HEADER.format(
                     bsppath.name,
                     f"{consts.APPNAME} {consts.VERSION}"
             ))
+            
         if parts&2048: # list of materials
             f.write("\n// Material types: \n")
             f.write("\n".join([f"//  {m} - {me(m).name}" for m in MaterialSet.MATCHARS]) + "\n")
+            
         if parts&4096: # material set
             f.write("\n// Material entries: ")
+            # write down all the loaded wads (to be loaded later on load)
+            if "wadlist" in kwargs and isinstance(kwargs["wadlist"], list):
+                f.write(f"\n// wads: {','.join(kwargs['wadlist'])}")
+            
             for m in material_set.MATCHARS:
                 if not len(material_set[m]): continue # skip empty sets
                 f.write(f"\n//  {m} - {me(m).name}\n")
                 f.write("\n".join([f"{m.upper()} {item.upper()}" \
-                        for item in material_set[m]]))
+                        for item in sorted(material_set[m]) ]) )
 
         for thispart in filter(lambda f:parts&f, [1,2,4,8]):
             log.info(f"Dumping texture list {e(thispart).value}: {e(thispart).name}")

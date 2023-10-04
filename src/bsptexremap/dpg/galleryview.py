@@ -27,9 +27,13 @@ class GalleryView(UserList):
             #dpg.add_item_hover_handler(callback=)
             #dpg.add_item_resize_handler(callback=self.render)
             pass
+        with dpg.handler_registry() as global_handler:
+            #dpg.add_mouse_drag_handler(callback=self.on_mouse_drag)
+            dpg.add_mouse_release_handler(callback=self.on_mouse_up)
 
         self._handler = handler
         self._render_on_frame = None
+        self._defer_resize_until_mouse_up = None
 
     def _new_row(self, first=False):
         if not first: dpg.add_separator()
@@ -82,14 +86,17 @@ class GalleryView(UserList):
 
     def reflow(self): # DON'T USE, BUGGY AF
         # trying to throttle call spam when window is actively moving with mouse
-        #if dpg.is_mouse_button_down(dpg.mvMouseButton_Left): return
+        if dpg.is_mouse_button_down(dpg.mvMouseButton_Left): 
+            self._defer_resize_until_mouse_up = True
+            return
         
         # redirect to render until we can sort this out
         return self.render()
 
         win_w = dpg.get_available_content_region(self.measureme)[0]
 
-        rows = tuple(r for r in dpg.get_item_children(self.parent,1) if dpg.is_item_container(r))
+        rows = tuple(r for r in dpg.get_item_children(self.parent,1) \
+                       if dpg.is_item_container(r))
         items = tuple(chain(*(dpg.get_item_children(row,1) for row in rows)))
         item_widths = tuple(dpg.get_item_rect_size(item)[0] for item in items)
 
@@ -119,11 +126,12 @@ class GalleryView(UserList):
         self.parent = parent
         self.measureme = measureme or parent
         dpg.bind_item_handler_registry(self.measureme, self._handler)
-        # dpg.bind_item_handler_registry(dpg.last_root(), resize_handler)
 
-    def on_drag_start(self,sender,data):
-        pos = dpg.get_mouse_pos()
-        print("start_drag",pos,sender,data)
-    def on_drag_end(self,sender,data):
-        print("start_drag",pos,sender,data)
+    def on_mouse_drag(self,sender,data):
+        pass
+    def on_mouse_up(self,sender,data):
+        if self._defer_resize_until_mouse_up:
+            self._defer_resize_until_mouse_up = False
+            self.reflow()
+
 

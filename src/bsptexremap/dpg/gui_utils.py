@@ -233,6 +233,7 @@ class DpgLogHandler(logging.Handler):
             dpg.configure_item(item,show=record.levelno>=self.displevel)
             
     def clear(self):
+        dpg.hide_item(DpgLogHandler.TAG_POPUP)
         dpg.delete_item(DpgLogHandler.TAG, children_only=True)
 
     def _displevel_cb(self, _, level):

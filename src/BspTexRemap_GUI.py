@@ -251,6 +251,11 @@ def add_textures_window(app, tag):
                 dpg.add_menu_item(label="Select all", user_data=True,
                                   callback=app.do.select_all_textures)
 
+                dpg.add_menu_item(label="Select remap entries", user_data=True,
+                                  callback=app.do.select_wannabes)
+                #with dpg.popup(dpg.last_item()):
+                #    dpg.add_Text("Hold Ctrl to unite selection")
+                                  
                 dpg.add_menu_item(label="Select none", user_data=False,
                                   callback=app.do.select_all_textures)
 
@@ -359,6 +364,13 @@ def add_options_window(app,tag):
         dpg.add_button(label="Export custom materials",
                        callback=_bare_cb(app.do.export_custommat))
         _help("Generates custom material file that can be used\nwith BspTexRemap.exe (the console program)")
+        
+        dpg.add_separator()
+        dpg.add_text(consts.NOTES,wrap=0)
+
+def add_misc_dialogs(app):
+    with dpg.window(label="Summary",show=False) as dlg_save_summary:
+        pass
 
 
 def add_viewport_menu(app):
@@ -437,7 +449,7 @@ def main():
     setup_logger(args.log) # for console log
     log = logging.getLogger() ## "__main__" should use the root logger
 
-    dpg.create_context(); dpg_dnd.initialize()
+    dpg.create_context()
     # must be called before create_viewport
     dpg.configure_app(docking=True, docking_space=True,
                       init_file=consts.LAYOUT_INI_PATH)
@@ -464,11 +476,13 @@ def main():
     dpg.bind_font(colors.AppFonts.Regular.tag)
 
     app = App()
-    dpg_dnd.set_drop(app.do.handle_drop)
     app.view.window_binds = window_binds
+    dpg_dnd.initialize()
+    dpg_dnd.set_drop(app.do.handle_drop)
 
     gui_utils.DpgLogHandler.TAG = log_window
     log.addHandler(gui_utils.DpgLogHandler(0,on_close=app.view.update_window_state))
+    dpg.bind_item_theme(gui_utils.DpgLogHandler.TAG,colors.AppThemes.LogMessage)
 
     # setup all the windows
     add_file_dialogs(app)
@@ -477,6 +491,7 @@ def main():
     add_wannabe_window(app,remaps_window)
     add_textures_window(app,textures_window)
     add_options_window(app,options_window)
+    add_misc_dialogs(app)
 
     #app.view.reflect()
     app.view.update_window_state(0,0)

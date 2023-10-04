@@ -112,6 +112,3 @@ remap_entity_actions_map = [
 ]
 remap_entity_actions = [item.text for item in remap_entity_actions_map]
 
-texview_matslider_theme_map = (
-    
-)

@@ -13,13 +13,14 @@ def debug_dpg_item(tag):
 
 # https://stackoverflow.com/a/74502089
 @contextmanager
-def time_it() -> Iterator[None]:
+def time_it(message:str="") -> Iterator[None]:
     tic: float = time.perf_counter()
     try:
         yield
     finally:
         toc: float = time.perf_counter()
-        log.debug(f"Computation time = {1000*(toc - tic):.3f}ms")
+        prefix = message + ": " if message else ""
+        log.debug(f"{prefix}Computation time = {1000*(toc - tic):.3f}ms")
 
 def dump_materialset(matset, msg=None):
     if msg: print(msg)
