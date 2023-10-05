@@ -357,7 +357,8 @@ def message_box(title, message, selection_callback:callable=None,
         viewport_width  = dpg.get_viewport_client_width()
         viewport_height = dpg.get_viewport_client_height()
 
-        with dpg.window(label=title, modal=True, no_close=True) as modal_id:
+        with dpg.window(label=title, modal=True, no_close=True,
+                        no_saved_settings=True) as modal_id:
 
             dpg.add_text()
             with dpg.group(horizontal=True):

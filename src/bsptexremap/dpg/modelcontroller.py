@@ -2,7 +2,7 @@
 '''
 import dearpygui.dearpygui as dpg
 
-from jankbsp import BspFileBasic as BspFile, WadFile
+from jankbsp import BspFileBasic, WadFile
 from jankbsp.types import EntityList
 from jankbsp.types.wad import WadMipTex
 
@@ -33,7 +33,7 @@ from math import log10, ceil
 import re, logging, json
 
 log = logging.getLogger(__name__)
-
+BspFile = BspFileBasic
 
 @dataclass
 class AppModel:
@@ -53,10 +53,12 @@ class AppModel:
     allow_unembed       : bool = False
     remap_entity_action : int  = 0    # RemapEntityActions.Insert
     backup              : bool = True # creates backup file if saving in same file
+    show_summary        : bool = False # summary window after edits
 
     # info (generally read-only from other places)
     remap_entity_count  : int  = 0
     matchars : str    = MaterialSet.MATCHARS # edit if loading OF/CZ/CZ/DS
+
 
     def load_bsp(self, bsppath):
         ''' loads given bsp, and kickstarts some post-load operations
@@ -159,7 +161,7 @@ class AppModel:
         self.app.view.load_textures([item._miptex for item in wad.entries])
 
 
-    def commit_bsp_edits(self):
+    def commit_bsp_edits(self, include_report=False, show_summary=True):
         ''' returns a new bsp object with the edits applied, namely:
             1. embed/unembed textures
             2. rename textures
@@ -208,7 +210,7 @@ class AppModel:
         list_embedded = []
         list_unembedded = []
         dict_renamed = {}
-        for i in len(newbsp.textures):
+        for i in range(len(newbsp.textures)):
             this_miptex = newbsp.textures[i]
             
             ## 1. embed/unembed
@@ -237,6 +239,7 @@ class AppModel:
             else:
                 newbsp.entities.data.append({
                     **{_s(old): _s(new) for old,new in remap_dict.items()},
+                    "origin": "0 0 0",
                     "classname" : consts.TEXREMAP_ENTITY_CLASSNAME
                 })
             
@@ -246,8 +249,9 @@ class AppModel:
                                        == consts.TEXREMAP_ENTITY_CLASSNAME.lower()]
         newcount = len(newbsp.entities.data)
         
-        ### DONE
-        
+        ###---------------------------------------------------------------------
+        ### DONE --> POST OP
+        ###---------------------------------------------------------------------
         ## prepare report:
         ## - summary table
         ## - details
@@ -255,9 +259,9 @@ class AppModel:
             "summary": (
                 ("Action", "Target", "Written"),
                 (
-                    ("embeds", len(things_to_embed), count_embedded),
-                    ("unembeds", len(things_to_unembed), count_unembedded),
-                    ("renames", len(remap_dict), count_renamed),
+                    ("embeds", len(things_to_embed), len(list_embedded)),
+                    ("unembeds", len(things_to_unembed), len(list_unembedded)),
+                    ("renames", len(remap_dict), len(dict_renamed)),
                     ("remap_entity", info_texture_remap_action.name, newcount - oldcount)
                 )
             ),
@@ -268,17 +272,25 @@ class AppModel:
             }
         }
         log.info("BSP Edit summary")
-        log.info("====================================")
+        log.info("=====================================")
         log.info("| Action       | Target   | Written |")
         log.info("|--------------|----------|---------|")
-        log.info("| embeds       | %8d | %7d |", len(things_to_embed), count_embedded)
-        log.info("| unembeds     | %8d | %7d |", len(things_to_unembed), count_unembedded)
-        log.info("| renames      | %8d | %7d |", len(remap_dict), count_renamed)
+        log.info("| embeds       | %8d | %7d |", len(things_to_embed), len(list_embedded))
+        log.info("| unembeds     | %8d | %7d |", len(things_to_unembed), len(list_unembedded))
+        log.info("| renames      | %8d | %7d |", len(remap_dict), len(dict_renamed))
         log.info("| remap entity | %8s | %7d |", info_texture_remap_action.name, newcount - oldcount)
+        if show_summary and self.show_summary:
+            self.app.view.show_edit_summary(
+                {"input":self.bsppath},
+                report["summary"],
+                report["details"]
+            )
         
         # return bsp and report in a named tuple
         _r = namedtuple("BspEditResult", ["bsp","report"])
-        return _r(newbsp, report)
+        return _r(newbsp, report) if include_report else _r(newbsp, None)
+        
+        ###------------------ END of commit_bsp_edits --------------------------
 
 
 @dataclass(frozen=True)
@@ -298,6 +310,8 @@ class AppView:
     window_binds : dict          = field(default_factory=dict)
     # dict of bound items
     bound_items : dict           = field(default_factory=dict)
+    # global shared texture registry for all loaded bsp/wad textures
+    dpg_texture_registry : int   = field(default_factory=dpg.add_texture_registry)
 
     # primary struct to hold the name, path, and entry list info
     # and to present the items in the texture pane's wadlist
@@ -311,6 +325,9 @@ class AppView:
     gallery : GalleryView        = field(default_factory=GalleryView)
 
     # check against issuing dpg commands when viewport isn't ready
+    # NOTE: this has been changed to a read-only property method that returns 
+    # false false if frame count is <4. The existence if _viewport_ready is kept
+    # for legacy reasons (cleanup later?)
     #_viewport_ready : bool       = False
 
     # material entry filter settings
@@ -804,6 +821,33 @@ class AppView:
             else:
                 dpg.set_value(tagmap["menu"], dpg.is_item_shown(tagmap["window"]))
 
+    def show_edit_summary(self, base, summary, details):
+        ''' base = dict of label-value pairs to show up front
+            summary = table struct
+            details = dict of node-data view
+        '''
+        with dpg.mutex():
+            id_base = self.get_dpg_item(BindingType.SummaryBase)
+            dpg.delete_item(id_base, children_only=True)
+            for label, value in base.items():
+                dpg.add_input_text(parent=id_base,label=label,
+                                   default_value=value,readonly=True)
+                
+            id_table = self.get_dpg_item(BindingType.SummaryTable)
+            gui_utils.populate_table(id_table,*summary)
+            
+            id_details = self.get_dpg_item(BindingType.SummaryDetails)
+            dpg.delete_item(id_details, children_only=True)
+            for label, data in details.items():
+                with dpg.tree_node(label=label,parent=id_details):
+                    if isinstance(data,list):
+                        dpg.add_text("\n".join(data))
+                    elif isinstance(data,dict):
+                        dpg.add_text("\n".join([f"{x:15s} : {y}" \
+                                                for x,y in data.items()]))
+            
+        dpg.show_item(self.get_dpg_item(BindingType.SummaryDialog))
+
 
 ###=============================================================================
 ###                                   AppActions
@@ -851,6 +895,7 @@ class AppActions:
             self.app.data.load_bsp(self.app.data.bsppath)
 
     def save_bsp_file(self, backup:bool=None, confirm=None):
+        ## checking it ---------------------------------------------------------
         if not self.app.data.bsppath: return # nothing to save
 
         bakpath = self.app.data.bsppath.with_name(self.app.data.bsppath.name + ".bak")
@@ -866,15 +911,19 @@ class AppActions:
                     {1:"Backup and save",2:"Save WITHOUT backup",0:"Cancel"})
             return
 
+        ## doing it ------------------------------------------------------------
         if backup:
             backup_file(self.app.data.bsppath)
 
         result = self.app.data.commit_bsp_edits()
         with open(self.app.data.bsppath, "wb") as f:
             result.bsp.dump(f)
+            
+        log.info('Saved BSP file: "%s"', self.app.data.bsppath)
 
 
     def save_bsp_file_as(self, bsppath:str|Path=None, confirm=None):
+        ## checking it ---------------------------------------------------------
         if not self.app.data.bsppath: return # nothing to save
         if not bsppath:
             mapfn = lambda p:p.with_name(p.stem + "_output.bsp")
@@ -887,9 +936,19 @@ class AppActions:
             gui_utils.confirm_replace(bsppath, cb_wrap)
             return
 
-        result = self.app.data.commit_bsp_edits()
-        with open(self.app.data.bsppath, "wb") as f:
-            result["bsp"].dump(f)
+        ## doing it ------------------------------------------------------------
+        result = self.app.data.commit_bsp_edits(include_report=True,show_summary=False)
+        with open(bsppath, "wb") as f:
+            result.bsp.dump(f)
+            
+        log.info('Saved BSP file: "%s"', bsppath)
+        
+        if self.show_summary:
+            self.app.view.show_edit_summary(
+                {"input":self.bsppath,"output":bsppath},
+                result.report["summary"],
+                result.report["details"]
+            )
 
 
     def load_mat_file(self, matpath:str|Path=None): # dialog callback
@@ -942,7 +1001,6 @@ class AppActions:
         self.app.data.wannabe_set = MaterialSet()
         self.view.update_gallery_items()
         self.view.update_wannabe_material_tables()
-
 
     ## parse entity in bsp (just a passthrough)
     def parse_remap_entities(self, *_):
@@ -1060,17 +1118,18 @@ class App:
         self.view = AppView(self)
         self.do = AppActions(self,self.view)
 
+        self.cfg = {
+            "use_multithread" : True
+        }
+        
         self.load_config()
-        self.global_texture_registry = dpg.add_texture_registry()
+        #self.global_texture_registry = dpg.add_texture_registry()
 
         TextureView.class_init(app=self,
                                mat_update_cb=self.view.update_wannabe_material_tables,
                                mouse_event_registrar=self.do.set_mouse_event_target,
-                               global_texture_registry=self.global_texture_registry)
-
-        self.cfg = {
-            "use_multithread" : False
-        }
+                               #global_texture_registry=self.global_texture_registry)
+                               global_texture_registry=self.view.dpg_texture_registry)
 
 
     ## loading and saving config

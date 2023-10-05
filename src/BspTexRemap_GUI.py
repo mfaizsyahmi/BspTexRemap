@@ -58,13 +58,13 @@ def add_file_dialogs(app):
         },
         BindingType.CustomMatLoadFileDialog : {
             "tag" : "dlgCustomMatFileLoad",
-            "label": "Export custom materials file",
+            "label": "Load custom material entries file",
             "callback": _filedlg_cb(app.do.load_custommat_file),
             "exts": ("txt","all")
         },
         BindingType.CustomMatExportFileDialog : {
             "tag" : "dlgCustomMatFileExport",
-            "label": "Load custom material entries file",
+            "label": "Export custom materials file",
             "callback": _filedlg_cb(app.do.export_custommat),
             "exts": ("txt","all")
         }
@@ -81,7 +81,7 @@ def add_materials_window(app, tag):
 
         matpath_box = dpg.add_input_text(label="path",readonly=True)
         _bind(_BT.Value,_prop(app.data,"matpath"))
-        with dpg.tooltip(matpath_box):
+        with dpg.tooltip(matpath_box,delay=0.5):
             dpg.add_text("")
             _bind(_BT.FormatValue,_prop(app.data,"matpath"),
                   ["{}",lambda val:val])
@@ -92,7 +92,7 @@ def add_materials_window(app, tag):
 
             ## Material summary table
             ## X | Material | Total | Usable | Assigned
-            dpg.add_table(resizable=True,pad_outerX=True)
+            dpg.add_table(resizable=True) # ,pad_outerX=True
             _bind(_BT.MaterialSummaryTable)
 
         with dpg.collapsing_header(label="Entries"):
@@ -108,8 +108,8 @@ def add_materials_window(app, tag):
 
             ## Material entries table
             ## Mat | Name | Usable
-            dpg.add_table(resizable=True,sortable=True,pad_outerX=True,
-                          callback=_sort_table)
+            dpg.add_table(resizable=True,sortable=True,
+                          callback=_sort_table) # ,pad_outerX=True
             _bind(_BT.MaterialEntriesTable)
 
 
@@ -291,7 +291,7 @@ def add_textures_window(app, tag):
                    ) if view.app.data.bsp else "({}T, {}V)"\
                    .format(len(view.textures),len(view.gallery.data))])
 
-            with dpg.tooltip(gallery_status):
+            with dpg.tooltip(gallery_status,delay=0.5):
                 dpg.add_text(consts.GALLERY_STATUS_LEGEND)
 
         #with dpg.child_window(border=False,horizontal_scrollbar=True) as gallery_root:
@@ -299,6 +299,10 @@ def add_textures_window(app, tag):
             app.view.bind( gallery_root, _BT.GalleryRoot )
 
     def _center_resize(sender):
+        indent = dpg.get_item_rect_size(winTextures)[0]\
+               - dpg.get_item_rect_size(gallery_status)[0] - 16
+        if indent <=544: indent=0
+        dpg.set_item_indent(gallery_status, indent)
         app.view.gallery.reflow() # reflow the gallery view
 
     with dpg.item_handler_registry() as resize_handler:
@@ -361,6 +365,9 @@ def add_options_window(app,tag):
                        callback=_bare_cb(app.do.save_bsp_file_as))
         _help("Remaps texture and save in another file")
 
+        dpg.add_checkbox(label="Show edit summary")
+        _bind(_BT.Value, _prop(app.data,"show_summary"))
+        
         dpg.add_button(label="Export custom materials",
                        callback=_bare_cb(app.do.export_custommat))
         _help("Generates custom material file that can be used\nwith BspTexRemap.exe (the console program)")
@@ -368,9 +375,26 @@ def add_options_window(app,tag):
         dpg.add_separator()
         dpg.add_text(consts.NOTES,wrap=0)
 
+
 def add_misc_dialogs(app):
-    with dpg.window(label="Summary",show=False) as dlg_save_summary:
-        pass
+    _bind = lambda *args,**kwargs: _bind_last_item(app,*args,**kwargs) # shorthand
+    
+    with dpg.window(label="Edit summary",show=False) as dlg_save_summary:
+        _bind(_BT.SummaryDialog)
+        
+        dpg.add_group()
+        _bind(_BT.SummaryBase)
+        
+        with dpg.collapsing_header(label="Summary",default_open=True):
+            dpg.add_table()
+            _bind(_BT.SummaryTable)
+        
+        with dpg.collapsing_header(label="Details"):
+            dpg.add_group()
+            _bind(_BT.SummaryDetails)
+        
+        dpg.add_separator()
+        dpg.add_button(label="Close", callback=lambda:dpg.hide_item(dlg_save_summary))
 
 
 def add_viewport_menu(app):
@@ -397,15 +421,18 @@ def add_viewport_menu(app):
 
         with dpg.menu(label="Materials"):
 
-            _mi(label="Load",
+            _mi(label="Load materials.txt",
                               callback=_bare_cb(app.do.load_mat_file))
+            _mi(label="Auto-load from BSP path",check=True)
+            _bind(_BT.Value, _prop(app.data,"auto_load_materials"))
+            ___()
+            
+            _mi(label="Load custom materials",
+                              callback=_bare_cb(app.do.load_custommat_file))
             _mi(label="Export custom materials",
                               callback=_bare_cb(app.do.export_custommat))
             ___()
 
-            _mi(label="Auto-load from BSP path",check=True)
-            _bind(_BT.Value, _prop(app.data,"auto_load_materials"))
-            ___()
 
             _mi(label="Automatically on map load:",check=True)
             _bind(_BT.Value, _prop(app.data,"auto_load_wannabes"))
@@ -418,6 +445,9 @@ def add_viewport_menu(app):
         with dpg.menu(label="Textures"):
             _mi(label="Auto-load WADs from BSP path",check=True)
             _bind(_BT.Value, _prop(app.data,"auto_load_wads"))
+
+            _mi(label="Allow stripping embedded textures",check=True)
+            _bind(_BT.Value, _prop(app.data,"allow_unembed"))
 
         with dpg.menu(label="View"):
             _cb = app.view.update_window_state
@@ -506,7 +536,7 @@ def main():
     dpg.setup_dearpygui()
     dpg.show_viewport()
 
-    dpg.start_dearpygui()
+    dpg.start_dearpygui() # dpg main loop
 
     app.save_config()
     dpg.destroy_context()

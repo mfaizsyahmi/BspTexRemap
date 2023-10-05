@@ -77,6 +77,7 @@ class GalleryView(UserList):
                             self._items.append(data[i].render(self.scale, self.max_length))
                             i += 1; row_items += 1
 
+            log.debug("UNSTAGING GALLERY")
             with dpg.mutex():
                 dpg.push_container_stack(self.parent)
                 dpg.unstage(staging)

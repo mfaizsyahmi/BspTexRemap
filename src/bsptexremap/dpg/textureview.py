@@ -169,7 +169,7 @@ class TextureView:
         self.external_src = source_name
         self.channels = 4
         self.data = img_to_dpg(miptex.to_image())
-        self.precedende = precedence
+        self.precedence = precedence
         self.__post_init__() # run this again now that we have data
 
     @property # to help with my sanity
@@ -224,9 +224,26 @@ class TextureView:
         with dpg.group(user_data=[self.matname,self]) as galleryItem: #
 
             ## first row: texture name
-            with dpg.group(horizontal=True):
+            with dpg.group(horizontal=True) as first_row:
                 # probably change this to a button, as popups probably needs one
                 self._label_uuid = dpg.add_text(self.name)
+                
+                with dpg.tooltip(first_row, delay=0.5):
+                    with dpg.table(header_row=False,borders_innerV=True) as tooltip_table:
+                        dpg.add_table_column(); dpg.add_table_column()
+                        with dpg.table_row():
+                            dpg.add_text("material name")
+                            dpg.add_text(self.matname)
+                        with dpg.table_row():
+                            dpg.add_text("is external")
+                            dpg.add_text(self.is_external)
+                        with dpg.table_row():
+                            dpg.add_text("source WAD")
+                            dpg.add_text(self.external_src)
+                        with dpg.table_row():
+                            dpg.add_text("precedence")
+                            dpg.add_text(self.precedence)
+                self._ttt_uuid = tooltip_table
 
                 self._selector_uuid = dpg.add_checkbox(
                         indent=w_estimate-ch-6, show=False,

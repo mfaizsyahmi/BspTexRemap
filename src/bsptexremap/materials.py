@@ -36,7 +36,7 @@ class TextureRemapper:
         ''' returns the appropriate iter_padded_names for specified mat and len
             (creating the iterators on the fly as needed)
         '''
-        log.debug(f"mat: {mat}, targetlen: {targetlen}")
+        log.debug("mat: %s, targetlen: %d", mat, targetlen)
         self.iterators.setdefault(mat, {})
         return self.iterators[mat].setdefault(
             targetlen,
@@ -51,27 +51,34 @@ class TextureRemapper:
         texgroupname = parts["texname"].upper()
 
         if texgroupname in self.map_dict:
-            log.debug(f"{texgroupname} found in dict")
+            log.debug("%s found in dict", texgroupname)
             return parts["prefix"] + self.map_dict[texgroupname]
 
         elif texgroupname not in self.target_set \
         or re.match(consts.TEX_IGNORE_RE, texname) \
         or len(parts["prefix"]) > 2:
-            log.debug(f"{texgroupname}//{texname} fails check")
+            log.debug("%15s (%15s) fails check: %s|%s|%s",
+                      texgroupname, texname,
+                      texgroupname not in self.target_set,
+                      re.match(consts.TEX_IGNORE_RE, texname),
+                      len(parts["prefix"]) > 2 )
             return texname
 
         elif texgroupname in self.groupmap:
+            log.debug("%s in group", texgroupname)
             return parts["prefix"] + self.groupmap[texgroupname]
 
         targetmat = self.target_set.get_mattype_of(texgroupname)
         targetlen = consts.TEXNAME_MAX_LEN - len(parts["prefix"])
         result = next(self.get_iterator(targetmat,targetlen), None)
         if not result: # exhausted available names for this mattype+len combo
+            log.debug(f"{texgroupname} ran out of material names")
             return texname # unchanged
 
         if parts["grouped"]:
             self.groupmap[texgroupname] = result
 
+        log.debug(f"%15s -> %s", texgroupname, result)
         return parts["prefix"] + result
 
 @dataclass

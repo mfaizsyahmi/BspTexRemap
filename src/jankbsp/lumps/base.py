@@ -64,9 +64,9 @@ class BspDataLump(BspLump):
     def dump(self, fp):
         cls = self.__class__
         if hasattr(cls,"STRUCT"):
-            print(cls,"packing using struct")
+            #print(cls,"packing using struct")
             return fp.write(b"".join([cls.STRUCT.pack(item) for item in self.entries]))
         elif hasattr(cls.DATATYPE, "encode"):
-            print(cls,"packing using encode method of", cls.DATATYPE)
+            #print(cls,"packing using encode method of", cls.DATATYPE)
             return fp.write(b"".join([item.encode() for item in self.entries]))
 

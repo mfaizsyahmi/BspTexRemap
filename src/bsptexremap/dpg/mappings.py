@@ -9,6 +9,7 @@ CONFIG_MAP = (
     ("data", "allow_unembed"      ),
     ("data", "remap_entity_action"),
     ("data", "backup"             ),
+    ("data", "show_summary"       ),
     ("view", "texremap_sort"      ),
     ("view", "texremap_revsort"   ),
     ("view", "texremap_grouped"   ),
@@ -23,40 +24,45 @@ CONFIG_MAP = (
 )
 
 class BindingType(IntEnum):
-                                         # Unique
-                                         #   Readonly
-                                         #      data desc
-    Value                     = auto()   #      -
-    ValueIs                   = auto()   #      associated val. gets/sets bool
-    TextMappedValue           = auto()   #      prop in mappings
-    FormatLabel               = auto()   #   R  [fmtstr, prop map]
-    FormatValue               = auto()   #   R  [fmtstr, prop map]
-    #FilterValue               = auto()   #
-    #FilterSet                 = auto()   #
-    
-    TexturesWindow            = auto()   # U
-    MaterialsWindow           = auto()   # U
-    RemapsWindow              = auto()   # U
-    OptionsWindow             = auto()   # U
-    LogWindow                 = auto()   # U
-    
-    BspOpenFileDialog         = auto()   # U
-    BspSaveFileDialog         = auto()   # U
-    MatLoadFileDialog         = auto()   # U
-    CustomMatLoadFileDialog   = auto()   # U
-    CustomMatExportFileDialog = auto()   # U
-    MaterialSummaryTable      = auto()   # U
-    MaterialEntriesTable      = auto()   # U
-    TextureRemapList          = auto()   # U
-    WadListGroup              = auto()   # U
-    GallerySizeList           = auto()   # U
-    GalleryRoot               = auto()   # U
+                                       # Readonly
+                                       #    data desc
+    Value                     = auto() #    -
+    ValueIs                   = auto() #    associated val. gets/sets bool
+    TextMappedValue           = auto() #    prop in mappings
+    FormatLabel               = auto() # R  [fmtstr, prop map]
+    FormatValue               = auto() # R  [fmtstr, prop map]
+    #FilterValue               = auto()
+    #FilterSet                 = auto()
+
+    # the following are enums for targetting particular items
+    TexturesWindow            = auto()
+    MaterialsWindow           = auto()
+    RemapsWindow              = auto()
+    OptionsWindow             = auto()
+    LogWindow                 = auto()
+
+    BspOpenFileDialog         = auto()
+    BspSaveFileDialog         = auto()
+    MatLoadFileDialog         = auto()
+    CustomMatLoadFileDialog   = auto()
+    CustomMatExportFileDialog = auto()
+    MaterialSummaryTable      = auto()
+    MaterialEntriesTable      = auto()
+    TextureRemapList          = auto()
+    WadListGroup              = auto()
+    GallerySizeList           = auto()
+    GalleryRoot               = auto()
+
+    SummaryDialog             = auto()
+    SummaryBase               = auto()
+    SummaryTable              = auto()
+    SummaryDetails            = auto()
 
 
 read_only_binding_types = (BindingType.FormatLabel,
                            BindingType.FormatValue)
-writeable_binding_types = (BindingType.Value, 
-                           BindingType.ValueIs, 
+writeable_binding_types = (BindingType.Value,
+                           BindingType.ValueIs,
                            BindingType.TextMappedValue)
 reflect_all_binding_types = read_only_binding_types + writeable_binding_types
 
