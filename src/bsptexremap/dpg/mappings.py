@@ -46,6 +46,8 @@ class BindingType(IntEnum):
     MatLoadFileDialog         = auto()
     CustomMatLoadFileDialog   = auto()
     CustomMatExportFileDialog = auto()
+    ExecutableFileDialog      = auto() # for external progs/post-edit scripts
+
     MaterialSummaryTable      = auto()
     MaterialEntriesTable      = auto()
     TextureRemapList          = auto()
