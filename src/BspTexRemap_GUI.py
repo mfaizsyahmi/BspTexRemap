@@ -67,6 +67,13 @@ def add_file_dialogs(app):
             "label": "Export custom materials file",
             "callback": _filedlg_cb(app.do.export_custommat),
             "exts": ("txt","all")
+        },
+        BindingType.ExecutableFileDialog : {
+            "tag" : "dlgSelectExecutable",
+            "label": "Executable file",
+            # callback needs to be set per call
+            "callback": _filedlg_cb(lambda:True),
+            "exts": ("exe","scripts","all")
         }
     }
     for type, item in file_dlg_cfg.items():
@@ -182,6 +189,9 @@ def add_textures_window(app, tag):
                 def _select_all_wads(value=True):
                     for child in dpg.get_item_children(grpWadlist, 1):
                         dpg.set_value(child,value)
+                    # unfortunately this needs to be done as well 
+                    for thing in app.view.wadstats:
+                        thing.selected = value
 
                 with dpg.group(horizontal=True):
                     dpg.add_checkbox(label="All",
@@ -376,7 +386,7 @@ def add_options_window(app,tag):
         dpg.add_text(consts.NOTES,wrap=0)
 
 
-def add_misc_dialogs(app):
+def add_misc_dialogs(app, binds={}):
     _bind = lambda *args,**kwargs: _bind_last_item(app,*args,**kwargs) # shorthand
     
     with dpg.window(label="Edit summary",show=False) as dlg_save_summary:
@@ -397,7 +407,7 @@ def add_misc_dialogs(app):
         dpg.add_button(label="Close", callback=lambda:dpg.hide_item(dlg_save_summary))
 
 
-def add_viewport_menu(app):
+def add_viewport_menu(app, dev_mode=False):
     ''' main window layout '''
     _bind = lambda *args,**kwargs: _bind_last_item(app,*args,**kwargs) # shorthand
     _mi = dpg.add_menu_item
@@ -415,9 +425,10 @@ def add_viewport_menu(app):
             ___()
 
             _mi(label="Reload",  callback=app.do.reload)
+            _mi(label="Close",  callback=lambda:app.do.close())
             ___()
 
-            _mi(label="Exit",    callback=exit)
+            _mi(label="Exit",    callback=lambda:app.do.quit())
 
         with dpg.menu(label="Materials"):
 
@@ -465,13 +476,14 @@ def add_viewport_menu(app):
         app.view.window_binds[_BT.OptionsWindow]["menu"] = v_o
         app.view.window_binds[_BT.LogWindow]["menu"] = v_l
 
-        with dpg.menu(label="Debug"):
-            _mi(label="GUI item registry",
-                callback=lambda *_:dpg.show_item_registry())
-            _mi(label="GUI style editor",
-                callback=lambda *_:dpg.show_style_editor())
-            _mi(label="Show loading",check=True,
-                callback=lambda s,a,u:gui_utils.show_loading(a))
+        if dev_mode:
+            with dpg.menu(label="Debug"):
+                _mi(label="GUI item registry",
+                    callback=lambda *_:dpg.show_item_registry())
+                _mi(label="GUI style editor",
+                    callback=lambda *_:dpg.show_style_editor())
+                _mi(label="Show loading",check=True,
+                    callback=lambda s,a,u:gui_utils.show_loading(a))
 
 
 def main():
@@ -516,7 +528,7 @@ def main():
 
     # setup all the windows
     add_file_dialogs(app)
-    add_viewport_menu(app)
+    add_viewport_menu(app,args.dev)
     add_materials_window(app,materials_window)
     add_wannabe_window(app,remaps_window)
     add_textures_window(app,textures_window)
@@ -530,7 +542,7 @@ def main():
         app.data.load_bsp(args.bsppath)
     app.view.set_viewport_ready() # this will reschedule itself to run later
 
-    dpg.create_viewport(title=consts.GUI_APPNAME, width=1200, height=800)
+    dpg.create_viewport(title=consts.GUI_APPNAME)#, width=1200, height=800)
     dpg.set_viewport_large_icon(Path(sys.path[0]) / "assets/images/BspTexRemap_64.ico")
     dpg.set_viewport_small_icon(Path(sys.path[0]) / "assets/images/BspTexRemap_64.ico")
     dpg.setup_dearpygui()
