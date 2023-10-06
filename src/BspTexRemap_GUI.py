@@ -389,7 +389,8 @@ def add_options_window(app,tag):
 def add_misc_dialogs(app, binds={}):
     _bind = lambda *args,**kwargs: _bind_last_item(app,*args,**kwargs) # shorthand
     
-    with dpg.window(label="Edit summary",show=False) as dlg_save_summary:
+    with dpg.window(label="Edit summary", show=False,
+                    no_saved_settings=True) as dlg_save_summary:
         _bind(_BT.SummaryDialog)
         
         dpg.add_group()
@@ -486,7 +487,9 @@ def add_viewport_menu(app, dev_mode=False):
                     callback=lambda s,a,u:gui_utils.show_loading(a))
 
 
-def main():
+def main(basepath):
+    ''' basepath is the path to the main script (unbundled) or bundled exe
+    '''
     args = parse_arguments(gui=True)
     setup_logger(args.log) # for console log
     log = logging.getLogger() ## "__main__" should use the root logger
@@ -494,7 +497,7 @@ def main():
     dpg.create_context()
     # must be called before create_viewport
     dpg.configure_app(docking=True, docking_space=True,
-                      init_file=consts.LAYOUT_INI_PATH)
+                      init_file=basepath.with_suffix(".layout.ini"))
 
     # generate IDs - the IDs are used by the init file, they must be the
     #                same between sessions
@@ -514,10 +517,10 @@ def main():
 
 
     colors.add_themes()
-    colors.setup_fonts()
+    colors.setup_fonts(basepath.parent/"assets/fonts")
     dpg.bind_font(colors.AppFonts.Regular.tag)
 
-    app = App()
+    app = App(basepath)
     app.view.window_binds = window_binds
     dpg_dnd.initialize()
     dpg_dnd.set_drop(app.do.handle_drop)
@@ -543,8 +546,8 @@ def main():
     app.view.set_viewport_ready() # this will reschedule itself to run later
 
     dpg.create_viewport(title=consts.GUI_APPNAME)#, width=1200, height=800)
-    dpg.set_viewport_large_icon(Path(sys.path[0]) / "assets/images/BspTexRemap_64.ico")
-    dpg.set_viewport_small_icon(Path(sys.path[0]) / "assets/images/BspTexRemap_64.ico")
+    dpg.set_viewport_large_icon(basepath.parent / "assets/images/BspTexRemap_64.ico")
+    dpg.set_viewport_small_icon(basepath.parent / "assets/images/BspTexRemap_64.ico")
     dpg.setup_dearpygui()
     dpg.show_viewport()
 
@@ -555,5 +558,12 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+        #running in a PyInstaller bundle
+        basepath = Path(sys.argv[0])
+    else:
+        #running in a normal Python process
+        basepath = Path(__file__)
+
+    main(basepath)
 

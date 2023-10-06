@@ -13,9 +13,6 @@ import sys
 GUI_APPNAME     = "BspTexRemap GUI"
 GUI_VERSION     = "v0.1"
 
-LAYOUT_INI_PATH = str(Path(sys.modules['__main__'].__file__).with_suffix(".layout.ini"))
-CFGPATH = Path(sys.modules['__main__'].__file__).with_suffix(".cfg.json")
-
 # main file
 AUTOLOAD_REMAPS_HELP = """ 
 Loads existing texture remap entries from the following sources:

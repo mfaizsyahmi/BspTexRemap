@@ -326,7 +326,7 @@ class AppView:
     # and to present the items in the texture pane's wadlist
     wadstats: list[WadStatus]    = field(default_factory=list)
     # holds the miptexes on disk in case user wants to embed them later
-    wad_cache : PickledDict      = field(default_factory=PickledDict)
+    wad_cache : PickledDict      = None # set up in post-init
     # all textures in the bsp
     textures : list[TextureView] = field(default_factory=list)
     # gallery view (only store the filtered items in its data)
@@ -369,6 +369,10 @@ class AppView:
         "filter_radiosity"
     )
 
+
+    def __post_init__(self):
+        self.wad_cache = PickledDict(_cache_path=self.app.cfg["basepath"].parent/"temp")
+        
 
     def bind(self, tag, type:BindingType, prop=None, data=None,
              update_predicate=None, reflect_predicate=None):
@@ -1161,14 +1165,18 @@ class AppActions:
 
 
 class App:
-    def __init__(self):
-        self.data = AppModel(self)
-        self.view = AppView(self)
-        self.do = AppActions(self,self.view)
-
+    def __init__(self, basepath=None):
+        if not basepath:
+            basepath = Path(sys.modules['__main__'].__file__)
         self.cfg = {
+            "basepath": basepath,
+            "cfgpath": basepath.with_suffix(".cfg.json"),
             "use_multithread" : True # unused
         }
+
+        self.data = AppModel(self)
+        self.view = AppView(self) # reads cfg.basepath for wad_cache
+        self.do = AppActions(self,self.view)
 
         self.load_config()
         #self.global_texture_registry = dpg.add_texture_registry()
@@ -1181,9 +1189,8 @@ class App:
 
 
     ## loading and saving config
-    def load_config(self,cfgpath=None):
-        if not cfgpath:
-            cfgpath = Path(sys.modules['__main__'].__file__).with_suffix(".cfg.json")
+    def load_config(self):
+        cfgpath = self.cfg["cfgpath"]
 
         try:
             cfg = json.loads(Path(cfgpath).read_bytes())
@@ -1194,9 +1201,8 @@ class App:
             try: setattr(getattr(self, part),prop, cfg["config"][part][prop])
             except: continue
 
-    def save_config(self,cfgpath=None):
-        if not cfgpath:
-            cfgpath = Path(sys.modules['__main__'].__file__).with_suffix(".cfg.json")
+    def save_config(self):
+        cfgpath = self.cfg["cfgpath"]
 
         cfg = {"appname" : consts.GUI_APPNAME, "config": {} }
         for part, prop in mappings.CONFIG_MAP:
