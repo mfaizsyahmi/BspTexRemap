@@ -1,5 +1,5 @@
 import dearpygui.dearpygui as dpg
-import logging
+import logging, sys
 from typing import NamedTuple
 from enum import IntEnum, IntFlag, auto
 from .colors import AppColors
@@ -9,8 +9,14 @@ from .colors import AppColors
 file_dlg_exts = {
     "bsp": ("BSP files (*.bsp){.bsp}",{"color":(0, 255, 255, 255)}),
     "txt": ("Text files (*.txt){.txt}",{"color":(0, 255, 255, 255)}),
+    "exe": ("Executable (*.exe){.exe}",{"color":(0, 0, 255, 255)}),
     "all": ("All files (*.*){.*}",{})
 }
+if sys.platform == "win32":
+    file_dlg_exts["scripts"] = ("Script files (*.bat;*.ps1){.bat,.ps1}",{})
+elif sys.platform.startswith("linux"):
+    file_dlg_exts["scripts"] = ("Script files (*.sh){.sh}",{})
+
 
 def add_help_in_place(message):
     ''' adds a "(?)" next to the previous item, which displays the given tooltip
@@ -338,7 +344,7 @@ def wrap_message_box_callback(fn, *args,
         # delete window
         dpg.delete_item(user_data[0])
         # drop the callback if user selected Cancel
-        if not user_data[0] and _drop_on_falsy: return
+        if not user_data[1] and _drop_on_falsy: return
         # else, call the function being wrapped
         fn(*args, **kwargs, **{_result_arg:user_data[1]})
 
