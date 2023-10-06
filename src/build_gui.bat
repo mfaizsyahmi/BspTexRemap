@@ -1,8 +1,11 @@
 pyinstaller ^
+	-F -w ^
+	--paths venv/lib/site-packages ^
 	--workpath ../build ^
 	--distpath ../dist ^
 	--clean ^
-	BspTexRemap.py
+	-i ./assets/images/BspTexRemap_64.ico ^
+	BspTexRemap_GUI.py
 
 set RESULT=%ERRORLEVEL%
 

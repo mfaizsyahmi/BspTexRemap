@@ -1,0 +1,3 @@
+Pillow
+dearpygui>=1.10
+DearPyGui-DragAndDrop
