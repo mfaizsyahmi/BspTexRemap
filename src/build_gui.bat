@@ -1,5 +1,5 @@
 pyinstaller ^
-	-F -w ^
+	-D -w ^
 	--paths venv/lib/site-packages ^
 	--workpath ../build ^
 	--distpath ../dist ^
