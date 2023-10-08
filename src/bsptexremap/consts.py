@@ -9,6 +9,7 @@
 APPNAME     = "BspTexRemap"
 VERSION     = "v0.2"
 COPYRIGHT   = "(c) 2023 M Faiz Syahmi @ kimilil"
+PROJECT_URL = "https://github.com/mfaizsyahmi/BspTexRemap"
 APPDESC     = '''
 Renames textures in a bsp file in a way that matches the entries from a given
 materials.txt, making them inherit material sounds without editing materials.txt
