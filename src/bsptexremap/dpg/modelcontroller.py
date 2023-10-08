@@ -24,7 +24,7 @@ from .pickleddict import PickledDict
 
 from pathlib import Path
 from dataclasses import dataclass, field #, asdict
-from collections import namedtuple
+from collections import namedtuple, UserDict
 from typing import NamedTuple, ClassVar
 from operator import attrgetter
 from itertools import chain
@@ -302,10 +302,12 @@ class AppModel:
     ###============================= END AppModel ==============================
 
 
+PropertyBinding = namedtuple("PropertyBinding",["obj","prop"])
+
 @dataclass(frozen=True)
 class BindingEntry:
     type : BindingType
-    prop : namedtuple = None
+    prop : PropertyBinding = None
     data : any = None
     update_predicate  : callable = None
     reflect_predicate : callable = None
@@ -878,20 +880,44 @@ class AppActions:
         self._init_global_handlers()
 
     ### GUI callbacks that opens a file dialog ###
-    def show_file_dialog(self, type:BindingType, init_path=None, init_filename=None):
+    def show_file_dialog(self, type:BindingType, 
+                         init_path:str=None, init_filename:str=None, 
+                         bound_prop:PropertyBinding=None):
+        ''' shows a file dialog bound to the given binding type
+            if init_path/filename is given, sets it
+            if bound_prop is given, sets the above to the initial value
+               and also changes the callback to set the given bound_prop
+        '''
         dlg = self.view.get_dpg_item(type)
+        
         defaults = {}
-        if init_path: defaults["default_path"] = init_path
-        if init_filename: defaults["default_filename"] = init_filename
+        if bound_prop:
+            print(bound_prop)
+            init_val = Path(getattr(*bound_prop))
+            defaults["default_path"]     = init_val.parent
+            defaults["default_filename"] = init_val.name
+            defaults["callback"] = self._file_dialog_sets_property_callback(bound_prop)
+        else:
+            if init_path:     defaults["default_path"]     = init_path
+            if init_filename: defaults["default_filename"] = init_filename
 
         dpg.configure_item(dlg, **defaults)
+        
         dpg.show_item(dlg)
 
-    def _file_dialog_defaults(self,path,name=None,mapfn=None):
+    def _file_dialog_defaults(self, path, name=None, mapfn=None):
         if not path: return {}
         if callable(mapfn): path = mapfn(path)
         if not name and not path.is_dir(): name, path = path.name, path.parent
         return {"init_path": str(path), "init_filename": str(name)}
+
+    def _file_dialog_sets_property_callback(self, prop_binding:PropertyBinding):
+        ''' makes the file dialog callback sets the prop
+        '''
+        def _cb(sender, app_data):
+            setattr(*prop_binding, app_data["file_path_name"])
+            self.view.reflect(prop=prop_binding)
+        return _cb
 
     ''' File load/save/export ==================================================
         these file dialogs are already set up to call back the same fn with the name
@@ -1074,6 +1100,11 @@ class AppActions:
                 item.become_external = None if embed != item.is_external else not embed
         self.view.update_gallery_items(selected=True)
 
+    def show_config(self, *_):
+        dpg.show_item(self.view.get_dpg_item(BindingType.ConfigDialog))
+
+    def show_about(self, *_):
+        dpg.show_item(self.view.get_dpg_item(BindingType.AboutDialog))
 
     def close(self, confirm=None):
         if confirm is None and self.has_wip():
@@ -1164,15 +1195,26 @@ class AppActions:
                                lambda: self.set_mouse_event_target())
 
 
+class AppCfg(dict):
+    ''' makes app.cfg accessible to getattr(*prop) '''
+    def __getattr__(self, attr:str) -> str:
+        return super().get(attr)
+    def __setattr__(self, attr:str, val:str) -> None:
+        super().update({attr: val})
+
+
 class App:
     def __init__(self, basepath=None):
         if not basepath:
             basepath = Path(sys.modules['__main__'].__file__)
-        self.cfg = {
+            
+        self.cfg = AppCfg({
             "basepath": basepath,
             "cfgpath": basepath.with_suffix(".cfg.json"),
-            "use_multithread" : True # unused
-        }
+            "use_multithread" : True, # unused
+            
+            "bsp_viewer" : ""
+        })
 
         self.data = AppModel(self)
         self.view = AppView(self) # reads cfg.basepath for wad_cache

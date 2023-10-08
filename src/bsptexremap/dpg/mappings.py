@@ -20,7 +20,9 @@ CONFIG_MAP = (
     ("view", "gallery_size_maxlen"),
     ("view", "gallery_sort_val"   ),
     ("view", "filter_unassigned"  ),
-    ("view", "filter_radiosity"   )
+    ("view", "filter_radiosity"   ),
+    
+    ("cfg", "bsp_viewer"          ),
 )
 
 class BindingType(IntEnum):
@@ -40,6 +42,9 @@ class BindingType(IntEnum):
     RemapsWindow              = auto()
     OptionsWindow             = auto()
     LogWindow                 = auto()
+    ConfigDialog              = auto()
+    HelpDialog                = auto()
+    AboutDialog               = auto()
 
     BspOpenFileDialog         = auto()
     BspSaveFileDialog         = auto()

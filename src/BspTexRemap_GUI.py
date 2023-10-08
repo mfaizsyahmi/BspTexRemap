@@ -10,11 +10,12 @@ from bsptexremap.enums import MaterialEnum as ME
 from bsptexremap.materials import MaterialSet # matchars
 
 from bsptexremap.dpg import mappings, gui_utils, colors, consts
-from bsptexremap.dpg.modelcontroller import App
+from bsptexremap.dpg.modelcontroller import App, PropertyBinding
 
 BindingType = mappings.BindingType # puts it onto the main scope
 _BT = mappings.BindingType # shorthand
-_prop = namedtuple("PropertyBinding",["obj","prop"])
+#_prop = namedtuple("PropertyBinding",["obj","prop"])
+_prop = PropertyBinding
 
 def _help(message):
     return gui_utils.add_help_in_place(message)
@@ -386,9 +387,20 @@ def add_options_window(app,tag):
         dpg.add_text(consts.NOTES,wrap=0)
 
 
-def add_misc_dialogs(app, binds={}):
+def add_misc_dialogs(app, binds={}, basepath=None):
     _bind = lambda *args,**kwargs: _bind_last_item(app,*args,**kwargs) # shorthand
     
+    ## Load images
+    images = {
+        "app_icon": basepath.parent / "assets/images/BspTexRemap_64.png"
+    }
+    image_ids = {}
+    with dpg.texture_registry():
+        for name, path in images.items():
+            w,h,c,d = dpg.load_image(str(path))
+            image_ids[name] = dpg.add_static_texture(width=w,height=h,default_value=d)
+    
+    ## Edit summary
     with dpg.window(label="Edit summary", show=False,
                     no_saved_settings=True) as dlg_save_summary:
         _bind(_BT.SummaryDialog)
@@ -405,10 +417,57 @@ def add_misc_dialogs(app, binds={}):
             _bind(_BT.SummaryDetails)
         
         dpg.add_separator()
-        dpg.add_button(label="Close", callback=lambda:dpg.hide_item(dlg_save_summary))
+        dpg.add_button(label="Close", callback=lambda:dpg.hide_item(dlg_save_summary))    
+    
+    
+    ## Config Dialog
+    with dpg.window(label="Settings", show=False, width=400,
+                    no_saved_settings=True) as dlg_config:
+        _bind(_BT.ConfigDialog)
+        
+        with dpg.collapsing_header(label="External programs",default_open=True):
+            _browse = app.do.show_file_dialog
+            
+            # Bsp viewer - text input + browse button
+            this_binding = _prop(app.cfg,"bsp_viewer")
+            dpg.add_text("BSP viewer")
+            with dpg.group(horizontal=True):
+                dpg.add_input_text()
+                _bind(_BT.Value, this_binding)
+                dpg.add_button(label="Browse...",
+                               callback=lambda:_browse(_BT.ExecutableFileDialog,
+                                                bound_prop=this_binding))
+
+            # External ecripts - text input + browse button
+            ''' TODO
+            this_binding = _prop(app.cfg,"post_exec")
+            dpg.add_text("Execute this program/script after BSP save")
+            with dpg.group(horizontal=True):
+                dpg.add_input_text()
+                _bind(_BT.Value, this_binding)
+                dpg.add_button(label="Browse...",
+                               callback=_filedlg_setprop_cb(app,this_binding))
+            '''
+        dpg.add_separator()
+        dpg.add_button(label="Close", callback=lambda:dpg.hide_item(dlg_config))
+        
+    
+    ## About dialog
+    with dpg.window(label=f"About {consts.GUI_APPNAME}", show=False, width=500,
+                    tag=binds[_BT.AboutDialog],
+                    no_saved_settings=True,
+                    on_close=app.view.update_window_state) as dlg_about:
+        _bind(_BT.AboutDialog)
+        
+        with dpg.group(horizontal=True):
+            dpg.add_image(image_ids["app_icon"])
+            dpg.add_text(consts.GUI_ABOUT,wrap=0)
+            
+        dpg.add_separator()
+        dpg.add_button(label="Close", callback=lambda:dpg.hide_item(dlg_about))
 
 
-def add_viewport_menu(app, dev_mode=False):
+def add_viewport_menu(app, dev_mode=False, basepath=None):
     ''' main window layout '''
     _bind = lambda *args,**kwargs: _bind_last_item(app,*args,**kwargs) # shorthand
     _mi = dpg.add_menu_item
@@ -461,6 +520,8 @@ def add_viewport_menu(app, dev_mode=False):
             _mi(label="Allow stripping embedded textures",check=True)
             _bind(_BT.Value, _prop(app.data,"allow_unembed"))
 
+        if basepath is None: basepath = Path(__file__)
+        init_path = basepath.with_suffix(".layout.ini")
         with dpg.menu(label="View"):
             _cb = app.view.update_window_state
             v_t = _mi(label="Textures",    check=True,callback=_cb,enabled=False)
@@ -468,15 +529,21 @@ def add_viewport_menu(app, dev_mode=False):
             v_r = _mi(label="Remaps",      check=True,callback=_cb)
             v_o = _mi(label="Options",     check=True,callback=_cb)
             v_l = _mi(label="Log messages",check=True,callback=_cb)
+            #v_a = _mi(label="About",       check=True,callback=_cb)
             ___()
             _mi(label="Save layout",
-                callback=lambda: dpg.save_init_file(consts.LAYOUT_INI_PATH))
+                callback=lambda:dpg.save_init_file(init_path))
+                
+            ___()
+            _mi(label="Settings...", callback=app.do.show_config)
+            
         app.view.window_binds[_BT.TexturesWindow]["menu"] = v_t
         app.view.window_binds[_BT.MaterialsWindow]["menu"] = v_m
         app.view.window_binds[_BT.RemapsWindow]["menu"] = v_r
         app.view.window_binds[_BT.OptionsWindow]["menu"] = v_o
         app.view.window_binds[_BT.LogWindow]["menu"] = v_l
-
+        #app.view.window_binds[_BT.AboutDialog]["menu"] = v_a
+        
         if dev_mode:
             with dpg.menu(label="Debug"):
                 _mi(label="GUI item registry",
@@ -485,6 +552,9 @@ def add_viewport_menu(app, dev_mode=False):
                     callback=lambda *_:dpg.show_style_editor())
                 _mi(label="Show loading",check=True,
                     callback=lambda s,a,u:gui_utils.show_loading(a))
+
+        with dpg.menu(label="Help"):
+            _mi(label="About",callback=lambda:app.do.show_about())
 
 
 def main(basepath):
@@ -506,6 +576,7 @@ def main(basepath):
     textures_window  = dpg.generate_uuid()
     options_window   = dpg.generate_uuid()
     log_window       = dpg.generate_uuid()
+    about_dialog     = dpg.generate_uuid()
 
     window_binds = {
         _BT.TexturesWindow : {"window": textures_window},
@@ -513,6 +584,8 @@ def main(basepath):
         _BT.RemapsWindow   : {"window": remaps_window},
         _BT.OptionsWindow  : {"window": options_window},
         _BT.LogWindow      : {"window": log_window},
+        
+        #_BT.AboutDialog    : {"window": about_dialog},
     }
 
 
@@ -531,12 +604,14 @@ def main(basepath):
 
     # setup all the windows
     add_file_dialogs(app)
-    add_viewport_menu(app,args.dev)
+    add_viewport_menu(app,args.dev,basepath)
     add_materials_window(app,materials_window)
     add_wannabe_window(app,remaps_window)
     add_textures_window(app,textures_window)
     add_options_window(app,options_window)
-    add_misc_dialogs(app)
+    add_misc_dialogs(app,{
+        _BT.AboutDialog: about_dialog,
+    },basepath)
 
     #app.view.reflect()
     app.view.update_window_state(0,0)
