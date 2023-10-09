@@ -30,7 +30,7 @@ from operator import attrgetter
 from itertools import chain
 from concurrent.futures import ThreadPoolExecutor
 from math import log10, ceil
-import re, logging, json
+import re, logging, json, tomllib
 
 log = logging.getLogger(__name__)
 BspFile = BspFileBasic
@@ -1202,26 +1202,25 @@ class AppCfg(dict):
     def __setattr__(self, attr:str, val:str) -> None:
         super().update({attr: val})
 
-
 class App:
     def __init__(self, basepath=None):
         if not basepath:
             basepath = Path(sys.modules['__main__'].__file__)
-            
+        
+        # setup config first, as MVC might depend on its values
         self.cfg = AppCfg({
             "basepath": basepath,
-            "cfgpath": basepath.with_suffix(".cfg.json"),
+            "cfgpath": basepath.with_name("BspTexRemap.cfg.toml"),
+            "usercfgpath": basepath.with_suffix(".cfg.json"),
             "use_multithread" : True, # unused
             
             "bsp_viewer" : ""
         })
+        self.load_config()
 
         self.data = AppModel(self)
         self.view = AppView(self) # reads cfg.basepath for wad_cache
         self.do = AppActions(self,self.view)
-
-        self.load_config()
-        #self.global_texture_registry = dpg.add_texture_registry()
 
         TextureView.class_init(app=self,
                                mat_update_cb=self.view.update_wannabe_material_tables,
@@ -1232,10 +1231,15 @@ class App:
 
     ## loading and saving config
     def load_config(self):
+        # load the TOML file
         cfgpath = self.cfg["cfgpath"]
+        self.cfg.update(tomllib.loads(Path(cfgpath).read_text()))
+        
+        # load the user config json
+        usercfgpath = self.cfg["usercfgpath"]
 
         try:
-            cfg = json.loads(Path(cfgpath).read_bytes())
+            cfg = json.loads(Path(usercfgpath).read_bytes())
             if cfg["appname"] != consts.GUI_APPNAME: return
         except: return
 
@@ -1244,13 +1248,13 @@ class App:
             except: continue
 
     def save_config(self):
-        cfgpath = self.cfg["cfgpath"]
+        usercfgpath = self.cfg["usercfgpath"]
 
         cfg = {"appname" : consts.GUI_APPNAME, "config": {} }
         for part, prop in mappings.CONFIG_MAP:
             cfg["config"].setdefault(part,{})[prop] = getattr(getattr(self, part), prop)
 
-        try: Path(cfgpath).write_text(json.dumps(cfg))
+        try: Path(usercfgpath).write_text(json.dumps(cfg))
         except: log.warning("Couldn't write layout config file")
 
     def reset(self, reflect=True):
