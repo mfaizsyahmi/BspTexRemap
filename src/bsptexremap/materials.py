@@ -5,8 +5,8 @@ from . import consts
 from .utils import char_padder
 from .enums import MaterialEnum
 import re
-from dataclasses import dataclass, field, asdict, astuple
-from pathlib import Path, PurePath
+from pathlib import Path
+from typing import ClassVar
 from logging import getLogger
 log = getLogger(__name__)
 
@@ -81,34 +81,19 @@ class TextureRemapper:
         log.debug(f"%15s -> %s", texgroupname, result)
         return parts["prefix"] + result
 
-@dataclass
-class MaterialSet:
+
+class MaterialSet(dict):
     ''' class for parsing, processing, and outputting goldsrc material lists.
+    
+        use config() to load the class with information from the TIML file about
+        matchars available per game, then use setup() to setup the matchars for 
+        the selected game.
     '''
-    # concrete is default, but useful to turn anything to concrete
-    C : set = field(default_factory=lambda:set())
-    M : set = field(default_factory=lambda:set()) # metal
-    D : set = field(default_factory=lambda:set()) # dirt
-    V : set = field(default_factory=lambda:set()) # vents
-    G : set = field(default_factory=lambda:set()) # grate
-    T : set = field(default_factory=lambda:set()) # tile
-    S : set = field(default_factory=lambda:set()) # slosh
-    W : set = field(default_factory=lambda:set()) # wood
-    P : set = field(default_factory=lambda:set()) # computer
-    Y : set = field(default_factory=lambda:set()) # glass
-    F : set = field(default_factory=lambda:set()) # flesh
-    O : set = field(default_factory=lambda:set()) # snow OF
-    N : set = field(default_factory=lambda:set()) # snow CS
-    # new in CZDS
-    E : set = field(default_factory=lambda:set()) # Carpet
-    A : set = field(default_factory=lambda:set()) # Grass
-    R : set = field(default_factory=lambda:set()) # Gravel
-    # new in CZ
-    X : set = field(default_factory=lambda:set()) # Grass
 
     # change this value if working with OF|CZ|CZDS 
     # (though only OF seem to support the hack)
-    MATCHARS = "CMDVGTSWPYF"
+    MATCHARS : ClassVar = "CMDVGTSWPYF"
+    DEF_MAT  : ClassVar = "C"
 
     @classmethod
     def strip(cls, instr:str) -> str:
@@ -117,6 +102,41 @@ class MaterialSet:
         '''
         m = re.match(consts.TEX_PARTS_RE, instr)
         return m["texname"] if m else instr
+
+    @classmethod
+    def config(cls, config):
+        ''' configure the class with the entries from the TOML file.
+            this should allow us to dynamically set MATCHARS by passing the game 
+            name to setup() classmethod
+        '''
+        cls._config = config
+        
+    @classmethod
+    def setup(cls, game="valve"):
+        ''' sets up the class for the appropriate game by parsing the 
+            TOML-loaded config and recursively load the matchars as well as 
+            finding the default material.
+        '''
+        def _get_cfg(game):
+            return next((item for item in cls._config if item["game"] == game),None)
+        def _get_matchars(cfgitem):
+            items = cfgitem["names"].keys()
+            if "base" in cfgitem:
+                items = (_get_matchars(_get_cfg(cfgitem["base"])) or []) + items
+            return "".join(items)
+        def _get_def_mat(cfgitem):
+            return cfgitem["default_material"] if "default_material" in cfgitem \
+                else _get_def_mat(_get_cfg(cfgitem["base"]))
+        
+        this_cfg = _get_cfg(game) or _get_cfg("valve")
+        cls.MATCHARS = _get_matchars(this_cfg)
+        cls.DEF_MAT  = _get_def_mat(this_cfg)
+
+
+    def __init__(self, **kwargs):
+        for mat in self.__class__.MATCHARS:
+            super().update({mat: set(kwargs[mat]) if mat in kwargs else set()})
+
 
     @classmethod
     def from_materials_file(cls, file):
@@ -130,15 +150,16 @@ class MaterialSet:
 
                 matchar, matname = parts[0].strip(), cls.strip(parts[1])
                 if not len(matchar) or matchar not in cls.MATCHARS:
+                    log.warning("read unknown material type %s", matchar)
                     continue
                 # matname not matching read entry indicates prefixes in entries
-                if matname != parts[1].strip():
+                if len(matname) != len(parts[1].strip()):
                     report_incompat += 1
 
                 self[matchar.upper()].add(matname.upper())
 
         if report_incompat:
-            log.warn(f"{report_incompat} entries found with prefixes. This may mean that the mod doesn't support the texture name hack, and the texture remappings may not work.")
+            log.warning("%d entries found with prefixes. This may mean that the mod doesn't support the texture name hack, and the texture remappings may not work.",report_incompat)
 
         return self
 
@@ -178,7 +199,7 @@ class MaterialSet:
 
     def __getitem__(self, item): 
         ''' support for instance[mattype] '''
-        return getattr(self, item)
+        return super().get(item)# or None
 
     def __contains__(self, texgroupname:str):
         ''' check if texgroupname is in any of the material sets '''
@@ -196,8 +217,9 @@ class MaterialSet:
             we don't over-report sets in OF/CS/CZ/DS otherwise not supported in vanilla
         '''
         return {m:self[m] for m in self.__class__.MATCHARS}
+        
     def astuple(self):
-        return astuple(self)
+        return tuple(super().values())
 
     @property
     def sets(self):
@@ -213,20 +235,22 @@ class MaterialSet:
         '''
         concrete_admix = {"__CONCRETE"}
         cutfn = lambda tex: consts.MATNAME_MIN_LEN <= len(tex) <= consts.TEXNAME_MAX_LEN-1
-        mapfn = lambda mat,vals: concrete_admix | vals if mat == "C" \
+        mapfn = lambda mat,vals: concrete_admix | vals \
+                                 if mat == self.__class__.DEF_MAT \
                                  else set(filter(cutfn,vals))
 
         return MaterialSet(**{
                 m:mapfn(m,self[m]) for m in MaterialSet.MATCHARS
         })
 
-    ''' ARITHMETIC OPERATION SUPPORT
+
+    ''' ARITHMETIC OPERATION SUPPORT -------------------------------------------
         this allows us to use arithmetic operations between two instances of MaterialSet
         NOTE: since we're dealing with set we use set operations (union/diff)
             Set1 | Set2, Set1 |= Set2   # unions
             Set1 - Set2, Set1 -= Set2   # diffs
             +Set                        # choice cut of Set (12>len>15)
-    '''
+    ''' ##----------------------------------------------------------------------
     def __or__(self, other): # self | other
         ''' union of two instances into a third '''
         return MaterialSet(**{m:self[m] | other[m] for m in MaterialSet.MATCHARS})
