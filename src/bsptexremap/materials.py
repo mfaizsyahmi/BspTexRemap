@@ -7,6 +7,7 @@ from .enums import MaterialEnum
 import re
 from pathlib import Path
 from typing import ClassVar
+from collections import namedtuple
 from logging import getLogger
 log = getLogger(__name__)
 
@@ -82,26 +83,12 @@ class TextureRemapper:
         return parts["prefix"] + result
 
 
-class MaterialSet(dict):
-    ''' class for parsing, processing, and outputting goldsrc material lists.
-    
-        use config() to load the class with information from the TIML file about
-        matchars available per game, then use setup() to setup the matchars for 
-        the selected game.
+class MaterialConfig:
+    ''' class-var to hold material configuration from the cfg.toml file
+        setup() interacts with MaterialSet, setting its MATCHARS
     '''
-
-    # change this value if working with OF|CZ|CZDS 
-    # (though only OF seem to support the hack)
-    MATCHARS : ClassVar = "CMDVGTSWPYF"
-    DEF_MAT  : ClassVar = "C"
-
-    @classmethod
-    def strip(cls, instr:str) -> str:
-        ''' helper fn that strips prefixes from texture names, forming a proper
-            material name
-        '''
-        m = re.match(consts.TEX_PARTS_RE, instr)
-        return m["texname"] if m else instr
+    _config  : ClassVar[dict] = None
+    _cur_cfg : ClassVar[dict] = None
 
     @classmethod
     def config(cls, config):
@@ -111,6 +98,8 @@ class MaterialSet(dict):
         '''
         cls._config = config
         
+        return cls
+        
     @classmethod
     def setup(cls, game="valve"):
         ''' sets up the class for the appropriate game by parsing the 
@@ -119,18 +108,76 @@ class MaterialSet(dict):
         '''
         def _get_cfg(game):
             return next((item for item in cls._config if item["game"] == game),None)
+            
         def _get_matchars(cfgitem):
-            items = cfgitem["names"].keys()
-            if "base" in cfgitem:
-                items = (_get_matchars(_get_cfg(cfgitem["base"])) or []) + items
-            return "".join(items)
+            base = _get_matchars(_get_cfg(cfgitem["base"])) \
+                    if "base" in cfgitem else ""
+            return base + "".join(cfgitem["names"].keys())
+            
+        def _get_name_dict(cfgitem):
+            base = _get_name_dict(_get_cfg(cfgitem["base"])) \
+                    if "base" in cfgitem else {}
+            return base | cfgitem["names"]
+            
+        def _get_colors(cfgitem):
+            base = _get_colors(_get_cfg(cfgitem["base"])) \
+                    if "base" in cfgitem else {}
+            return base | cfgitem["colors"]
+        
         def _get_def_mat(cfgitem):
-            return cfgitem["default_material"] if "default_material" in cfgitem \
+            return cfgitem["default_material"] \
+                if "default_material" in cfgitem \
                 else _get_def_mat(_get_cfg(cfgitem["base"]))
         
         this_cfg = _get_cfg(game) or _get_cfg("valve")
-        cls.MATCHARS = _get_matchars(this_cfg)
-        cls.DEF_MAT  = _get_def_mat(this_cfg)
+        cls._cur_cfg  = this_cfg
+        
+        MaterialSet.MATCHARS = _get_matchars(this_cfg)
+        MaterialSet.DEF_MAT  = _get_def_mat(this_cfg)
+                      
+        cls.MATNAMES  = _get_name_dict(this_cfg)
+        cls.MATCOLORS = _get_colors(this_cfg)
+        
+        return cls
+
+    @classmethod
+    def get_material_names_mapping(cls):
+        ''' sidestepping the MaterialEnum by reading names as defined in TOML 
+            config file
+        '''
+        if cls._cur_cfg is None: cls.setup()
+        return cls.MATNAMES
+        
+    @classmethod
+    def get_material_colors(cls):
+        ''' sidestepping MaterialColors by reading colors as defined in TOML 
+            config file
+        '''
+        if cls._cur_cfg is None: cls.setup()
+        _c = namedtuple("ColorRegistry", ["color","bg","fg"])
+        return {m:_c(*val) for m,val in cls.MATCOLORS.items()}
+
+
+class MaterialSet(dict):
+    ''' class for parsing, processing, and outputting goldsrc material lists.
+    
+        use MaterialConfig.config() to load information from the TOML file about 
+        matchars available per game, then use MaterialConfig.setup() to setup 
+        the matchars for the selected game.
+    '''
+
+    # change this value if working with OF|CZ|CZDS 
+    # (though only OF seem to support the hack)
+    MATCHARS : ClassVar[str]  = "CMDVGTSWPYF"
+    DEF_MAT  : ClassVar[str]  = "C"
+
+    @classmethod
+    def strip(cls, instr:str) -> str:
+        ''' helper fn that strips prefixes from texture names, forming a proper
+            material name
+        '''
+        m = re.match(consts.TEX_PARTS_RE, instr)
+        return m["texname"] if m else instr
 
 
     def __init__(self, **kwargs):
