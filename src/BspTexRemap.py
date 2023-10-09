@@ -3,23 +3,15 @@
 '''
 from bsptexremap import consts
 from bsptexremap.enums import DumpTexInfoParts
-from bsptexremap.materials import MaterialSet, TextureRemapper
+from bsptexremap.materials import MaterialConfig, MaterialSet, TextureRemapper
 from bsptexremap.utils import *
 from bsptexremap.bsputil import *
 from bsptexremap.common import * # parse_arguments etc
 from jankbsp import BspFileBasic as BspFile
 from pathlib import Path
-import logging
+import logging, tomllib
 
-def main():
-    # parse arguments
-    args = parse_arguments()
-    print("----START----")
-    
-    # set log level
-    setup_logger(args.log)
-    log = logging.getLogger() ## "__main__" should use the root logger
-    
+def process_bsp(cfg, args):
     # load bsp
     # with_suffix is required to be compatible with other compilers which omits 
     # the file extension
@@ -41,10 +33,11 @@ def main():
         log.critical("No materials.txt to read.")
         return 1 # error
     print(f'Found materials.txt file: "{matpath}"')
-    
-    # adjust matchars to match those for the game/mod the materials file resides in
-    mod_matchars = matchars_by_mod(bsp_modname_from_path(matpath))
-    MaterialSet.MATCHARS = mod_matchars
+
+    # configure MaterialConfig with the entries from the cfg
+    # then setup it for the current game, which sets MaterialSet.MATCHARS appropriately
+    MaterialConfig.config(cfg["Materials"])
+    MaterialConfig.setup(bsp_modname_from_path(matpath))
     
     # load THE materials set
     material_set = MaterialSet.from_materials_file(matpath)
@@ -103,9 +96,23 @@ def main():
     # END OF MAIN
     return 0
 
+
+def main():
+    print(consts.APP_HEADER)
+    # load cfg
+    cfgpath = get_base_path().with_name("BspTexRemap.cfg.toml")
+    cfg = tomllib.loads(Path(cfgpath).read_text())
+    # parse arguments
+    args = parse_arguments()
+    
+    # set log level
+    setup_logger(args.log)
+    log = logging.getLogger() ## "__main__" should use the root logger
+    print("----START----")
+    result = process_bsp(cfg,args)
+    print("-----END-----")
+    return result
     
 if __name__=="__main__":
-    print(consts.APP_HEADER)
     result = main()
-    print("-----END-----")
     exit(result)
