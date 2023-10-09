@@ -598,11 +598,12 @@ def main(basepath):
     dpg_dnd.initialize()
     dpg_dnd.set_drop(app.do.handle_drop)
 
+    # setup log window
     gui_utils.DpgLogHandler.TAG = log_window
     log.addHandler(gui_utils.DpgLogHandler(0,on_close=app.view.update_window_state))
     dpg.bind_item_theme(gui_utils.DpgLogHandler.TAG,colors.AppThemes.LogMessage)
 
-    # setup all the windows
+    # setup the other windows
     add_file_dialogs(app)
     add_viewport_menu(app,args.dev,basepath)
     add_materials_window(app,materials_window)
@@ -635,6 +636,9 @@ def main(basepath):
 if __name__ == "__main__":
     if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
         #running in a PyInstaller bundle
+        basepath = Path(sys.argv[0])
+    elif "__compiled__" in globals():
+        #running compiled by nuitka
         basepath = Path(sys.argv[0])
     else:
         #running in a normal Python process
