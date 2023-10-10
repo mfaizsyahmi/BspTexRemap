@@ -4,6 +4,7 @@
 
 import dearpygui.dearpygui as dpg
 from ..enums import MaterialEnum
+from ..materials import MaterialConfig
 from collections import namedtuple
 from pathlib import Path
 import sys
@@ -11,8 +12,13 @@ import sys
 class Subscriptable:
     ''' support for class[item] '''
     def __class_getitem__(cls, item):
+        if cls == MaterialColors:
+            log.warning("MaterialColors is DEPRECATED. Use MaterialConfig!")
+        elif cls == AppThemes and item.startswith("Material"):
+            log.warning("AppThemes for materials is DEPRECATED. Use get_material_theme()!")
+
         ''' support for class[item] (prefered way)'''
-        if item in cls.__dict__: return cls.__dict__[item] 
+        if item in cls.__dict__: return cls.__dict__[item]
         return None
     @classmethod
     def items(cls): return cls.__dict__.items()
@@ -87,89 +93,110 @@ class AppThemes(Subscriptable):             # applies to:
     Material_R = "theme:texview_mat_R"      # texview slider
     Material_unknown = \
                  "theme:texview_mat_unknown"# texview slider
+def __wtf(): pass
 
-def add_themes():
+def setup_themes(cfg):
+    _tc = dpg.add_theme_color
+    _ts = dpg.add_theme_style
+
     with dpg.theme(tag="theme:main_window"):
         with dpg.theme_component(dpg.mvWindowAppItem):
-            dpg.add_theme_style(dpg.mvStyleVar_WindowPadding,4,2)
+            _ts(dpg.mvStyleVar_WindowPadding,4,2)
 
     with dpg.theme(tag="theme:layout_table"):
         with dpg.theme_component(0):
-            #dpg.add_theme_color(dpg.mvThemeCol_TableHeaderBg ,(15,86,135,255))
-            dpg.add_theme_style(dpg.mvStyleVar_WindowPadding,8,8)
+            #_tc(dpg.mvThemeCol_TableHeaderBg ,(15,86,135,255))
+            _ts(dpg.mvStyleVar_WindowPadding,8,8)
 
     with dpg.theme(tag="theme:normal_table"):
         with dpg.theme_component(0): pass
-            #dpg.add_theme_color(dpg.mvThemeCol_TableHeaderBg ,(48,48,51,255))
-            
+            #_tc(dpg.mvThemeCol_TableHeaderBg ,(48,48,51,255))
+
     with dpg.theme(tag=AppThemes.LogMessage):
         with dpg.theme_component(dpg.mvText):
-            dpg.add_theme_style(dpg.mvStyleVar_FramePadding, 4,0)
-            dpg.add_theme_style(dpg.mvStyleVar_ItemSpacing, 8,0)
-        
+            _ts(dpg.mvStyleVar_FramePadding, 4,0)
+            _ts(dpg.mvStyleVar_ItemSpacing, 8,0)
+
     #### TexView Themes ####
     ### Popup ###
     with dpg.theme(tag="theme:_popup"):
         with dpg.theme_component(0):
-            dpg.add_theme_style(dpg.mvStyleVar_WindowPadding,0,0)
+            _ts(dpg.mvStyleVar_WindowPadding,0,0)
 
     ### Normal/Selected  ###
     with dpg.theme(tag=AppThemes.Normal):
         with dpg.theme_component(dpg.mvGroup):
-            dpg.add_theme_color(dpg.mvThemeCol_ChildBg, (150,0,0,255))
+            _tc(dpg.mvThemeCol_ChildBg, (150,0,0,255))
 
     with dpg.theme(tag=AppThemes.Selected):
         with dpg.theme_component(0):
-            dpg.add_theme_color(dpg.mvThemeCol_Border, AppColors.Selected.bg)
-            dpg.add_theme_color(dpg.mvThemeCol_Text,   AppColors.Selected.color)
-            dpg.add_theme_style(dpg.mvStyleVar_FrameBorderSize, 1)
+            _tc(dpg.mvThemeCol_Border, AppColors.Selected.bg)
+            _tc(dpg.mvThemeCol_Text,   AppColors.Selected.color)
+            _ts(dpg.mvStyleVar_FrameBorderSize, 1)
 
     ### Embedded/External  ###
     with dpg.theme(tag=AppThemes.Embedded):
         with dpg.theme_component(dpg.mvButton):
-            dpg.add_theme_color(dpg.mvThemeCol_Button, AppColors.Embedded.bg)
-            dpg.add_theme_color(dpg.mvThemeCol_Text,   AppColors.Embedded.fg)
+            _tc(dpg.mvThemeCol_Button, AppColors.Embedded.bg)
+            _tc(dpg.mvThemeCol_Text,   AppColors.Embedded.fg)
 
     with dpg.theme(tag=AppThemes.External):
         with dpg.theme_component(dpg.mvButton):
-            dpg.add_theme_color(dpg.mvThemeCol_Button, AppColors.External.bg)
-            dpg.add_theme_color(dpg.mvThemeCol_Text,   AppColors.External.fg)
+            _tc(dpg.mvThemeCol_Button, AppColors.External.bg)
+            _tc(dpg.mvThemeCol_Text,   AppColors.External.fg)
 
     with dpg.theme(tag=AppThemes.ToEmbed):
         with dpg.theme_component(dpg.mvButton):
-            dpg.add_theme_color(dpg.mvThemeCol_Button, AppColors.ToEmbed.bg)
-            dpg.add_theme_color(dpg.mvThemeCol_Text,   AppColors.ToEmbed.fg)
+            _tc(dpg.mvThemeCol_Button, AppColors.ToEmbed.bg)
+            _tc(dpg.mvThemeCol_Text,   AppColors.ToEmbed.fg)
 
     with dpg.theme(tag=AppThemes.ToUnembed):
         with dpg.theme_component(dpg.mvButton):
-            dpg.add_theme_color(dpg.mvThemeCol_Button, AppColors.ToUnembed.bg)
-            dpg.add_theme_color(dpg.mvThemeCol_Text,   AppColors.ToUnembed.fg)
+            _tc(dpg.mvThemeCol_Button, AppColors.ToUnembed.bg)
+            _tc(dpg.mvThemeCol_Text,   AppColors.ToUnembed.fg)
 
     with dpg.theme(tag=AppThemes.Uneditable):
         with dpg.theme_component(dpg.mvSliderInt, enabled_state=False): # slider only
-            dpg.add_theme_color(dpg.mvThemeCol_FrameBg,         ( 29, 29, 31,255))
-            dpg.add_theme_color(dpg.mvThemeCol_FrameBgHovered,  ( 29, 29, 31,255))
-            #dpg.add_theme_color(dpg.mvThemeCol_FrameBgHovered,  ( 21, 21, 22,255))
-            dpg.add_theme_color(dpg.mvThemeCol_SliderGrab,      ( 37, 37, 38,255))
-            dpg.add_theme_color(dpg.mvThemeCol_SliderGrabActive,( 24, 24, 24,255))
-            dpg.add_theme_color(dpg.mvThemeCol_Text,            (151,151,151,255))
-            #dpg.add_theme_color(dpg.mvThemeCol_Text,            (255,0,255,255))
+            _tc(dpg.mvThemeCol_FrameBg,         ( 29, 29, 31,255))
+            _tc(dpg.mvThemeCol_FrameBgHovered,  ( 29, 29, 31,255))
+            _tc(dpg.mvThemeCol_SliderGrab,      ( 37, 37, 38,255))
+            _tc(dpg.mvThemeCol_SliderGrabActive,( 24, 24, 24,255))
+            _tc(dpg.mvThemeCol_Text,            (151,151,151,255))
 
+    ## material slider
     with dpg.theme(tag=AppThemes.Material__):
         with dpg.theme_component(dpg.mvSliderInt): # slider only
             pass
 
+    '''
     for mat in MaterialEnum:
         tag = AppThemes[f"Material_{mat.value}"] or AppThemes.Material_unknown
         mat_color_entry = MaterialColors[mat.value] or MaterialColors.unknown
         with dpg.theme(tag=tag):
             with dpg.theme_component(dpg.mvSliderInt): # slider only
-                dpg.add_theme_color(dpg.mvThemeCol_SliderGrab,
-                                    mat_color_entry.bg)
-                dpg.add_theme_color(dpg.mvThemeCol_SliderGrabActive,
-                                    mat_color_entry.bg)
-                dpg.add_theme_color(dpg.mvThemeCol_Text,
-                                    mat_color_entry.color)
+                _tc(dpg.mvThemeCol_SliderGrab,       mat_color_entry.bg)
+                _tc(dpg.mvThemeCol_SliderGrabActive, mat_color_entry.bg)
+                _tc(dpg.mvThemeCol_Text,             mat_color_entry.color)
+    '''
+    if not MaterialConfig.current_game:
+        MaterialConfig.config(cfg["Materials"])
+        MaterialConfig.setup()
+        
+    for game in MaterialConfig.get_games_list():
+        for mat, color_entry in MaterialConfig.get_material_colors(game).items():
+            tag = f"theme:texview_mat_{game}_{mat}"
+            with dpg.theme(tag=tag):
+                with dpg.theme_component(dpg.mvSliderInt): # slider only
+                    _tc(dpg.mvThemeCol_SliderGrab,       color_entry.bg)
+                    _tc(dpg.mvThemeCol_SliderGrabActive, color_entry.bg)
+                    _tc(dpg.mvThemeCol_Text,             color_entry.color)
+
+
+def get_material_theme(mat):
+    game = MaterialConfig.current_game
+    return f"theme:texview_mat_{game}_{mat}" if mat not in "-_" \
+           else AppThemes.Material__
+
 
 ### FONTS ----------------------------------------------------------------------
 _f = namedtuple("FontRegistry", ["tag","filename","size"])
@@ -177,10 +204,12 @@ class AppFonts(Subscriptable):
     Regular = _f("font:regular", "FiraMono-Regular.ttf", 16)
     Bold    = _f("font:bold"   , "FiraMono-Bold.ttf"   , 16)
 
+def __wtf2(): pass
+
 def setup_fonts(fontassetpath=None):
     if not fontassetpath:
         fontassetpath = Path(sys.modules['__main__'].__file__).parent/"assets/fonts"
-    
+
     # add a font registry
     with dpg.font_registry():
         # first argument ids the path to the .ttf or .otf file

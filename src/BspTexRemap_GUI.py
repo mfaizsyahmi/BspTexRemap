@@ -5,7 +5,7 @@ import logging, sys
 from collections import namedtuple
 from pathlib import Path
 
-from bsptexremap.common import parse_arguments, setup_logger
+from bsptexremap.common import parse_arguments, setup_logger, get_base_path
 from bsptexremap.enums import MaterialEnum as ME
 from bsptexremap.materials import MaterialSet # matchars
 
@@ -589,14 +589,14 @@ def main(basepath):
     }
 
 
-    colors.add_themes()
-    colors.setup_fonts(basepath.parent/"assets/fonts")
-    dpg.bind_font(colors.AppFonts.Regular.tag)
-
     app = App(basepath)
     app.view.window_binds = window_binds
     dpg_dnd.initialize()
     dpg_dnd.set_drop(app.do.handle_drop)
+
+    colors.setup_themes(app.cfg)
+    colors.setup_fonts(basepath.parent/"assets/fonts")
+    dpg.bind_font(colors.AppFonts.Regular.tag)
 
     # setup log window
     gui_utils.DpgLogHandler.TAG = log_window
@@ -634,15 +634,6 @@ def main(basepath):
 
 
 if __name__ == "__main__":
-    if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
-        #running in a PyInstaller bundle
-        basepath = Path(sys.argv[0])
-    elif "__compiled__" in globals():
-        #running compiled by nuitka
-        basepath = Path(sys.argv[0])
-    else:
-        #running in a normal Python process
-        basepath = Path(__file__)
-
+    basepath = get_base_path()
     main(basepath)
 

@@ -2,7 +2,7 @@ import dearpygui.dearpygui as dpg
 from . import dbgtools, gui_utils, consts
 from ..materials import MaterialSet
 from .ntuple import ntuple
-from .colors import MaterialColors, AppColors, AppThemes
+from .colors import MaterialColors, AppColors, AppThemes, get_material_theme
 from dataclasses import dataclass, field # TextureView
 from itertools import chain
 from typing import ClassVar
@@ -348,7 +348,8 @@ class TextureView:
         elif self.mat in "-_":
             return AppThemes.Material__
         else:
-            return AppThemes[f"Material_{self.mat}"]
+            return get_material_theme(self.mat)
+            #return AppThemes[f"Material_{self.mat}"]
 
     def update_state(self):
         ''' sets labels, show/hide stuff, applies themes '''
@@ -370,9 +371,7 @@ class TextureView:
         ## matslider
         slider_val = 0 if self.mat in "-_" \
                      else TextureView.matchars.find(self.mat.upper())
-        slider_theme = AppThemes.Uneditable if not self.mat_editable \
-                       else AppThemes.Material__ if self.mat in "-_" \
-                       else AppThemes[f"Material_{self.mat}"]
+        slider_theme = self._slider_get_theme()
 
         ## selection theme
         selection_theme = AppThemes.Selected if self.selected else AppThemes.Normal

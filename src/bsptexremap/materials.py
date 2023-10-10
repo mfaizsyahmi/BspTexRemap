@@ -45,7 +45,7 @@ class TextureRemapper:
         )
 
     def __call__(self, texname:str) -> str:
-        ''' the call method of the instance 
+        ''' the call method of the instance
         '''
         parts = re.match(consts.TEX_PARTS_RE, texname)
         # IMPORTANT: material set consistently populated with uppercase values
@@ -89,84 +89,94 @@ class MaterialConfig:
     '''
     _config  : ClassVar[dict] = None
     _cur_cfg : ClassVar[dict] = None
+    current_game : ClassVar[str] = None
 
     @classmethod
     def config(cls, config):
         ''' configure the class with the entries from the TOML file.
-            this should allow us to dynamically set MATCHARS by passing the game 
+            this should allow us to dynamically set MATCHARS by passing the game
             name to setup() classmethod
         '''
         cls._config = config
-        
+
         return cls
-        
+
+    @classmethod
+    def _get_cfg(cls, game:str):
+        return next((item for item in cls._config if item["game"] == game),None)
+
     @classmethod
     def setup(cls, game="valve"):
-        ''' sets up the class for the appropriate game by parsing the 
-            TOML-loaded config and recursively load the matchars as well as 
+        ''' sets up the class for the appropriate game by parsing the
+            TOML-loaded config and recursively load the matchars as well as
             finding the default material.
         '''
-        def _get_cfg(game):
-            return next((item for item in cls._config if item["game"] == game),None)
-            
         def _get_matchars(cfgitem):
-            base = _get_matchars(_get_cfg(cfgitem["base"])) \
+            base = _get_matchars(cls._get_cfg(cfgitem["base"])) \
                     if "base" in cfgitem else ""
             return base + "".join(cfgitem["names"].keys())
-            
-        def _get_name_dict(cfgitem):
-            base = _get_name_dict(_get_cfg(cfgitem["base"])) \
-                    if "base" in cfgitem else {}
-            return base | cfgitem["names"]
-            
-        def _get_colors(cfgitem):
-            base = _get_colors(_get_cfg(cfgitem["base"])) \
-                    if "base" in cfgitem else {}
-            return base | cfgitem["colors"]
-        
+
         def _get_def_mat(cfgitem):
             return cfgitem["default_material"] \
                 if "default_material" in cfgitem \
-                else _get_def_mat(_get_cfg(cfgitem["base"]))
-        
-        this_cfg = _get_cfg(game) or _get_cfg("valve")
+                else _get_def_mat(cls._get_cfg(cfgitem["base"]))
+
+        this_cfg = cls._get_cfg(game) or cls._get_cfg("valve")
         cls._cur_cfg  = this_cfg
-        
+        cls.current_game = this_cfg["game"]
+
         MaterialSet.MATCHARS = _get_matchars(this_cfg)
         MaterialSet.DEF_MAT  = _get_def_mat(this_cfg)
-                      
-        cls.MATNAMES  = _get_name_dict(this_cfg)
-        cls.MATCOLORS = _get_colors(this_cfg)
+
+        log.debug("MaterialConfig set up for game: %s", cls.current_game)
         
         return cls
 
     @classmethod
-    def get_material_names_mapping(cls):
-        ''' sidestepping the MaterialEnum by reading names as defined in TOML 
+    def get_material_names_mapping(cls, game:str=None):
+        ''' sidestepping the MaterialEnum by reading names as defined in TOML
             config file
         '''
         if cls._cur_cfg is None: cls.setup()
-        return cls.MATNAMES
         
+        this_cfg = cls._get_cfg(game) if game else cls._cur_cfg
+
+        base = cls.get_material_names_mapping(this_cfg["base"]) \
+               if "base" in this_cfg else {}
+
+        return base | this_cfg["names"] if "names" in this_cfg else base
+
     @classmethod
-    def get_material_colors(cls):
-        ''' sidestepping MaterialColors by reading colors as defined in TOML 
+    def get_material_colors(cls, game=None):
+        ''' sidestepping MaterialColors by reading colors as defined in TOML
             config file
         '''
         if cls._cur_cfg is None: cls.setup()
+
+        this_cfg = cls._get_cfg(game) if game else cls._cur_cfg
+                        
+        result = cls.get_material_colors(this_cfg["base"]) \
+                 if "base" in this_cfg else {}
+        if "colors" in this_cfg:
+            result |= this_cfg["colors"]
+
         _c = namedtuple("ColorRegistry", ["color","bg","fg"])
-        return {m:_c(*val) for m,val in cls.MATCOLORS.items()}
+        return {m:_c(*val) for m,val in result.items()}
+    
+    @classmethod
+    def get_games_list(cls):
+        return [x["game"] for x in cls._config if "game" in x]
 
 
 class MaterialSet(dict):
     ''' class for parsing, processing, and outputting goldsrc material lists.
-    
-        use MaterialConfig.config() to load information from the TOML file about 
-        matchars available per game, then use MaterialConfig.setup() to setup 
+
+        use MaterialConfig.config() to load information from the TOML file about
+        matchars available per game, then use MaterialConfig.setup() to setup
         the matchars for the selected game.
     '''
 
-    # change this value if working with OF|CZ|CZDS 
+    # change this value if working with OF|CZ|CZDS
     # (though only OF seem to support the hack)
     MATCHARS : ClassVar[str]  = "CMDVGTSWPYF"
     DEF_MAT  : ClassVar[str]  = "C"
@@ -244,7 +254,7 @@ class MaterialSet(dict):
             for padstr in char_padder(targetlen - len(texgroupname)):
                 yield texgroupname + padstr
 
-    def __getitem__(self, item): 
+    def __getitem__(self, item):
         ''' support for instance[mattype] '''
         return super().get(item)# or None
 
@@ -264,7 +274,7 @@ class MaterialSet(dict):
             we don't over-report sets in OF/CS/CZ/DS otherwise not supported in vanilla
         '''
         return {m:self[m] for m in self.__class__.MATCHARS}
-        
+
     def astuple(self):
         return tuple(super().values())
 
@@ -274,7 +284,7 @@ class MaterialSet(dict):
             doesn't matter, only that it's here somewhere.
             an example is to remove texture names already in given materials.txt
         '''
-        return [*astuple(self)]
+        return self.astuple()
 
     def choice_cut(self):
         ''' returns a subset with suitable names (length between 12 and 14)

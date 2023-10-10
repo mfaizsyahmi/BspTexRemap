@@ -11,7 +11,7 @@ from ..enums import MaterialEnum, DumpTexInfoParts
 from ..common import * # This inserts consts, so must come before .consts!!!
 from ..utils import failure_returns_none
 from ..bsputil import wadlist, guess_lumpenum, bsp_custommat_path
-from ..materials import MaterialSet, TextureRemapper
+from ..materials import MaterialConfig, MaterialSet, TextureRemapper
 
 from . import consts, mappings, gui_utils
 from .mappings import BindingType, RemapEntityActions
@@ -59,6 +59,17 @@ class AppModel:
     remap_entity_count  : int  = 0
     matchars : str    = MaterialSet.MATCHARS # edit if loading OF/CZ/CZ/DS        
 
+    def __post__init__(self):
+        # configure MaterialConfig with the entries from the cfg
+        # then setup it for the current game, which sets MaterialSet.MATCHARS appropriately
+        # we need to do this before dump_texinfo which now uses MaterialConfig 
+        # to get the material names
+        MaterialConfig.config(self.app.cfg["Materials"])
+        MaterialConfig.setup()
+        self.mat_set      = MaterialSet()
+        self.wannabe_set  = MaterialSet()
+        self.matchars     = MaterialSet.MATCHARS
+
     def load_bsp(self, bsppath):
         ''' loads given bsp, and kickstarts some post-load operations
             (has side effects)
@@ -72,9 +83,12 @@ class AppModel:
             self.bsp = BspFile(f, lump_enum=guess_lumpenum(self.bsppath))
 
         ## reset all the matchars
-        self.matchars = matchars_by_mod(bsp_modname_from_path(self.bsppath))
-        MaterialSet.MATCHARS = self.matchars
+        MaterialConfig.setup(bsp_modname_from_path(self.bsppath))
+        self.matchars = MaterialSet.MATCHARS
         TextureView.class_set_matchars(self.matchars)
+        # need fresh empty materialsets for textureview to render
+        self.mat_set     = MaterialSet()
+        self.wannabe_set = MaterialSet()
 
         ## load textures
         self.app.view.load_textures(self.bsp.textures)
@@ -687,12 +701,13 @@ class AppView:
 
 
     def render_material_tables(self, summary=True, entries=True):
-        ME = MaterialEnum
+        MN = MaterialConfig.get_material_names_mapping()
+        MC = MaterialConfig.get_material_colors()
         mat_set = self.app.data.mat_set
         choice_set = mat_set.choice_cut()
         wannabe_set = self.app.data.wannabe_set
 
-        mat_color = lambda mat: MaterialColors[mat].color
+        mat_color = lambda mat: MC[mat].color
         avail_colors = lambda n: (0,255,0) if n else (255,0,0)
         is_suitable = lambda name: \
                 consts.MATNAME_MIN_LEN <= len(name) <= consts.MATNAME_MAX_LEN
@@ -706,8 +721,8 @@ class AppView:
             header = (("",0.4), ("Material",1.8), "Count", "Usable", "Assigned")
             data = []
             for mat in mat_set.MATCHARS:
-                data.append([ ( ME(mat).value, {"color": mat_color(mat)} ),
-                                ME(mat).name,
+                data.append([ ( mat, {"color": mat_color(mat)} ),
+                                MN[mat],
                                 ra(len(mat_set[mat])),
                               ( ra(len(choice_set[mat])),
                                 {"color" : avail_colors(len(choice_set[mat]))} ),
@@ -728,7 +743,7 @@ class AppView:
             data = []
             for mat in self.app.data.matchars:
                 for name in filtered_set[mat]:
-                    data.append([(ME(mat).value, {"color": mat_color(mat)}),
+                    data.append([(mat, {"color": mat_color(mat)}),
                                   name,
                                  (suitable_mark(name), {"color":suitable_colors(name)})])
             table = self.get_dpg_item(type=BindingType.MaterialEntriesTable)
@@ -753,11 +768,13 @@ class AppView:
         dpg.set_value(table_cell, ra(len(self.app.data.wannabe_set)))
 
         ### RENDERING THE TEXTURE REMAP LIST -----------------------------------
-        ME = MaterialEnum
+        MN = MaterialConfig.get_material_names_mapping()
+        MC = MaterialConfig.get_material_colors()
         _E = gui_utils.ImglistEntry
         dict_of_lists = {}
         target_len = 48
 
+        mat_color = lambda mat: MC[mat].color
         def _del_cb(xmat,xmatname):
             def _called(*_):
                 self.app.data.wannabe_set[xmat].discard(xmatname.upper())
@@ -776,7 +793,7 @@ class AppView:
                     with dpg.group(horizontal=True):
                         if not self.texremap_grouped:
                             dpg.add_text(f"{matname} {'-'*(15-len(matname))}>")
-                            dpg.add_text(mat,color=MaterialColors[mat].color\
+                            dpg.add_text(mat,color=mat_color(mat)\
                                                    or MaterialColors.unknown.color)
                         else:
                             dpg.add_text(matname)
@@ -797,7 +814,7 @@ class AppView:
                 sublist.append(entry)
                 stages.append(content_stage)
 
-            dict_of_lists[ME(mat).name] = sublist
+            dict_of_lists[MN[mat]] = sublist
 
         if not self.texremap_grouped:
             dict_of_lists = {"All":list(chain(*dict_of_lists.values()))}
@@ -1216,25 +1233,27 @@ class App:
             
             "bsp_viewer" : ""
         })
-        self.load_config()
+        if not Path(self.cfg["cfgpath"]).exists():
+            log.critical('config file "%s" cannot be found.', self.cfg["cfgpath"])
+            exit(1)
+        self.cfg.update(tomllib.loads(Path(self.cfg["cfgpath"]).read_text()))
 
         self.data = AppModel(self)
         self.view = AppView(self) # reads cfg.basepath for wad_cache
         self.do = AppActions(self,self.view)
+        
+        self.load_config()
 
-        TextureView.class_init(app=self,
-                               mat_update_cb=self.view.update_wannabe_material_tables,
-                               mouse_event_registrar=self.do.set_mouse_event_target,
-                               #global_texture_registry=self.global_texture_registry)
-                               global_texture_registry=self.view.dpg_texture_registry)
+        TextureView.class_init(
+                app=self,
+                mat_update_cb=self.view.update_wannabe_material_tables,
+                mouse_event_registrar=self.do.set_mouse_event_target,
+                global_texture_registry=self.view.dpg_texture_registry
+        )
 
 
     ## loading and saving config
-    def load_config(self):
-        # load the TOML file
-        cfgpath = self.cfg["cfgpath"]
-        self.cfg.update(tomllib.loads(Path(cfgpath).read_text()))
-        
+    def load_config(self):        
         # load the user config json
         usercfgpath = self.cfg["usercfgpath"]
 

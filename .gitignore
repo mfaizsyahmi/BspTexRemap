@@ -10,8 +10,7 @@ wtf.txt
 build
 dist
 src/cmd venv.lnk
-src/bsptexremap/dpg/_old_mvc.txt
-src/assets/fonts/FiraCode-VariableFont_wght.ttf
 src/cache
 src/BspTexRemap_GUI.cfg.json
 src/tests/gui_integration/fixtures_mod
+src/temp

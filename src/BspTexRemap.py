@@ -19,6 +19,13 @@ def process_bsp(cfg, args):
     print(f'Loading bsp file: "{bsppath}"')
     with open(bsppath, "r+b") as f:
         bsp = BspFile(f)
+        
+    # configure MaterialConfig with the entries from the cfg
+    # then setup it for the current game, which sets MaterialSet.MATCHARS appropriately
+    # we need to do this before dump_texinfo which now uses MaterialConfig 
+    # to get the material names
+    MaterialConfig.config(cfg["Materials"])
+    MaterialConfig.setup(bsp_modname_from_path(bsppath))
     
     # texinfo dump zenpen (embedded/external/grouped)
     if args.dump_texinfo:
@@ -34,9 +41,7 @@ def process_bsp(cfg, args):
         return 1 # error
     print(f'Found materials.txt file: "{matpath}"')
 
-    # configure MaterialConfig with the entries from the cfg
-    # then setup it for the current game, which sets MaterialSet.MATCHARS appropriately
-    MaterialConfig.config(cfg["Materials"])
+    # setup materials for the current game, which sets MaterialSet.MATCHARS appropriately
     MaterialConfig.setup(bsp_modname_from_path(matpath))
     
     # load THE materials set
