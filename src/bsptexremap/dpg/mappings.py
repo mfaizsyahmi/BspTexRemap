@@ -45,6 +45,7 @@ class BindingType(IntEnum):
     ConfigDialog              = auto()
     HelpDialog                = auto()
     AboutDialog               = auto()
+    AppTextureRegistry        = auto()
 
     BspOpenFileDialog         = auto()
     BspSaveFileDialog         = auto()

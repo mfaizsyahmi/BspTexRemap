@@ -7,7 +7,7 @@
 '''
 # general info
 APPNAME     = "BspTexRemap"
-VERSION     = "v0.2"
+VERSION     = "v0.3"
 COPYRIGHT   = "(c) 2023 M Faiz Syahmi @ kimilil"
 PROJECT_URL = "https://github.com/mfaizsyahmi/BspTexRemap"
 APPDESC     = '''

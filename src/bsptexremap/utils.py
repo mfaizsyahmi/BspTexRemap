@@ -69,10 +69,10 @@ def flag_str_parser(flagenum):
     return callfn
 
 def filterstring_to_filter(filter_str):
-    fragments = filter_str.split(" ")
+    fragments = [x.lower() for x in filter_str.split(" ")]
     fragfn=lambda name,frag: 1 if frag in name else 0
     namefn=lambda name,list: True if not len(list) \
                              else reduce(lambda x,y:x+y, \
                                          [fragfn(name,frag) for frag in list])
-    return lambda name: namefn(name,fragments)
+    return lambda name: namefn(name.lower(), fragments)
 
