@@ -234,11 +234,12 @@ def search_wads(bsp_path, wadlist):
     return result
 
 
-def load_wannabe_set_from_bsp_entities(bsp):
-    wannabe_set = MaterialSet()
-    for texremap_ent in iter_texremap_entities(bsp.entities):
-        wannabe_set |= MaterialSet.from_entity(texremap_ent)
-    return wannabe_set
+#def load_wannabe_set_from_bsp_entities(bsp):
+#    ''' unused '''
+#    wannabe_set = MaterialSet()
+#    for texremap_ent in iter_texremap_entities(bsp.entities):
+#        wannabe_set |= MaterialSet.from_entity(texremap_ent)
+#    return wannabe_set
 
 
 def load_wannabe_sets(bsp,bsppath,arg_val,first_found=True):
