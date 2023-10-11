@@ -1,6 +1,7 @@
 [assets.fonts]
 regular = "assets/fonts/FiraMono-Regular.ttf"
-bold = "assets/fonts/FiraMono-Bold.ttf"
+italic = "assets/fonts/FiraMono-Medium.ttf"
+bold  = "assets/fonts/FiraMono-Bold.ttf"
 
 [assets.images]
 app_icon = "assets/images/BspTexRemap_64.ico"
