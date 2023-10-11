@@ -1,5 +1,6 @@
 import dearpygui.dearpygui as dpg
 import DearPyGui_DragAndDrop as dpg_dnd
+import DearPyGui_Markdown as dpg_md
 
 import logging, sys
 from collections import namedtuple
@@ -170,19 +171,19 @@ def add_textures_window(app, tag):
         with dpg.menu_bar():
 
             with dpg.menu(label="Show:All") as mnuTexShow:
-                _bind(_BT.FormatLabel,_prop(app.view,"gallery_show_val"),
+                _bind(_BT.FormatLabel, _prop(app.view,"gallery_show_val"),
                       data=["Show:{:.3s}", mappings.gallery_show])
 
                 ## ( ) Embedded  ( ) External  ( ) All
                 dpg.add_radio_button(mappings.gallery_show,horizontal=True)
-                _bind(_BT.TextMappedValue,_prop(app.view,"gallery_show_val"),
+                _bind(_BT.TextMappedValue, _prop(app.view,"gallery_show_val"),
                       data=mappings.gallery_show )
 
                 dpg.add_separator()
 
                 dpg.add_text("Referenced WAD files")
                 _bind(_BT.FormatValue, _prop(app.view,"wadstats"),
-                      ["Referenced WAD files: {}",lambda stats:len(stats) ] )
+                      ["Referenced WAD files: {}", lambda stats:len(stats) ] )
 
                 grpWadlist = dpg.add_group()
                 _bind(_BT.WadListGroup)
@@ -212,19 +213,19 @@ def add_textures_window(app, tag):
                 ## Mapped scale/maxlen values
                 for i, text in enumerate(mappings.gallery_sizes):
                     dpg.add_menu_item(label=text,check=True)
-                    _bind(_BT.ValueIs,_prop(app.view,"gallery_size_val"), i)
+                    _bind(_BT.ValueIs, _prop(app.view,"gallery_size_val"), i)
 
                 ## [--|-------] scale slider
                 dpg.add_slider_float(label="scale",max_value=16.0,clamped=True)
-                _bind(_BT.Value,_prop(app.view,"gallery_size_scale"))
+                _bind(_BT.Value, _prop(app.view,"gallery_size_scale"))
 
                 ## [-----|----] maxlen slider
                 dpg.add_slider_int(label="max len.",max_value=2048,
                                    default_value=512,clamped=True)
-                _bind(_BT.Value,_prop(app.view,"gallery_size_maxlen"))
+                _bind(_BT.Value, _prop(app.view,"gallery_size_maxlen"))
 
             with dpg.menu(label="Sort:Sure"):
-                _bind(_BT.FormatLabel,_prop(app.view,"gallery_sort_val"),
+                _bind(_BT.FormatLabel, _prop(app.view,"gallery_sort_val"),
                       ["Sort:{}",
                        lambda val:mappings.gallery_sort_map[val].short])
 
@@ -236,7 +237,7 @@ def add_textures_window(app, tag):
                     _bind(_BT.ValueIs, _prop(app.view,"gallery_sort_val"), i)
 
             with dpg.menu(label="Filter:OFF") as mnuFilter:
-                _bind(_BT.FormatLabel,_prop(app,"view"),
+                _bind(_BT.FormatLabel, _prop(app,"view"),
                       ["Filter:{}",
                        lambda view: "ON" if len(view.filter_str) \
                                          or view.filter_unassigned \
@@ -246,15 +247,15 @@ def add_textures_window(app, tag):
 
                 ## [____________] filter
                 dpg.add_input_text(label="filter")
-                _bind(_BT.Value,_prop(app.view,"filter_str"))
+                _bind(_BT.Value, _prop(app.view,"filter_str"))
 
                 ## [ ] Textures without materials only
                 dpg.add_checkbox(label="Textures without materials only")
-                _bind(_BT.Value,_prop(app.view,"filter_unassigned"))
+                _bind(_BT.Value, _prop(app.view,"filter_unassigned"))
 
                 ## [ ] Exclude radiosity textures
                 dpg.add_checkbox(label="Exclude radiosity textures")
-                _bind(_BT.Value,_prop(app.view,"filter_radiosity"))
+                _bind(_BT.Value, _prop(app.view,"filter_radiosity"))
                 _help("These are textures embedded by VHLT+'s RAD to make translucent objects light properly")
 
             with dpg.menu(label="Selection"):
@@ -504,7 +505,6 @@ def add_viewport_menu(app, dev_mode=False, basepath=None):
                               callback=_bare_cb(app.do.export_custommat))
             ___()
 
-
             _mi(label="Automatically on map load:",check=True)
             _bind(_BT.Value, _prop(app.data,"auto_load_wannabes"))
             _mi(label="Parse info_texture_remap entity in map",indent=8,
@@ -514,13 +514,14 @@ def add_viewport_menu(app, dev_mode=False, basepath=None):
 
 
         with dpg.menu(label="Textures"):
+        
             _mi(label="Auto-load WADs from BSP path",check=True)
             _bind(_BT.Value, _prop(app.data,"auto_load_wads"))
 
             _mi(label="Allow stripping embedded textures",check=True)
             _bind(_BT.Value, _prop(app.data,"allow_unembed"))
 
-        if basepath is None: basepath = Path(__file__)
+        if basepath is None: basepath = get_base_path()
         init_path = basepath.with_suffix(".layout.ini")
         with dpg.menu(label="View"):
             _cb = app.view.update_window_state
