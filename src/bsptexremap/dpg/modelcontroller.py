@@ -83,15 +83,16 @@ class AppModel:
             self.bsp = BspFile(f, lump_enum=guess_lumpenum(self.bsppath))
 
         ## reset all the matchars
-        MaterialConfig.setup(bsp_modname_from_path(self.bsppath))
+        #MaterialConfig.setup(bsp_modname_from_path(self.bsppath))
+        MaterialConfig.setup(modpath=self.bsppath.parents[1])
         self.matchars = MaterialSet.MATCHARS
         TextureView.class_set_matchars(self.matchars)
-        # need fresh empty materialsets for textureview to render
+        # need fresh empty materialsets for them to have the new matchars
         self.mat_set     = MaterialSet()
         self.wannabe_set = MaterialSet()
 
         ## load textures
-        self.app.view.load_textures(self.bsp.textures)
+        self.app.view.load_textures(self.bsp.textures) #, no_update_gallery=True)
 
         ## setup material set
         self.matpath = None
@@ -527,7 +528,9 @@ class AppView:
             self.update_gallery()
 
 
-    def load_textures(self, miptexes, update=False, new_source=None, precedence=999):
+    def load_textures(self, miptexes, 
+                      update=False, new_source=None, precedence=999,
+                      no_update_gallery=False):
         ''' populates app.view.textures with TextureView items.
             if updating, the miptexes are from wads, and new_source must be
             the wad's filename.
@@ -572,7 +575,7 @@ class AppView:
             result = len(loaded_textures)
 
         log.debug(f"load_texture: done.")
-        self.update_gallery()
+        if not no_update_gallery: self.update_gallery()
         return result
 
 
