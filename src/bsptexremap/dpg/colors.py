@@ -1,10 +1,12 @@
 ''' colors.py
     colors and theming
 '''
-
 import dearpygui.dearpygui as dpg
+
 from ..enums import MaterialEnum
 from ..materials import MaterialConfig
+from ..common import get_base_path
+
 from collections import namedtuple
 from pathlib import Path
 import sys
@@ -30,6 +32,7 @@ class MaterialColors(Subscriptable):
         through the colour wheel
     '''
         # text on default      background         fg over bg
+    '''
     C = _c((255,255,255,255), (255,255,255,255), (  0,  0,  0,255)) # Concrete
     M = _c((255,  0,  0,255), (255,  0,  0,255), (255,255,255,255)) # Metal
     D = _c((255,127,  0,255), (255,127,  0,255), (255,255,255,255)) # Dirt
@@ -47,6 +50,7 @@ class MaterialColors(Subscriptable):
     A = _c(( 76,152,  0,255), ( 76,152,  0,255), (255,255,255,255)) # Grass
     X = _c(( 76,152,  0,255), ( 76,152,  0,255), (255,255,255,255)) # GrassCZ
     R = _c((192,192,192,255), (192,192,192,255), (  0,  0,  0,255)) # Gravel
+    '''
     unknown = \
         _c((170,170,170,255), (170,170,170,255), (  0,  0,  0,255)) # unknown
 
@@ -74,6 +78,7 @@ class AppThemes(Subscriptable):             # applies to:
     Uneditable = "theme:texview_uneditable" # texview slider
 
     Material__ = "theme:texview_mat__"      # texview slider
+    '''
     Material_C = "theme:texview_mat_C"      # texview slider
     Material_M = "theme:texview_mat_M"      # texview slider
     Material_D = "theme:texview_mat_D"      # texview slider
@@ -91,6 +96,7 @@ class AppThemes(Subscriptable):             # applies to:
     Material_A = "theme:texview_mat_A"      # texview slider
     Material_X = "theme:texview_mat_X"      # texview slider
     Material_R = "theme:texview_mat_R"      # texview slider
+    '''
     Material_unknown = \
                  "theme:texview_mat_unknown"# texview slider
 def __wtf(): pass
@@ -208,7 +214,7 @@ def __wtf2(): pass
 
 def setup_fonts(fontassetpath=None):
     if not fontassetpath:
-        fontassetpath = Path(sys.modules['__main__'].__file__).parent/"assets/fonts"
+        fontassetpath = get_base_path().parent / "assets/fonts"
 
     # add a font registry
     with dpg.font_registry():
