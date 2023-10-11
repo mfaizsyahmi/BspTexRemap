@@ -1,9 +1,10 @@
 ''' materials.py
     classes that deal with materials go here
 '''
-from . import consts
+from . import consts, common
 from .utils import char_padder
 from .enums import MaterialEnum
+#from .common import modpath_fallbacks
 import re
 from pathlib import Path
 from typing import ClassVar
@@ -103,10 +104,11 @@ class MaterialConfig:
 
     @classmethod
     def _get_cfg(cls, game:str):
-        return next((item for item in cls._config if item["game"] == game),None)
+        return next((item for item in cls._config \
+                     if item["game"].lower() == game.lower()), None)
 
     @classmethod
-    def setup(cls, game="valve"):
+    def setup(cls, game="valve", modpath=None):
         ''' sets up the class for the appropriate game by parsing the
             TOML-loaded config and recursively load the matchars as well as
             finding the default material.
@@ -121,7 +123,13 @@ class MaterialConfig:
                 if "default_material" in cfgitem \
                 else _get_def_mat(cls._get_cfg(cfgitem["base"]))
 
-        this_cfg = cls._get_cfg(game) or cls._get_cfg("valve")
+        if modpath:
+            # if given modpath, try to follow the fallbacks until one with entry is found
+            for cur_path in common.modpath_fallbacks(modpath):
+                if (this_cfg := cls._get_cfg(cur_path.name)): break
+            if not this_cfg: this_cfg = cls._get_cfg("valve") # final fallback
+        else:
+            this_cfg = cls._get_cfg(game) or cls._get_cfg("valve")
         cls._cur_cfg  = this_cfg
         cls.current_game = this_cfg["game"]
 
