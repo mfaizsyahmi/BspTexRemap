@@ -1,10 +1,10 @@
 import dearpygui.dearpygui as dpg
 import DearPyGui_DragAndDrop as dpg_dnd
-import DearPyGui_Markdown as dpg_md
 
 import logging, sys
 from collections import namedtuple
 from pathlib import Path
+from operator import attrgetter
 
 from bsptexremap.common import parse_arguments, setup_logger, get_base_path
 from bsptexremap.enums import MaterialEnum as ME
@@ -388,19 +388,47 @@ def add_options_window(app,tag):
         dpg.add_text(consts.NOTES,wrap=0)
 
 
-def add_misc_dialogs(app, binds={}, basepath=None):
-    _bind = lambda *args,**kwargs: _bind_last_item(app,*args,**kwargs) # shorthand
-    
+def add_about_dialog(app,tag,mdfonts=None):
     ## Load images
     images = {
         "app_icon": basepath.parent / "assets/images/BspTexRemap_64.png"
     }
     image_ids = {}
-    with dpg.texture_registry():
+    with dpg.texture_registry() as texreg:
         for name, path in images.items():
             w,h,c,d = dpg.load_image(str(path))
             image_ids[name] = dpg.add_static_texture(width=w,height=h,default_value=d)
-    
+            
+    ## About dialog
+    with dpg.window(label=f"About {consts.GUI_APPNAME}", tag=tag,
+                    show=False, width=500, height=420, no_scrollbar=True,
+                    no_saved_settings=True,
+                    on_close=app.view.update_window_state) as dlg_about:
+        _bind_last_item(app,_BT.AboutDialog)
+        
+        with dpg.table(header_row=False,resizable=True):
+            dpg.add_table_column(init_width_or_weight=80)
+            dpg.add_table_column(init_width_or_weight=400)
+            
+            with dpg.table_row():
+                with dpg.table(header_row=False):
+                    dpg.add_table_column()
+                    with dpg.table_row(): dpg.add_image(image_ids["app_icon"])
+                    with dpg.table_row(): dpg.add_listbox(["About"],width=-1)
+                    with dpg.table_row(): dpg.add_separator()
+                    with dpg.table_row():
+                        dpg.add_button(label="Close", width=64,
+                                       callback=lambda:dpg.hide_item(tag))
+            
+                #dpg.bind_item_font(dpg.last_item(),mdfonts)
+                with dpg.group():
+                    with dpg.child_window(tag="about:about"):
+                        dpg.add_text(consts.GUI_ABOUT,wrap=0)
+
+
+def add_misc_dialogs(app, binds={}, basepath=None):
+    _bind = lambda *args,**kwargs: _bind_last_item(app,*args,**kwargs) # shorthand
+        
     ## Edit summary
     with dpg.window(label="Edit summary", show=False,
                     no_saved_settings=True) as dlg_save_summary:
@@ -452,21 +480,6 @@ def add_misc_dialogs(app, binds={}, basepath=None):
         dpg.add_separator()
         dpg.add_button(label="Close", callback=lambda:dpg.hide_item(dlg_config))
         
-    
-    ## About dialog
-    with dpg.window(label=f"About {consts.GUI_APPNAME}", show=False, width=500,
-                    tag=binds[_BT.AboutDialog],
-                    no_saved_settings=True,
-                    on_close=app.view.update_window_state) as dlg_about:
-        _bind(_BT.AboutDialog)
-        
-        with dpg.group(horizontal=True):
-            dpg.add_image(image_ids["app_icon"])
-            dpg.add_text(consts.GUI_ABOUT,wrap=0)
-            
-        dpg.add_separator()
-        dpg.add_button(label="Close", callback=lambda:dpg.hide_item(dlg_about))
-
 
 def add_viewport_menu(app, dev_mode=False, basepath=None):
     ''' main window layout '''
@@ -598,6 +611,7 @@ def main(basepath):
     colors.setup_themes(app.cfg)
     colors.setup_fonts(basepath.parent/"assets/fonts")
     dpg.bind_font(colors.AppFonts.Regular.tag)
+    
 
     # setup log window
     gui_utils.DpgLogHandler.TAG = log_window
@@ -611,6 +625,7 @@ def main(basepath):
     add_wannabe_window(app,remaps_window)
     add_textures_window(app,textures_window)
     add_options_window(app,options_window)
+    add_about_dialog(app,about_dialog)
     add_misc_dialogs(app,{
         _BT.AboutDialog: about_dialog,
     },basepath)
