@@ -308,6 +308,15 @@ def show_loading(show=True):
                                callback=lambda:_update_position(_update_position))
 
 
+def center_window(window_id):
+    viewport_width  = dpg.get_viewport_client_width()
+    viewport_height = dpg.get_viewport_client_height()
+    
+    width = dpg.get_item_width(window_id)
+    height = dpg.get_item_height(window_id)
+    dpg.set_item_pos(window_id, [viewport_width // 2 - width // 2, viewport_height // 2 - height // 2])
+
+
 ### MESSAGE BOX ----------------------------------------------------------------
 MSGBOX_THEME = None
 
@@ -360,9 +369,6 @@ def message_box(title, message, selection_callback:callable=None,
     # guarantee these commands happen in the same frame
     with dpg.mutex():
 
-        viewport_width  = dpg.get_viewport_client_width()
-        viewport_height = dpg.get_viewport_client_height()
-
         with dpg.window(label=title, modal=True, no_close=True,
                         no_saved_settings=True) as modal_id:
 
@@ -385,11 +391,10 @@ def message_box(title, message, selection_callback:callable=None,
 
     # guarantee these commands happen in another frame
     dpg.split_frame()
+    center_window(modal_id)
+    
+    #dpg.split_frame()
     dpg.show_item(modal_id)
-    dpg.split_frame()
-    width = dpg.get_item_width(modal_id)
-    height = dpg.get_item_height(modal_id)
-    dpg.set_item_pos(modal_id, [viewport_width // 2 - width // 2, viewport_height // 2 - height // 2])
 
 
 def confirm(title, message, selection_callback:callable):
