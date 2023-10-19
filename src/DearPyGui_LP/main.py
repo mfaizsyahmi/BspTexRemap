@@ -64,3 +64,16 @@ def layout_items(parse_result, parent=None):
 def layout_items_from_file(layout_file:str|Path, parent=None):
     return layout_items(parse_layout_file(layout_file), parent)
 
+
+###--------Callback Functions--------###
+def add_named_callback(name:str, callback:callable):
+    ''' use this to set a name to a callback. then, you can use the name
+        when defining an element's callback property.
+    '''
+    mappings.CALLBACKS[name] = callback
+    
+def add_named_callbacks(callback_map:dict[str,callable]):
+    ''' batch version of the above. 
+    '''
+    mappings.CALLBACKS.update(callback_map)
+

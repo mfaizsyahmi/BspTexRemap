@@ -14,7 +14,7 @@ from pyleri import (Grammar,
                     List,
                     Ref,
                     Tokens)
-from .mappings import DPG_NODE_KW_MAP
+from .mappings import DPG_NODE_KW_MAP, BINDINGS
 
 
 class DpgLayoutGrammar(Grammar):
@@ -50,6 +50,8 @@ class DpgLayoutGrammar(Grammar):
         for a list of supported element name and the dpg element it corresponds to,
         consult
     '''
+    r_comment  = Regex   (r'(?s)/\*.*?\*/') # /*...*/
+    
     t_prefix   = Tokens  ("+ - =")
     c_elname   = Sequence(
                     Optional(t_prefix),
@@ -57,7 +59,6 @@ class DpgLayoutGrammar(Grammar):
                                if kw[0] not in "+-="))
                  )
 
-    r_comment  = Regex   (r'(?s)/\*.*?\*/') # /*...*/
     r_str      = Regex   (r'(?s)(")(?:(?=(\\?))\2.)*?\1')
     r_num      = Regex   (r'-?[0-9]+(?:\.[0-9]+)?')
     c_alnum    = Choice  (r_str,r_num)
@@ -76,8 +77,11 @@ class DpgLayoutGrammar(Grammar):
                  )
     s_kvlist   = Optional(Sequence("(", List(cs_kv), ")"))
 
+    c_binding  = Choice  (*(Keyword(kw, ign_case=True) for kw in BINDINGS))
+    s_bindings = Repeat  (Sequence(":", c_binding, "(", c_alnum, ")"))
+
     s_elem     = Ref()
     c_children = Repeat  (Choice(s_elem, c_value, r_comment))
-    s_elem     = Sequence(c_elname, s_kvlist, "[", c_children, "]")
+    s_elem     = Sequence(c_elname, s_kvlist, s_bindings, "[", c_children, "]")
 
     START      = Repeat(Choice(s_elem, r_comment))

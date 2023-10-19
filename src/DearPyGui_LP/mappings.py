@@ -46,3 +46,12 @@ DPG_NODE_KW_MAP = {
     "RADIO"   : _m(dpg.add_radio_button, {}, slice(0x7FFFFFFF)),
     "HRADIO"  : _m(dpg.add_radio_button, {"horizontal":True}, slice(0x7FFFFFFF)),
 }
+BINDINGS = {
+    "bind"  : dpg.bind_item_handler_registry,
+    "theme" : dpg.bind_item_theme,
+    "font"  : dpg.bind_item_font,
+}
+
+# add callback functions to this. during tree parsing, swap defined value in kwargs
+# with the mapped callback fn
+CALLBACKS = {}
