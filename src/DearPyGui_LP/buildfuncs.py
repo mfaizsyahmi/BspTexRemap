@@ -40,20 +40,19 @@ def get_link_handler_registry():
         event to open the stored url on user's browser
     '''
     global LINK_HANDLER_REGISTRY
-    
+
     # d = click_data = (which_button, item id)
     cb = lambda _, d: webbrowser.get().open(dpg.get_item_user_data(d[1]))
-    
+
     if LINK_HANDLER_REGISTRY is None:
         with dpg.item_handler_registry() as link_handler:
             dpg.add_item_clicked_handler(dpg.mvMouseButton_Left,callback=cb)
         LINK_HANDLER_REGISTRY = link_handler
-        
+
     return LINK_HANDLER_REGISTRY
 
 
 ## Builder functions -----------------------------------------------------------
-
 def add_url_text(content, **kwargs):
     ''' special dpg constructor for text links. it does the following:
         1. takes the custom kwarg "target" containing the target URL,
@@ -72,7 +71,7 @@ def add_url_text(content, **kwargs):
 
     # puts the url in user_data. This WILL OVERRIDE existing items
     kwargs["user_data"] = url
-    
+
     self = dpg.add_text(content, **kwargs)
     dpg.bind_item_handler_registry(self, get_link_handler_registry())
 
@@ -108,3 +107,30 @@ def add_image(content, **kwargs):
     self = dpg.add_image(img, **kwargs)
 
     return self
+
+
+def add_theme(**kwargs):
+    del kwargs["parent"]
+    return dpg.add_theme(**kwargs)
+
+def add_theme_component(color, **kwargs):
+    item_type = kwargs["item_type"] if "item_type" in kwargs else 0
+    del kwargs["item_type"]
+    # get value of string consts
+    if isinstance(item_type, str): item_type = getattr(dpg,item_type)
+    return dpg.add_theme_color(item_type, **kwargs)
+    
+def add_theme_color(color, **kwargs):
+    target = kwargs["target"] if "target" in kwargs else 0
+    del kwargs["target"]
+    # get value of string consts
+    if isinstance(target, str): target = getattr(dpg,target)
+    return dpg.add_theme_color(target, color, **kwargs)
+
+def add_theme_style(values, **kwargs):
+    target = kwargs["target"] if "target" in kwargs else 0
+    del kwargs["target"]
+    # get value of string consts
+    if isinstance(target, str): target = getattr(dpg,target)
+    return dpg.add_theme_style(target, *values, **kwargs)
+

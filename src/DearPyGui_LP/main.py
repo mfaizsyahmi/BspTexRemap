@@ -44,11 +44,15 @@ def add_grammar_element(
         def_kwargs,
         child_content_slice
     )
+    # reinstantiates the grammar object to load the new stuff
+    _dpg_grammar = DpgLayoutGrammar() 
 
 def add_grammar_elements(new_mapping:dict[str,mappings.DpgNodeMap]):
     ''' batch version of the above. use only if you know what you're doing.
     '''
     mappings.DPG_NODE_KW_MAP.update(new_mapping)
+    # reinstantiates the grammar object to load the new stuff
+    _dpg_grammar = DpgLayoutGrammar() 
 
 
 ###---------Layout Functions---------###
@@ -59,6 +63,7 @@ def parse_layout_file(layout_file:str|Path):
     return parse_layout(Path(layout_file).read_text())
     
 def layout_items(parse_result, parent=None):
+    log.debug("Is parsed layout valid? %s", parse_result.is_valid)
     return tf.parse_dpg_elem(parse_result.tree.children[0], parent)
 
 def layout_items_from_file(layout_file:str|Path, parent=None):

@@ -32,6 +32,11 @@ DPG_NODE_KW_MAP = {
     "COL"     : _m(dpg.add_table_column, {}),
     "ROW"     : _m(dpg.add_table_row, {}),
     
+    "THEME"   : _m(bfn.add_theme, {}),
+    "THEME_COMPONENT" : _m(bfn.add_theme_component, {}),
+    "THEME_COLOR" : _m(bfn.add_theme_color, {}, slice(5)),
+    "THEME_STYLE" : _m(bfn.add_theme_style, {}, slice(3)),
+    
     ## the following are not containers. its children is its value.
     ## the third DpgNodeMap entry specifies the slice of the children to become the value
     ## in most cases it'd be slice(1) but for listbox & co it's slice(really_big_number)
