@@ -1,3 +1,4 @@
+# GUI assets
 [assets.fonts]
 regular = "assets/fonts/FiraMono-Regular.ttf"
 italic = "assets/fonts/FiraMono-Medium.ttf"
@@ -5,6 +6,16 @@ bold  = "assets/fonts/FiraMono-Bold.ttf"
 
 [assets.images]
 app_icon = "assets/images/BspTexRemap_64.ico"
+
+# about page list
+[[about_pages]]
+name = "About"
+layout_file = "assets/about.txt"
+help_menu_item = true
+[[about_pages]]
+name = "How to..."
+layout_file = "assets/howto.txt"
+help_menu_item = true
 
 # Material array definition
 # Half-Life

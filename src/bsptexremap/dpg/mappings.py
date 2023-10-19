@@ -1,3 +1,4 @@
+import dearpygui.dearpygui as dpg
 from enum import IntEnum, IntFlag, auto
 from collections import namedtuple
 
@@ -45,6 +46,7 @@ class BindingType(IntEnum):
     ConfigDialog              = auto()
     HelpDialog                = auto()
     AboutDialog               = auto()
+    AboutDialogListbox        = auto()
     AppTextureRegistry        = auto()
 
     BspOpenFileDialog         = auto()
@@ -66,13 +68,27 @@ class BindingType(IntEnum):
     SummaryTable              = auto()
     SummaryDetails            = auto()
 
-
 read_only_binding_types = (BindingType.FormatLabel,
                            BindingType.FormatValue)
 writeable_binding_types = (BindingType.Value,
                            BindingType.ValueIs,
                            BindingType.TextMappedValue)
 reflect_all_binding_types = read_only_binding_types + writeable_binding_types
+
+
+_kb = namedtuple("KeyBindMap", ["key","modifiers","text","kwargs"])
+key_binds_map = {
+    "open_bsp_file":    _kb(dpg.mvKey_O,  {dpg.mvKey_Control,}, "Ctrl+O", {}),
+    "save_bsp_file":    _kb(dpg.mvKey_S,  {dpg.mvKey_Control,}, "Ctrl+S", {}),
+    "save_bsp_file_as": _kb(dpg.mvKey_S,  {dpg.mvKey_Control,dpg.mvKey_Shift,}, 
+                                                                "Ctrl+Shift+S", {}),
+    "reload":           _kb(dpg.mvKey_R,  {dpg.mvKey_Control,}, "Ctrl+R", {}),
+    "close":            _kb(dpg.mvKey_W,  {dpg.mvKey_Control,}, "Ctrl+W", {}),
+    "close_modal":      _kb(dpg.mvKey_Escape, set(),            "Esc", {}),
+    "quit":             _kb(dpg.mvKey_F4, {dpg.mvKey_Alt,},     "Alt+F4", {}),
+    "show_about":       _kb(dpg.mvKey_F1, set(),                "F1", {}),
+}
+modifier_keys = {dpg.mvKey_Shift,dpg.mvKey_Control,dpg.mvKey_Alt,}
 
 _galshow = namedtuple("GalleryViewEntry", ["text", "short", "filter_fn"])
 gallery_show_map = [

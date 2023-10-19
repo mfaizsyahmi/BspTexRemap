@@ -1,27 +1,33 @@
+/* About page */
 GROUP [
-	"
-{GUI_APPNAME} {GUI_VERSION}
+	HGROUP[
+		IMG ["assets/images/BspTexRemap_64.png"]
+		"
+{GUI_APPNAME}
+{GUI_VERSION}
 {COPYRIGHT}
-
+		"
+	]
+	"
 {GUI_APPDESC}
 
 Part of {APPNAME} {VERSION}
 Released under MIT License
 	"
-	URL(target="{PROJECT_URL}",color=[255,0,0]) [
+	URL(target="{PROJECT_URL}") [
 		"  {PROJECT_URL}"
 	]
 	"
 Written in Python 3.11.5
 Uses DearPyGui v1.10.0 by hoffstadt under MIT License
 	"
-	URL(target="https://github.com/hoffstadt/DearPyGui",bullet) [ 
-		"  https://github.com/hoffstadt/DearPyGui"
+	URL(indent=12) [ 
+		"https://github.com/hoffstadt/DearPyGui"
 	]
-	"
-Uses DearPyGui-DragAndDrop by IvanNazaruk under MIT License
-	"
-	URL(target="https://github.com/IvanNazaruk/DearPyGui-DragAndDrop") [ 
-		"  https://github.com/IvanNazaruk/DearPyGui-DragAndDrop"
-	]
+	
+	"Uses DearPyGui-DragAndDrop by IvanNazaruk under MIT License"
+	URL(indent=12) [ "https://github.com/IvanNazaruk/DearPyGui-DragAndDrop" ]
+	
+	"Uses pyleri by Cesbit under MIT License"
+	URL(indent=12) [ "https://github.com/cesbit/pyleri" ]
 ]

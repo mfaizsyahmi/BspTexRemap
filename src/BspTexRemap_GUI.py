@@ -1,5 +1,6 @@
 import dearpygui.dearpygui as dpg
 import DearPyGui_DragAndDrop as dpg_dnd
+import DearPyGui_LP as dpg_lp
 
 import logging, sys
 from collections import namedtuple
@@ -388,45 +389,55 @@ def add_options_window(app,tag):
         dpg.add_text(consts.NOTES,wrap=0)
 
 
-def add_about_dialog(app,tag,mdfonts=None):
+def add_about_dialog(app,tag,basepath=None):
+    if basepath is None: basepath = get_base_path()
     ## Load images
     images = {
-        "app_icon": basepath.parent / "assets/images/BspTexRemap_64.png"
+        #"app_icon": basepath.parent / "assets/images/BspTexRemap_64.png"
     }
     image_ids = {}
     with dpg.texture_registry() as texreg:
         for name, path in images.items():
             w,h,c,d = dpg.load_image(str(path))
             image_ids[name] = dpg.add_static_texture(width=w,height=h,default_value=d)
-            
+
     ## About dialog
-    with dpg.window(label=f"About {consts.GUI_APPNAME}", tag=tag,
-                    show=False, width=500, height=420, no_scrollbar=True,
+    with dpg.window(label=f"{consts.GUI_APPNAME} Help", tag=tag,
+                    show=False, width=600, height=450, no_scrollbar=True,
                     no_saved_settings=True,
                     on_close=app.view.update_window_state) as dlg_about:
         _bind_last_item(app,_BT.AboutDialog)
-        
+
         with dpg.table(header_row=False,resizable=True):
             dpg.add_table_column(init_width_or_weight=80)
             dpg.add_table_column(init_width_or_weight=400)
-            
+
             with dpg.table_row():
-                with dpg.table(header_row=False):
-                    dpg.add_table_column()
-                    with dpg.table_row(): dpg.add_image(image_ids["app_icon"])
-                    with dpg.table_row(): dpg.add_listbox(["About"],width=-1)
-                    with dpg.table_row(): dpg.add_separator()
-                    with dpg.table_row():
-                        dpg.add_button(label="Close", width=64,
-                                       callback=lambda:dpg.hide_item(tag))
-            
-                #dpg.bind_item_font(dpg.last_item(),mdfonts)
                 with dpg.group():
-                    with dpg.child_window(tag="about:about"):
-                        dpg.add_text(consts.GUI_ABOUT,wrap=0)
+                    #dpg.add_image(image_ids["app_icon"])
+                    dpg.add_listbox([x["name"] for x in app.cfg["about_pages"]],
+                                    default_value=app.cfg["about_pages"][0]["name"],
+                                    width=-1,
+                                    callback=lambda s,a,u:app.do.show_about(a))
+                    _bind_last_item(app,_BT.AboutDialogListbox)
+
+                    dpg.add_spacer()
+                    dpg.add_button(label="Close", width=64,
+                                   callback=lambda:dpg.hide_item(tag))
+
+                with dpg.group() as content_group:
+                    consts_dict = {x:getattr(consts,x) for x in dir(consts) if x.isupper()}
+                    for i,pg_cfg in enumerate(app.cfg["about_pages"]):
+                        layout_text = Path(basepath.parent / pg_cfg["layout_file"])\
+                                      .read_text().format_map(consts_dict)
+                        layout_thing = dpg_lp.parse_layout(layout_text)
+                        
+                        page_tag = f"about:{pg_cfg['name']}"
+                        with dpg.child_window(tag=page_tag,show=not i):
+                            dpg_lp.layout_items(layout_thing, page_tag)
 
 
-def add_misc_dialogs(app, binds={}, basepath=None):
+def add_misc_dialogs(app, binds={}):
     _bind = lambda *args,**kwargs: _bind_last_item(app,*args,**kwargs) # shorthand
         
     ## Edit summary
@@ -491,18 +502,30 @@ def add_viewport_menu(app, dev_mode=False, basepath=None):
 
         with dpg.menu(label="BSP"):
 
-            _mi(label="Open",    callback=_bare_cb(app.do.open_bsp_file))
+            _mi(label="Open", 
+                shortcut=f'{mappings.key_binds_map["open_bsp_file"].text:>13s}',
+                callback=_bare_cb(app.do.open_bsp_file))
             ___() # separator
 
-            _mi(label="Save",    callback=lambda:app.do.save_bsp_file(app.data.backup))
-            _mi(label="Save As", callback=_bare_cb(app.do.save_bsp_file_as))
+            _mi(label="Save",    
+                shortcut=f'{mappings.key_binds_map["save_bsp_file"].text:>13s}',
+                callback=lambda:app.do.save_bsp_file(app.data.backup))
+            _mi(label="Save As", 
+                shortcut=f'{mappings.key_binds_map["save_bsp_file_as"].text:>13s}',
+                callback=_bare_cb(app.do.save_bsp_file_as))
             ___()
 
-            _mi(label="Reload",  callback=app.do.reload)
-            _mi(label="Close",  callback=lambda:app.do.close())
+            _mi(label="Reload",  
+                shortcut=f'{mappings.key_binds_map["reload"].text:>13s}',
+                callback=app.do.reload)
+            _mi(label="Close",   
+                shortcut=f'{mappings.key_binds_map["close"].text:>13s}',
+                callback=lambda:app.do.close())
             ___()
 
-            _mi(label="Exit",    callback=lambda:app.do.quit())
+            _mi(label="Exit",    
+                shortcut=f'{mappings.key_binds_map["quit"].text:>13s}',
+                callback=lambda:app.do.quit())
 
         with dpg.menu(label="Materials"):
 
@@ -568,7 +591,13 @@ def add_viewport_menu(app, dev_mode=False, basepath=None):
                     callback=lambda s,a,u:gui_utils.show_loading(a))
 
         with dpg.menu(label="Help"):
-            _mi(label="About",callback=lambda:app.do.show_about())
+            #_mi(label=pg_cfg["About",callback=lambda:app.do.show_about(0))
+            for pg_cfg in app.cfg["about_pages"]:
+                if "help_menu_item" not in pg_cfg \
+                or not pg_cfg["help_menu_item"]: continue
+                
+                cb = lambda page: lambda:app.do.show_about(page)
+                _mi(label=pg_cfg["name"], callback=cb(pg_cfg["name"]))
 
 
 def main(basepath):
@@ -607,6 +636,7 @@ def main(basepath):
     app.view.window_binds = window_binds
     dpg_dnd.initialize()
     dpg_dnd.set_drop(app.do.handle_drop)
+    dpg_lp.setup(asset_base_path = get_base_path().parent)
 
     colors.setup_themes(app.cfg)
     colors.setup_fonts(basepath.parent/"assets/fonts")
@@ -628,7 +658,7 @@ def main(basepath):
     add_about_dialog(app,about_dialog)
     add_misc_dialogs(app,{
         _BT.AboutDialog: about_dialog,
-    },basepath)
+    })
 
     #app.view.reflect()
     app.view.update_window_state(0,0)

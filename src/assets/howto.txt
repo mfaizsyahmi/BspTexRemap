@@ -1,0 +1,15 @@
+GROUP[
+    HEADER(label="Open a file") [
+        "
+1. Using the menu bar. eg:
+    Menu > Bsp > Open
+    Menu > Materials > Load materials.txt
+2. Drag and drop them into the application window.
+    Supported files: BSP, materials.txt, text files (will be prompted to confirm type)
+	NOTE: dropping a WAD file opens them up for viewing, discarding the loaded BSP.
+		"
+    ]
+    HEADER(label="Load external textures from WADs listed in the BSP") [
+        "Textures window > Show:... > select WADs > load selected"
+    ]
+]

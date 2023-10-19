@@ -1123,8 +1123,23 @@ class AppActions:
     def show_config(self, *_):
         dpg.show_item(self.view.get_dpg_item(BindingType.ConfigDialog))
 
-    def show_about(self, *_):
-        dpg.show_item(self.view.get_dpg_item(BindingType.AboutDialog))
+    def show_about(self, page=None):
+        dlg_tag = self.view.get_dpg_item(BindingType.AboutDialog)
+        dlg_lb_tag = self.view.get_dpg_item(BindingType.AboutDialogListbox)
+        if not dpg.is_item_shown(dlg_tag):
+            dpg.show_item(dlg_tag)
+            gui_utils.center_window(dlg_tag)
+
+        if page is None: return
+        with dpg.mutex():
+            for i, pg_cfg in enumerate(self.app.cfg["about_pages"]):
+                matched = page==pg_cfg['name'] or page==i
+                page_tag = f"about:{pg_cfg['name']}"
+                
+                dpg.configure_item(page_tag, show=matched)
+                if matched:
+                    dpg.set_value(dlg_lb_tag, pg_cfg['name'])
+    
 
     def close(self, confirm=None):
         if confirm is None and self.has_wip():
@@ -1142,7 +1157,16 @@ class AppActions:
             return
         
         dpg.stop_dearpygui() # stop the render loop
-        
+    
+    def close_modal(self): 
+        # closes all modal and popup windows
+        for win in dpg.get_windows():
+            win_cfg = dpg.get_item_configuration(win)
+            if (("modal" in win_cfg and win_cfg["modal"]) \
+             or ("popup" in win_cfg and win_cfg["popup"])) \
+            and dpg.is_item_shown(win):
+                dpg.hide_item(win)
+
 
     ## handles dropped txt files
     def open_text_file_as(self, filepath, type=None):
@@ -1175,6 +1199,7 @@ class AppActions:
 
     ### GLOBAL IO handlers ###
     def _init_global_handlers(self):
+        self.modifier_keys = set() # holds the currently pressed modifier keys
         with dpg.handler_registry() as global_handler:
             dpg.add_mouse_down_handler(callback=self.on_mouse_down)
             dpg.add_mouse_release_handler(callback=self.on_mouse_up)
@@ -1188,6 +1213,11 @@ class AppActions:
             dpg.add_mouse_wheel_handler(callback=self.on_mouse_wheel)
             dpg.add_mouse_move_handler(callback=self.on_mouse_move)
             dpg.add_mouse_drag_handler(callback=self.on_mouse_drag)
+            
+            dpg.add_key_down_handler   (callback=self.on_key_down)
+            dpg.add_key_release_handler(callback=self.on_key_up)
+            dpg.add_key_press_handler  (callback=self.on_key_press)
+
 
     def on_mouse_x(self,cbname,sender,data):
         try: self._mouse_callbacks[cbname](data)
@@ -1213,6 +1243,27 @@ class AppActions:
         ## clear on next frame
         dpg.set_frame_callback(dpg.get_frame_count()+2,
                                lambda: self.set_mouse_event_target())
+    
+    
+    def on_key_down(self,sender,data): # data on key down is [keycode, duration]
+        self.last_keybind_action = None
+        self.modifier_keys.add(data[0])
+    
+    def on_key_up(self,sender,data): # data on key up is keycode
+        self.last_keybind_action = None
+        self.modifier_keys.discard(data)
+    
+    def on_key_press(self,sender,data): # data on key press is keycode
+        # ignore calls on modifier keys
+        if data in mappings.modifier_keys: return
+        
+        for action, kb_cfg in mappings.key_binds_map.items():
+            if self.modifier_keys == kb_cfg.modifiers | {kb_cfg.key,} \
+            and self.last_keybind_action != action:
+                # call the action
+                getattr(self,action)(**kb_cfg.kwargs)
+                # sets this so that we don't spam call the action
+                self.last_keybind_action = action
 
 
 class AppCfg(dict):
