@@ -462,8 +462,8 @@ class TextureView:
         and not self.is_external and data:
             log.error("Current settings disallow unembedding textures! Discarding change.")
             return
-        # check that we know where the source of the external textures are
-        elif not self.external_src and data:
+        # check that we know where the source of the external textures are before embedding
+        elif not self.is_external and not data and not self.external_src:
             log.error("The external WAD source for this texture is unknown. Please load them first.")
             return
 
