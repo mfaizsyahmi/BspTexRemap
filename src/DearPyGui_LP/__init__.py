@@ -12,5 +12,7 @@ from .main import (
     parse_layout,
     parse_layout_file,
     layout_items,
-    layout_items_from_file
+    layout_items_from_file,
+    add_named_callback,
+    add_named_callbacks,
 )

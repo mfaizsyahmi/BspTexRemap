@@ -16,7 +16,7 @@ def get_node_name(node):
 _n = get_node_name
 
 def swap_kwargs_callback(kwargs):
-    ''' given kwargs, if callback is set and found in CALLBACKS mapping, 
+    ''' given kwargs, if callback is set and found in CALLBACKS mapping,
         then swap with the callable value
         (kawrgs is mutable so it's passed by ref)
     '''
@@ -24,7 +24,7 @@ def swap_kwargs_callback(kwargs):
         kwargs["callback"] = CALLBACKS[kwargs["callback"]]
 
 
-# DEBUG FUNCTION
+## DEBUG FUNCTIONS -------------------------------------------------------------
 # Returns properties of a node object as a dictionary:
 def node_props(node, path):
     this_name = node.element.name if hasattr(node.element, 'name') else None,
@@ -42,14 +42,15 @@ def node_props(node, path):
 
 # Recursive method to get the children of a node object:
 def get_children(children, path):
-    return [node_props(c, path) for c in children]    
+    return [node_props(c, path) for c in children]
+## END DEBUG FUNCTIONS ---------------------------------------------------------
 
 
 def parse_alnum(node):
     ''' only child is either r_str or r_num
     '''
     if _n(node.children[0]) == "r_str":
-        return node.children[0].string[1:-1]
+        return node.children[0].string[1:-1].replace('\\"', '"')
     elif _n(node.children[0]) == "r_num":
         if "." in node.children[0].string:
             return float(node.children[0].string)
@@ -139,7 +140,7 @@ def parse_bindings(node, item_tag):
     for binding in elem.children:
         bind_type = binding.children[1].string.lower()
         bind_tag  = parse_alnum(binding.children[3])
-        
+
         if bind_type in BINDINGS:
             # call the mapped binding fn
             BINDINGS[bind_type](item_tag, bind_tag)
@@ -157,10 +158,12 @@ def parse_dpg_elem(node,parent=None):
         log.debug("PARSING START OF LAYOUT. parent: %s", parent)
         # parse s_elem child nodes, as there could be top level comments
         elements = [x.children[0] for x in node.children if _n(x.children[0])=="s_elem"]
-        for elem in [x.children[0] for x in node.children if _n(x.children[0])=="s_elem"]:
+        for elem in elements:
             parse_dpg_elem(elem,parent)
         return
-        
+
+    elif _n(node) == "c_comment": return
+
     elif _n(node) == "c_value":
         if not parent:
             parent = dpg.last_container()
@@ -175,9 +178,11 @@ def parse_dpg_elem(node,parent=None):
         return self
 
     elif _n(node) != "s_elem" \
-    or node.children[0].string not in DPG_NODE_KW_MAP: 
-        log.warning("node fail match! node name: %s == s_elem", _n(node))
-        log.warning("node fail match! elem name: %s ", node.children[0].string)
+    or node.children[0].string not in DPG_NODE_KW_MAP:
+        # try:
+        #     log.warning("node fail match! node name: %s == s_elem", _n(node))
+        #     log.warning("node fail match! elem name: %s ", node.children[0].string)
+        # except: pass
         return
 
     dpg_fn, def_kwargs, child_content_slice = DPG_NODE_KW_MAP[node.children[0].string]

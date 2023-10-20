@@ -57,13 +57,18 @@ def add_grammar_elements(new_mapping:dict[str,mappings.DpgNodeMap]):
 
 ###---------Layout Functions---------###
 def parse_layout(layout_text:str):
-    return _dpg_grammar.parse(layout_text)
+    result = _dpg_grammar.parse(layout_text)
+    log.debug("Parse result:-",)
+    log.debug("- is_valid: %s", result.is_valid)
+    log.debug("- pos: %d", result.pos)
+    if not result.is_valid:
+        log.debug("- expecting: %s", result.expecting)
+    return result
 
 def parse_layout_file(layout_file:str|Path):
     return parse_layout(Path(layout_file).read_text())
     
 def layout_items(parse_result, parent=None):
-    log.debug("Is parsed layout valid? %s", parse_result.is_valid)
     return tf.parse_dpg_elem(parse_result.tree.children[0], parent)
 
 def layout_items_from_file(layout_file:str|Path, parent=None):

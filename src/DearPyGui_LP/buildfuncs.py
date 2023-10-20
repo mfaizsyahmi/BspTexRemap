@@ -113,24 +113,28 @@ def add_theme(**kwargs):
     del kwargs["parent"]
     return dpg.add_theme(**kwargs)
 
-def add_theme_component(color, **kwargs):
+def add_theme_component(**kwargs):
     item_type = kwargs["item_type"] if "item_type" in kwargs else 0
-    del kwargs["item_type"]
+    try: del kwargs["item_type"]
+    except KeyError: pass
     # get value of string consts
-    if isinstance(item_type, str): item_type = getattr(dpg,item_type)
-    return dpg.add_theme_color(item_type, **kwargs)
+    if isinstance(item_type, str): item_type = getattr(dpg, item_type, 0)
+    return dpg.add_theme_component(item_type, **kwargs)
     
 def add_theme_color(color, **kwargs):
     target = kwargs["target"] if "target" in kwargs else 0
-    del kwargs["target"]
+    try: del kwargs["target"]
+    except KeyError: pass
     # get value of string consts
-    if isinstance(target, str): target = getattr(dpg,target)
+    if isinstance(target, str): target = getattr(dpg, target, 0)
     return dpg.add_theme_color(target, color, **kwargs)
 
 def add_theme_style(values, **kwargs):
     target = kwargs["target"] if "target" in kwargs else 0
-    del kwargs["target"]
+    try: del kwargs["target"]
+    except KeyError: pass
     # get value of string consts
-    if isinstance(target, str): target = getattr(dpg,target)
+    if isinstance(target, str): target = getattr(dpg, target, 0)
     return dpg.add_theme_style(target, *values, **kwargs)
+
 
