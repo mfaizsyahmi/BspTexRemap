@@ -192,7 +192,7 @@ def add_textures_window(app, tag):
                 def _select_all_wads(value=True):
                     for child in dpg.get_item_children(grpWadlist, 1):
                         dpg.set_value(child,value)
-                    # unfortunately this needs to be done as well 
+                    # unfortunately this needs to be done as well
                     for thing in app.view.wadstats:
                         thing.selected = value
 
@@ -268,7 +268,7 @@ def add_textures_window(app, tag):
                                   callback=app.do.select_wannabes)
                 #with dpg.popup(dpg.last_item()):
                 #    dpg.add_Text("Hold Ctrl to unite selection")
-                                  
+
                 dpg.add_menu_item(label="Select none", user_data=False,
                                   callback=app.do.select_all_textures)
 
@@ -380,13 +380,23 @@ def add_options_window(app,tag):
 
         dpg.add_checkbox(label="Show edit summary")
         _bind(_BT.Value, _prop(app.data,"show_summary"))
-        
+
         dpg.add_button(label="Export custom materials",
                        callback=_bare_cb(app.do.export_custommat))
         _help("Generates custom material file that can be used\nwith BspTexRemap.exe (the console program)")
-        
+
         dpg.add_separator()
-        dpg.add_text(consts.NOTES,wrap=0)
+        dpg.add_text("Other:")
+        dpg.add_button(label="Open BSP in external viewer",
+                       callback=lambda:app.do.open_external_viewer(
+                                        app.data.bsppath,
+                                        app.cfg["bsp_viewer"] )
+                       )
+
+        dpg.add_separator()
+        with dpg.tree_node(label="NOTES",default_open=True):
+            _bind(_BT.OptionsNote)
+            dpg.add_text(consts.NOTES,wrap=0)
 
 
 def add_about_dialog(app,tag,basepath=None):
@@ -400,6 +410,21 @@ def add_about_dialog(app,tag,basepath=None):
         for name, path in images.items():
             w,h,c,d = dpg.load_image(str(path))
             image_ids[name] = dpg.add_static_texture(width=w,height=h,default_value=d)
+
+    # callback for buttons in howto's layout
+    def howto_expando(sender,_,data):
+        ''' callback fn to bind to dpg_lp, to be used on buttons laid out by it
+            so that we can expand/collapse all nodes.
+            data[0] is the target state (value)
+            data[1:] is a list of root items whose children will be acted on
+        '''
+        target_state = bool(data[0])
+        with dpg.mutex():
+            for parent in data[1:]:
+                for child in dpg.get_item_children(parent,1):
+                    if dpg.get_item_type(child) == "mvAppItemType::mvTreeNode":
+                        dpg.set_value(child, target_state)
+    dpg_lp.add_named_callback("about:howto.expando", howto_expando)
 
     ## About dialog
     with dpg.window(label=f"{consts.GUI_APPNAME} Help", tag=tag,
@@ -431,7 +456,7 @@ def add_about_dialog(app,tag,basepath=None):
                         layout_text = Path(basepath.parent / pg_cfg["layout_file"])\
                                       .read_text().format_map(consts_dict)
                         layout_thing = dpg_lp.parse_layout(layout_text)
-                        
+
                         page_tag = f"about:{pg_cfg['name']}"
                         with dpg.child_window(tag=page_tag,show=not i):
                             dpg_lp.layout_items(layout_thing, page_tag)
@@ -439,35 +464,35 @@ def add_about_dialog(app,tag,basepath=None):
 
 def add_misc_dialogs(app, binds={}):
     _bind = lambda *args,**kwargs: _bind_last_item(app,*args,**kwargs) # shorthand
-        
+
     ## Edit summary
     with dpg.window(label="Edit summary", show=False,
                     no_saved_settings=True) as dlg_save_summary:
         _bind(_BT.SummaryDialog)
-        
+
         dpg.add_group()
         _bind(_BT.SummaryBase)
-        
+
         with dpg.collapsing_header(label="Summary",default_open=True):
             dpg.add_table()
             _bind(_BT.SummaryTable)
-        
+
         with dpg.collapsing_header(label="Details"):
             dpg.add_group()
             _bind(_BT.SummaryDetails)
-        
+
         dpg.add_separator()
-        dpg.add_button(label="Close", callback=lambda:dpg.hide_item(dlg_save_summary))    
-    
-    
+        dpg.add_button(label="Close", callback=lambda:dpg.hide_item(dlg_save_summary))
+
+
     ## Config Dialog
     with dpg.window(label="Settings", show=False, width=400,
                     no_saved_settings=True) as dlg_config:
         _bind(_BT.ConfigDialog)
-        
+
         with dpg.collapsing_header(label="External programs",default_open=True):
             _browse = app.do.show_file_dialog
-            
+
             # Bsp viewer - text input + browse button
             this_binding = _prop(app.cfg,"bsp_viewer")
             dpg.add_text("BSP viewer")
@@ -490,7 +515,7 @@ def add_misc_dialogs(app, binds={}):
             '''
         dpg.add_separator()
         dpg.add_button(label="Close", callback=lambda:dpg.hide_item(dlg_config))
-        
+
 
 def add_viewport_menu(app, dev_mode=False, basepath=None):
     ''' main window layout '''
@@ -502,28 +527,28 @@ def add_viewport_menu(app, dev_mode=False, basepath=None):
 
         with dpg.menu(label="BSP"):
 
-            _mi(label="Open", 
+            _mi(label="Open",
                 shortcut=f'{mappings.key_binds_map["open_bsp_file"].text:>13s}',
                 callback=_bare_cb(app.do.open_bsp_file))
             ___() # separator
 
-            _mi(label="Save",    
+            _mi(label="Save",
                 shortcut=f'{mappings.key_binds_map["save_bsp_file"].text:>13s}',
                 callback=lambda:app.do.save_bsp_file(app.data.backup))
-            _mi(label="Save As", 
+            _mi(label="Save As",
                 shortcut=f'{mappings.key_binds_map["save_bsp_file_as"].text:>13s}',
                 callback=_bare_cb(app.do.save_bsp_file_as))
             ___()
 
-            _mi(label="Reload",  
+            _mi(label="Reload",
                 shortcut=f'{mappings.key_binds_map["reload"].text:>13s}',
                 callback=app.do.reload)
-            _mi(label="Close",   
+            _mi(label="Close",
                 shortcut=f'{mappings.key_binds_map["close"].text:>13s}',
                 callback=lambda:app.do.close())
             ___()
 
-            _mi(label="Exit",    
+            _mi(label="Exit",
                 shortcut=f'{mappings.key_binds_map["quit"].text:>13s}',
                 callback=lambda:app.do.quit())
 
@@ -534,7 +559,7 @@ def add_viewport_menu(app, dev_mode=False, basepath=None):
             _mi(label="Auto-load from BSP path",check=True)
             _bind(_BT.Value, _prop(app.data,"auto_load_materials"))
             ___()
-            
+
             _mi(label="Load custom materials",
                               callback=_bare_cb(app.do.load_custommat_file))
             _mi(label="Export custom materials",
@@ -550,7 +575,7 @@ def add_viewport_menu(app, dev_mode=False, basepath=None):
 
 
         with dpg.menu(label="Textures"):
-        
+
             _mi(label="Auto-load WADs from BSP path",check=True)
             _bind(_BT.Value, _prop(app.data,"auto_load_wads"))
 
@@ -570,17 +595,17 @@ def add_viewport_menu(app, dev_mode=False, basepath=None):
             ___()
             _mi(label="Save layout",
                 callback=lambda:dpg.save_init_file(init_path))
-                
+
             ___()
             _mi(label="Settings...", callback=app.do.show_config)
-            
+
         app.view.window_binds[_BT.TexturesWindow]["menu"] = v_t
         app.view.window_binds[_BT.MaterialsWindow]["menu"] = v_m
         app.view.window_binds[_BT.RemapsWindow]["menu"] = v_r
         app.view.window_binds[_BT.OptionsWindow]["menu"] = v_o
         app.view.window_binds[_BT.LogWindow]["menu"] = v_l
         #app.view.window_binds[_BT.AboutDialog]["menu"] = v_a
-        
+
         if dev_mode:
             with dpg.menu(label="Debug"):
                 _mi(label="GUI item registry",
@@ -595,7 +620,7 @@ def add_viewport_menu(app, dev_mode=False, basepath=None):
             for pg_cfg in app.cfg["about_pages"]:
                 if "help_menu_item" not in pg_cfg \
                 or not pg_cfg["help_menu_item"]: continue
-                
+
                 cb = lambda page: lambda:app.do.show_about(page)
                 _mi(label=pg_cfg["name"], callback=cb(pg_cfg["name"]))
 
@@ -627,7 +652,7 @@ def main(basepath):
         _BT.RemapsWindow   : {"window": remaps_window},
         _BT.OptionsWindow  : {"window": options_window},
         _BT.LogWindow      : {"window": log_window},
-        
+
         #_BT.AboutDialog    : {"window": about_dialog},
     }
 
@@ -641,7 +666,7 @@ def main(basepath):
     colors.setup_themes(app.cfg)
     colors.setup_fonts(basepath.parent/"assets/fonts")
     dpg.bind_font(colors.AppFonts.Regular.tag)
-    
+
 
     # setup log window
     gui_utils.DpgLogHandler.TAG = log_window
