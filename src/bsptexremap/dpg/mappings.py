@@ -22,6 +22,7 @@ CONFIG_MAP = (
     ("view", "gallery_sort_val"   ),
     ("view", "filter_unassigned"  ),
     ("view", "filter_radiosity"   ),
+#    ("view", "show_notes"         ),
     
     ("cfg", "bsp_viewer"          ),
 )
@@ -67,6 +68,10 @@ class BindingType(IntEnum):
     SummaryBase               = auto()
     SummaryTable              = auto()
     SummaryDetails            = auto()
+    
+    OptionsNote               = auto()
+    OptionsUserNote           = auto()
+    
 
 read_only_binding_types = (BindingType.FormatLabel,
                            BindingType.FormatValue)

@@ -4,7 +4,7 @@
     program would have in common.
 '''
 from . import consts
-from .enums import DumpTexInfoParts, MaterialEnum # dump_texinfo
+from .enums import DumpTexInfoParts # , MaterialEnum # dump_texinfo
 from .utils import *
 from .bsputil import *
 from .materials import MaterialConfig, MaterialSet, TextureRemapper

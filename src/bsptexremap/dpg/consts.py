@@ -65,7 +65,6 @@ the textures you're unembedding, or you'll have missing textures.
 """.strip()
 
 NOTES = """
-NOTES:
 0) Load WADs: Texture window > Show > Select WADs > Load Selected
 1) You can only rename embedded textures. To rename WAD textures, load the WAD first, then embed them.
 2) Focus on textures for surfaces that can be walked on, as step sounds have tactical value. (MDVGTS)
