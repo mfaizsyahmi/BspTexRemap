@@ -30,7 +30,7 @@ from operator import attrgetter
 from itertools import chain
 from concurrent.futures import ThreadPoolExecutor
 from math import log10, ceil
-import re, logging, json, tomllib
+import re, logging, json, tomllib, os, sys, subprocess
 
 log = logging.getLogger(__name__)
 BspFile = BspFileBasic
@@ -57,12 +57,12 @@ class AppModel:
 
     # info (generally read-only from other places)
     remap_entity_count  : int  = 0
-    matchars : str    = MaterialSet.MATCHARS # edit if loading OF/CZ/CZ/DS        
+    matchars : str    = MaterialSet.MATCHARS # edit if loading OF/CZ/CZ/DS
 
     def __post__init__(self):
         # configure MaterialConfig with the entries from the cfg
         # then setup it for the current game, which sets MaterialSet.MATCHARS appropriately
-        # we need to do this before dump_texinfo which now uses MaterialConfig 
+        # we need to do this before dump_texinfo which now uses MaterialConfig
         # to get the material names
         MaterialConfig.config(self.app.cfg["Materials"])
         MaterialConfig.setup()
@@ -290,13 +290,13 @@ class AppModel:
             log.info("=====================================")
             log.info("| Action       | Target   | Changed |")
             log.info("|--------------|----------|---------|")
-            log.info("| embeds       | %8d | %7d |", len(things_to_embed), 
+            log.info("| embeds       | %8d | %7d |", len(things_to_embed),
                                                      len(list_embedded))
-            log.info("| unembeds     | %8d | %7d |", len(things_to_unembed), 
+            log.info("| unembeds     | %8d | %7d |", len(things_to_unembed),
                                                      len(list_unembedded))
-            log.info("| renames      | %8d | %7d |", len(remap_dict), 
+            log.info("| renames      | %8d | %7d |", len(remap_dict),
                                                      len(dict_renamed))
-            log.info("| remap entity | %8s | %7d |", info_texture_remap_action.name, 
+            log.info("| remap entity | %8s | %7d |", info_texture_remap_action.name,
                                                      newcount - oldcount)
             log.info("'--------------'----------'---------'")
             if show_summary and self.show_summary:
@@ -313,7 +313,7 @@ class AppModel:
         return _r(newbsp, report) if include_report else _r(newbsp, None)
 
         ###------------------ END of commit_bsp_edits --------------------------
-    
+
     ###============================= END AppModel ==============================
 
 
@@ -389,7 +389,7 @@ class AppView:
 
     def __post_init__(self):
         self.wad_cache = PickledDict(_cache_path=self.app.cfg["basepath"].parent/"temp")
-        
+
 
     def bind(self, tag, type:BindingType, prop=None, data=None,
              update_predicate=None, reflect_predicate=None):
@@ -405,7 +405,8 @@ class AppView:
             self.bound_items[tag] = []
         self.bound_items[tag].append(BindingEntry(type, prop, data))
         if type in mappings.writeable_binding_types:
-            dpg.configure_item(tag, callback=self.update)
+            try: dpg.configure_item(tag, callback=self.update)
+            except: pass
 
 
     def update(self,sender,app_data,*_):
@@ -528,7 +529,7 @@ class AppView:
             self.update_gallery()
 
 
-    def load_textures(self, miptexes, 
+    def load_textures(self, miptexes,
                       update=False, new_source=None, precedence=999,
                       no_update_gallery=False):
         ''' populates app.view.textures with TextureView items.
@@ -756,7 +757,7 @@ class AppView:
     def update_wannabe_material_tables(self):
         ''' update the summary table display of wannabe set items '''
         mat_set = self.app.data.mat_set
-        
+
         ### SUMMARY TABLE ------------------------------------------------------
         table_entry_width = 1 if not len(mat_set) else ceil(log10(len(mat_set)))
         ra = lambda num: str(num).rjust(table_entry_width)
@@ -900,8 +901,8 @@ class AppActions:
         self._init_global_handlers()
 
     ### GUI callbacks that opens a file dialog ###
-    def show_file_dialog(self, type:BindingType, 
-                         init_path:str=None, init_filename:str=None, 
+    def show_file_dialog(self, type:BindingType,
+                         init_path:str=None, init_filename:str=None,
                          bound_prop:PropertyBinding=None):
         ''' shows a file dialog bound to the given binding type
             if init_path/filename is given, sets it
@@ -909,7 +910,7 @@ class AppActions:
                and also changes the callback to set the given bound_prop
         '''
         dlg = self.view.get_dpg_item(type)
-        
+
         defaults = {}
         if bound_prop:
             print(bound_prop)
@@ -922,7 +923,7 @@ class AppActions:
             if init_filename: defaults["default_filename"] = init_filename
 
         dpg.configure_item(dlg, **defaults)
-        
+
         dpg.show_item(dlg)
 
     def _file_dialog_defaults(self, path, name=None, mapfn=None):
@@ -954,25 +955,25 @@ class AppActions:
         '''
         return len(self.app.data.wannabe_set) \
         or next((x for x in self.app.view.textures if x.become_external is not None),None)
-    
+
     def open_bsp_file(self, bsppath:str|Path=None, confirm=None): # dialog callback
         ''' load bsp, then load wadstats '''
         if self.app.data.bsp and self.has_wip() and confirm is None:
             cb = gui_utils.wrap_message_box_callback(self.open_bsp_file,bsppath)
-            gui_utils.confirm(consts.GUI_APPNAME, 
+            gui_utils.confirm(consts.GUI_APPNAME,
                               "Are you sure you want to open a new BSP?", cb)
             return
-        
+
         elif not bsppath:
             self.show_file_dialog(BindingType.BspOpenFileDialog) # callbacks already set
             return
-            
+
         self.app.data.load_bsp(bsppath)
 
     def reload(self, *_): # menu callback
         if self.app.data.bsppath:
             self.app.data.load_bsp(self.app.data.bsppath) # kickstarts a lot of loading
-            
+
     def save_bsp_file(self, backup:bool=None, confirm=None):
         ## checking it ---------------------------------------------------------
         if not self.app.data.bsppath: return # nothing to save
@@ -1135,30 +1136,40 @@ class AppActions:
             for i, pg_cfg in enumerate(self.app.cfg["about_pages"]):
                 matched = page==pg_cfg['name'] or page==i
                 page_tag = f"about:{pg_cfg['name']}"
-                
+
                 dpg.configure_item(page_tag, show=matched)
                 if matched:
                     dpg.set_value(dlg_lb_tag, pg_cfg['name'])
-    
+
+    def open_external_viewer(self, filepath, viewer_path=None):
+        if not filepath: return
+        elif not viewer_path:
+            if sys.platform=="win32":
+                os.startfile(filepath)
+            else:
+                subprocess.Popen(["open", filepath])
+        else:
+            subprocess.Popen([viewer_path, filepath],
+                             cwd=Path(viewer_path).parent)
 
     def close(self, confirm=None):
         if confirm is None and self.has_wip():
             cb = gui_utils.wrap_message_box_callback(self.close)
             gui_utils.confirm("Close BSP", "Are you sure you want to close?", cb)
             return
-            
+
         self.app.reset()
 
     def quit(self, confirm=None):
         if confirm is None and self.has_wip():
             cb = gui_utils.wrap_message_box_callback(self.quit)
-            gui_utils.confirm(f"Exit {consts.GUI_APPNAME}", 
+            gui_utils.confirm(f"Exit {consts.GUI_APPNAME}",
                               "Are you sure you want to exit?", cb)
             return
-        
+
         dpg.stop_dearpygui() # stop the render loop
-    
-    def close_modal(self): 
+
+    def close_modal(self):
         # closes all modal and popup windows
         for win in dpg.get_windows():
             win_cfg = dpg.get_item_configuration(win)
@@ -1213,7 +1224,7 @@ class AppActions:
             dpg.add_mouse_wheel_handler(callback=self.on_mouse_wheel)
             dpg.add_mouse_move_handler(callback=self.on_mouse_move)
             dpg.add_mouse_drag_handler(callback=self.on_mouse_drag)
-            
+
             dpg.add_key_down_handler   (callback=self.on_key_down)
             dpg.add_key_release_handler(callback=self.on_key_up)
             dpg.add_key_press_handler  (callback=self.on_key_press)
@@ -1243,20 +1254,20 @@ class AppActions:
         ## clear on next frame
         dpg.set_frame_callback(dpg.get_frame_count()+2,
                                lambda: self.set_mouse_event_target())
-    
-    
+
+
     def on_key_down(self,sender,data): # data on key down is [keycode, duration]
         self.last_keybind_action = None
         self.modifier_keys.add(data[0])
-    
+
     def on_key_up(self,sender,data): # data on key up is keycode
         self.last_keybind_action = None
         self.modifier_keys.discard(data)
-    
+
     def on_key_press(self,sender,data): # data on key press is keycode
         # ignore calls on modifier keys
         if data in mappings.modifier_keys: return
-        
+
         for action, kb_cfg in mappings.key_binds_map.items():
             if self.modifier_keys == kb_cfg.modifiers | {kb_cfg.key,} \
             and self.last_keybind_action != action:
@@ -1277,14 +1288,14 @@ class App:
     def __init__(self, basepath=None):
         if not basepath:
             basepath = Path(sys.modules['__main__'].__file__)
-        
+
         # setup config first, as MVC might depend on its values
         self.cfg = AppCfg({
             "basepath": basepath,
             "cfgpath": basepath.with_name("BspTexRemap.cfg.toml"),
             "usercfgpath": basepath.with_suffix(".cfg.json"),
             "use_multithread" : True, # unused
-            
+
             "bsp_viewer" : ""
         })
         if not Path(self.cfg["cfgpath"]).exists():
@@ -1295,7 +1306,7 @@ class App:
         self.data = AppModel(self)
         self.view = AppView(self) # reads cfg.basepath for wad_cache
         self.do = AppActions(self,self.view)
-        
+
         self.load_config()
 
         TextureView.class_init(
@@ -1307,7 +1318,7 @@ class App:
 
 
     ## loading and saving config
-    def load_config(self):        
+    def load_config(self):
         # load the user config json
         usercfgpath = self.cfg["usercfgpath"]
 
@@ -1337,17 +1348,17 @@ class App:
         self.data.mat_set      = MaterialSet()
         self.data.wannabe_set  = MaterialSet()
         self.data.direct_remap = dict()
-        
+
         list(x.delete() for x in self.view.wadstats)
         self.view.wadstats = []
         self.view.textures = []
         dpg.delete_item(self.view.dpg_texture_registry, children_only=True)
-        
+
         if reflect:
             self.view.reflect()
             self.view.update_gallery()
             self.view.render_material_tables()
             self.view.update_wannabe_material_tables()
-            
+
         log.info("App reset.")
 
