@@ -1,7 +1,7 @@
 ''' materials.py
     classes that deal with materials go here
 '''
-from . import consts, common
+from . import consts #, common
 from .utils import char_padder
 from .enums import MaterialEnum
 #from .common import modpath_fallbacks

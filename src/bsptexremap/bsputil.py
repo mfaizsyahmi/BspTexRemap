@@ -2,12 +2,12 @@
     BspFile related util functions
     
 '''
-from . import consts
-from .materials import MaterialSet
+from . import consts, materials
 from jankbsp import BspFile
 from jankbsp.enums import Lumps, BlueShiftLumps
 from pathlib import Path
 import re
+
 
 ##------------------------------
 ## routines working with bsppath
@@ -57,7 +57,7 @@ def list_textures(miptexlist):
     return map(lambda t:t.name,miptexlist)
 
 def list_texgroups(miptexlist):
-    return set([MaterialSet.strip(t.name.upper()) for t in miptexlist])
+    return set([materials.MaterialSet.strip(t.name.upper()) for t in miptexlist])
 
 def remap_texnames(func, miptexlist):
     for miptex in miptexlist:

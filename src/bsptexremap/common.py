@@ -3,23 +3,20 @@
     basically whatever functionality a command shell program and a compiler
     program would have in common.
 '''
-from . import consts
+from . import consts, bsputil
 from .enums import DumpTexInfoParts # , MaterialEnum # dump_texinfo
-from .utils import *
-from .bsputil import *
 from .materials import MaterialConfig, MaterialSet, TextureRemapper
 
 # get_textures_from_wad
 from jankbsp import WadFile
 from jankbsp.types.wad import WadMipTex
 
-import re, sys
 from argparse import ArgumentParser
 from pathlib import Path, PurePath
 from shutil import copy2 as filecopy # backup_bsp
 from functools import reduce
-from logging import getLogger
-log = getLogger(__name__)
+import re, sys, logging
+log = logging.getLogger(__name__)
 
 def parse_arguments(gui=False):
     ''' parse command line arguments and returns the parsed data
@@ -53,7 +50,6 @@ def parse_arguments(gui=False):
     )
 
     if not gui:
-        # texinfo_type = flag_str_parser(DumpTexInfoParts)
         texinfo_meta = f"{{{','.join([e.name.lower() for e in DumpTexInfoParts])}}}"
         parser.add_argument(
             "-dump_texinfo", metavar=texinfo_meta, default=0,
@@ -237,7 +233,7 @@ def search_wads(bsp_path, wadlist):
 #def load_wannabe_set_from_bsp_entities(bsp):
 #    ''' unused '''
 #    wannabe_set = MaterialSet()
-#    for texremap_ent in iter_texremap_entities(bsp.entities):
+#    for texremap_ent in bsputil.iter_texremap_entities(bsp.entities):
 #        wannabe_set |= MaterialSet.from_entity(texremap_ent)
 #    return wannabe_set
 
@@ -253,12 +249,12 @@ def load_wannabe_sets(bsp,bsppath,arg_val,first_found=True):
 
     for step in range(3):
         if step == 0:
-            for texremap_ent in iter_texremap_entities(bsp.entities):
+            for texremap_ent in bsputil.iter_texremap_entities(bsp.entities):
                 wannabe_set |= MaterialSet.from_entity(texremap_ent)
         elif step == 1:
-            if bsp_custommat_path(bsppath).exists():
+            if bsputil.bsp_custommat_path(bsppath).exists():
                 wannabe_set |= MaterialSet\
-                .from_materials_file(bsp_custommat_path(bsppath))
+                .from_materials_file(bsputil.bsp_custommat_path(bsppath))
         elif step == 2:
             if arg_val and Path(arg_val).exists():
                 wannabe_set |= MaterialSet.from_materials_file(arg_val)
@@ -315,7 +311,7 @@ def dump_texinfo(bsppath,
     me = MaterialConfig.get_material_names_mapping()
     mode = "w" if parts&1024 else "a"
     if not outpath:
-        outpath = bsp_texinfo_path(bsppath)
+        outpath = bsputil.bsp_texinfo_path(bsppath)
 
     with open(outpath, mode) as f:
         log.info(f"Dumping texture info for {bsppath.name} --> {outpath.name}")
