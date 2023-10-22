@@ -1,5 +1,5 @@
-BspTexRemap.exe
- version 0.2
+BspTexRemap
+ version 0.3
  (c) M Faiz Syahmi @ kimilil, 2023
 
 ABOUT
@@ -14,13 +14,13 @@ or supplied in an external file.
 
 USAGE
 =====
-usage: BspTexRemap.py [-h] [-backup]
-                      [-log {off,critical,fatal,error,warn,warning,info,debug}]
-                      [-dump_texinfo {embedded,external,grouped,uniquegrouped}]
-                      [-materials_path MATERIALS_PATH]
-                      [-custommat_path CUSTOMMAT_PATH] [-custommat_read_all]
-                      [-out OUTPATH]
-                      bsppath
+usage: BspTexRemap.exe [-h] [-backup]
+                       [-log {off,critical,fatal,error,warn,warning,info,debug}]
+                       [-dump_texinfo {embedded,external,grouped,uniquegrouped}]
+                       [-materials_path MATERIALS_PATH]
+                       [-custommat_path CUSTOMMAT_PATH] [-custommat_read_all]
+                       [-out OUTPATH]
+                       bsppath
 
 positional arguments:
   bsppath               BSP file to operate on
@@ -45,9 +45,12 @@ options:
                         overwriting
 
 
+There's also BspTexRemap_GUI.exe, a GUI program that lets you view textures in GoldSrc BSP files, including external WAD textures, loads materials.txt, assigns custom materials to the textures in the BSP, exports and imports _custommat.txt files, and commit changes to BSP files. 
+
 LICENSE
 =======
- The MIT License (MIT)
+ (c) M Faiz Syahmi @ kimilil, 2023
+ Released under MIT License (MIT)
 
   see BspTexRemap_license.txt for full license text.
 

@@ -1,5 +1,9 @@
 F.A.Q. (Fairly Anticipated Questions)
 =====================================
+by kimilil
+last revision: 2023-10-22
+-------------------------------------
+
 Q: Why would I want to do this?
 A: So that you can try to avoid having to touch your materials.txt file to add texture materials.
 
@@ -55,4 +59,11 @@ A: As far as I know, this system would work on any mod that doesn't modify the m
 
 Q: Can I run this program on Linux/OSX?
 A: 
-   If you have a recent-ish version of python 3 installed, you can run the provided python source script directly. Please find it at the src/ subfolder. Make sure you have all the dependencies listed in requirements.txt (pip install -r requirements.txt to install those dependencies).
+   If you have a recent-ish version of python 3 installed, you can download and run the python source script directly. Make sure you have all the dependencies listed in requirements.txt (pip install -r requirements.txt to install those dependencies).
+
+
+Q: There's two programs now! Which one should I choose?
+A: 
+   If you just want to rename textures in BSPs you downloaded, go for the GUI program. 
+
+   If you're creating maps, it's still recommended to use the GUI program once to generate the _custommat.txt file, once the textures are locked in, and to use the non-graphical CLI program in your compilation steps to do the actual renaming work.
