@@ -1,0 +1,34 @@
+This document is a guide on how to change texture names in maps to ones with desired material types using BSPTexRemap GUI.
+
+STEP-BY-STEP INSTRUCTIONS
+-------------------------
+
+1.  Run BspTexRemap GUI.
+
+2.  Open a BSP file. There are two ways:
+    a) Using the menu (BSP > Open)
+    b) Drag the file from your file manager to the BspTexRemap GUI window.
+
+    The Textures window will be populated with the textures inside the BSP file. Some (or almost all) textures might not be loaded and respresented with a white crossed rectangle. These are external textures.
+
+3.  If the BSP file is well placed inside a mod's maps folder, you can load the missing external textures from their WADs. The program might automatically do this for you. 
+    To load these external WADs, use the Textures window menu (Show > Select WADs > load selected)
+
+    The textures window/panel will update previously missing textures with those found from the WADs you loaded.
+
+4.  Load materials.txt. The program might automatically do this for you. 
+    To manually load a materials.txt file, use the menu (Materials > Load materials.txt)
+
+    The Materials window will be updated with a summary of the all entries, and those suitable for renames.
+
+5.  Start assigning the desired material types for the textures in the Textures window. On the last row of each entry is a slider. Move the slider's thumb until the character beside the slider shows the character corresponding to the desired material. The material slider's colour will also change to reflect the assigned material, and a new entry will appear in the Remaps window/panel. 
+
+    Note that the program will apply the assigned materials to all textures of the same group for animating/tiling textures.
+
+    If the current texture is unable to be renamed (because they're not embedded into the BSP, for example), the aforementioned material slider will be disabled.
+
+    Repeat this for all the textures you want to remap materials to.
+
+6.  Export or save your changes. The export option outputs a file that can be used to run the compiler/CLI version of BspTexRemap. The save option applies the changes from within the GUI program.
+    a) You can access the save functions in the menu (BSP > Save/Save as) or from the Options/Actions pane.
+    b) You can access the export option in the menu (Materials > Export custom materials), in the Remaps pane (Export button at the bottom), or in the Options/Actions pane.

@@ -99,6 +99,7 @@ class TestApp(unittest.TestCase):
         ]
         result = subprocess.run(cmdspec, capture_output=CAPTURE_OUTPUT)
         self.assertEqual(result.returncode, 0)
+        self.assertTrue(self.bsppath_other.exists())
         
         # check that texture groups are preserved
         self.subTestTexgroup(self.bsppath_other)        
@@ -125,6 +126,7 @@ class TestApp(unittest.TestCase):
         ]
         result = subprocess.run(cmdspec, capture_output=CAPTURE_OUTPUT)
         self.assertEqual(result.returncode, 0)
+        self.assertTrue(self.bsppath_other.exists())        
         
         # part 3: check that texture groups are preserved
         self.subTestTexgroup(self.bsppath_other)

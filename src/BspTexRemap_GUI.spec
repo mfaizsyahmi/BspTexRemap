@@ -5,7 +5,7 @@ block_cipher = None
 
 
 a = Analysis(
-    ['BspTexRemap.py'],
+    ['BspTexRemap_GUI.py'],
     pathex=['venv/lib/site-packages'],
     binaries=[],
     datas=[],
@@ -26,17 +26,18 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name='BspTexRemap',
+    name='BspTexRemap_GUI',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
-    console=True,
+    console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    icon=['assets\\images\\BspTexRemap_64.ico'],
 )
 coll = COLLECT(
     exe,
@@ -46,5 +47,5 @@ coll = COLLECT(
     strip=False,
     upx=True,
     upx_exclude=[],
-    name='BspTexRemap',
+    name='BspTexRemap_GUI',
 )

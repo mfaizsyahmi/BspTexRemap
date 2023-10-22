@@ -8,7 +8,10 @@ on:
 #     branches: [ "main-py" ]
 #   pull_request:
 #     branches: [ "main-py" ]
-    
+
+permissions:
+  contents: write
+
 # adapted from https://github.com/pyinstaller/pyinstaller/issues/6296#issuecomment-943620645
 jobs:
   build:
@@ -42,4 +45,4 @@ jobs:
         files: |
           *.txt
           *.fgd
-          dist/*
+          ./dist/*
