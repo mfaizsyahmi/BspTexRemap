@@ -886,8 +886,10 @@ class AppView:
                     elif isinstance(data,dict):
                         dpg.add_text("\n".join([f"{x:15s} : {y}" \
                                                 for x,y in data.items()]))
-
-        dpg.show_item(self.get_dpg_item(BindingType.SummaryDialog))
+        
+        dlg = self.get_dpg_item(BindingType.SummaryDialog)
+        dpg.show_item(dlg)
+        gui_utils.center_window(dlg)
 
 
 ###=============================================================================
@@ -1122,7 +1124,10 @@ class AppActions:
         self.view.update_gallery_items(selected=True)
 
     def show_config(self, *_):
-        dpg.show_item(self.view.get_dpg_item(BindingType.ConfigDialog))
+        dlg = self.view.get_dpg_item(BindingType.ConfigDialog)
+        dpg.show_item(dlg)
+        gui_utils.center_window(dlg)
+
 
     def show_about(self, page=None):
         dlg_tag = self.view.get_dpg_item(BindingType.AboutDialog)

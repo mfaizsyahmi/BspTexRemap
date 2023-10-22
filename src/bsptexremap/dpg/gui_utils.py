@@ -391,10 +391,10 @@ def message_box(title, message, selection_callback:callable=None,
 
     # guarantee these commands happen in another frame
     dpg.split_frame()
-    center_window(modal_id)
+    dpg.show_item(modal_id)
     
     #dpg.split_frame()
-    dpg.show_item(modal_id)
+    center_window(modal_id)
 
 
 def confirm(title, message, selection_callback:callable):
