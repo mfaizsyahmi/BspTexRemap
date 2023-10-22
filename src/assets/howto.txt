@@ -1,0 +1,248 @@
+/* How-to page for BspTexRemap_GUI v0.1
+ * Written by kimilil
+ * This file uses markup defined in DearPyGui_LP
+ */
+
+GROUP(tag="about:howto.base") [
+
+	/* Expand/collapse all buttons at the top ------------------------------- */
+	
+    HGROUP[
+        BUTTON(label="Expand all",
+               callback="about:howto.expando",
+               user_data=[1,"about:howto.part1","about:howto.part2"]) []
+        BUTTON(label="Collapse all",
+               callback="about:howto.expando",
+               user_data=[0,"about:howto.part1","about:howto.part2"]) []
+    ]
+
+	/* Part 1: Interacting with the program --------------------------------- */
+	
+    -HEADER(label="Part 1: Interacting with the program",
+            tag="about:howto.part1") [
+
+        NODE(label="Open a file") [
+            "
+1. Using the menu bar, eg:
+    Menu > Bsp > Open
+    Menu > Materials > Load materials.txt
+2. Drag and drop them into the application window.
+    Supported files: BSP, materials.txt, text files (will be prompted to confirm type)
+    NOTE: dropping a WAD file opens them up for viewing, discarding the loaded BSP.
+            " SPACER[]
+        ]
+
+        NODE(label="Load external textures from WADs listed in the BSP") [
+            "Textures window > Show:... > select WADs > load selected"
+             SPACER[]
+        ]
+
+        NODE(label="View all textures in BSP") [
+            "
+To set the texture view to show everything:
+ 1. Textures window > Show:... > (X) All
+ 2. Textures window > Show:... > [X] All > load selected
+ 3. Textures window > Filter > clear the text box and uncheck everything
+ 4. Textures window > Refresh
+            " SPACER[]
+        ]
+
+        NODE(label="View remappable textures") [
+            "
+To set the texture view to show textures that you can assign materials to:
+ 1. Textures window > Show:... > (X) Embedded
+ 3. Textures window > Filter > [X] Textures without materials only
+ 3. Textures window > Filter > [X] Exclude radiosity textures
+ 4. Textures window > Refresh
+            " SPACER[]
+        ]
+
+        NODE(label="Filter entries") [
+            "
+There are two places where you can filter entries:
+ - The Materials list
+ - The Textures view:
+     Textures window > Filter
+ 
+A match is found if the typed filter entry is within the names of the material/texture entries.
+
+You can type multiple entries separated with spaces. Material/texture entries matching any one filter entries will be shown.
+            " SPACER[]
+        ]
+
+        NODE(label="Discern which textures can be remapped") [
+            "
+The program (and its programmer) deems a remappable (and renamable) textures as follows:
+ - It's embedded into the BSP. Renaming external textures will result in missing textures.
+ - Its not any of the special named textures (e.g. sky, black, scrolling textures). Renaming these will break their special properties, possibly crashing the game.
+
+Embedded textures are indicated in several ways:
+ - Their name is displayed in the texture view with a clear white text colour.
+ - The bottom right of the texture view displays an [M] box.
+
+The program also indicates to you un-remappable textures by:
+ - Disabling the material slider and graying it out
+ - Displaying the label of the material slider in lowercase letter or an underscore _
+            " SPACER[]
+        ]
+
+        NODE(label="Assign materials to textures") [
+            "
+In the textures view, on the last row for each texture entry, is a material slider. The color of the slider thumb, and the label beside it, corresponds to the materials you want to assign to it. To assign a material, simply move the slider thumb by either:
+ a) Clicking and dragging the slider thumb.
+ b) With the Control key down, hovering the mouse cursor over the slider and moving the mouse wheel.
+ 
+Note that this change doesn't ake effect on the actual BSP file until you save.
+            " SPACER[]
+        ]
+
+        NODE(label="View materials assigned to textures") [
+            "
+Use the Remaps panel. To show the Remaps panel:
+    Menu > View > [X] Remaps
+The Remaps panel lists all the custom materials you've assigned.
+            " SPACER[]
+        ]
+
+        NODE(label="Export custom materials list") [
+            "
+There are several ways:
+ 1. Using the menu:
+      Menu > Materials > Export custom materials
+ 2. Using the Remaps panel - Press the Export button at the bottom.
+ 3. Using the Options/Actions panel - Press the Export custom materials button.
+            " SPACER[]
+        ]
+
+        NODE(label="Import custom materials list") [
+            "
+There are several ways:
+ 1. Using the menu:
+      Menu > Materials > Load custom materials
+ 2. Using the Remaps panel - Press the Import button at the bottom.
+ 3. Drag and drop the file into the window.
+            " SPACER[]
+        ]
+		
+        NODE(label="Embed external WAD textures into the BSP") [
+            "
+In the texture view, click on the [X] label at the bottom right corner of the texture entry to display a popup, then select 'Embedded' option on the popup.
+
+You can afterwards assign or reassign materials to the texture.
+
+Notes:
+ - You need to load the WAD file contaning the textures first.
+ - The change doesn't take effect on the actual BSP file until you save.
+            " SPACER[]
+        ]
+		
+        NODE(label="Save edit progress") [
+			"
+There is no save format yet, but you can export the custom materials list. Later, you can load the BSP and then import back the custom materials list and continue working on it.
+
+IMPORTANT NOTE: Texture embed/unembed assignment states are not saved.
+			" SPACER[]
+		]
+		
+        NODE(label="Commit edits to the BSP file") [
+			"
+There are several ways:
+ 1. Using the menu:
+      Menu > BSP > 'Save' or 'Save As'
+ 2. Using the Options/Actions panel - Press the 'Save' or 'Save As' button.
+ 
+It is *highly recommended* to have 'backup' option enabled, just in case you *ucked up.
+
+NOTES: 
+ - The changes committed currently doesn't reflect on the current view in either case.
+ - If you overwrite the original file, subsequent saves *will not work* until you reload the file. 
+ - If you overwrite the original file, the custom texture rename list will not match renamed textures, because they've been... renamed. 
+ - Currently, the program doesn't revert renamed textures even if it's recorded in the info_texture_remap entity.
+			" SPACER[]
+		]
+		
+    ]
+	
+	/* Part 2: Using the program for GoldSrc modding tasks ------------------- */
+	
+	-HEADER(label="Part 2: Program workflows",
+            tag="about:howto.part2") [
+			
+        NODE(label="One-time remapping of a BSP's textures") [
+			"
+1. Open the BSP file.
+2. Load a materials.txt file.
+3. Assign materials to textures embedded in the BSP file.
+4. Commit changes and save the BSP file.			
+			"
+		]
+		
+        NODE(label="Repeated remappings (iterative mapping design)") [
+		
+			-NODE(label="Preface") [
+				HR[]
+				"
+This is IMO the preferred workflow, of using this GUI program occasionally, and the CLI program in the routine compile step. The in-editor info_texture_remap entity is a close second, though it requires a bit more typing and much cross-referencing, which this GUI program sought to eliminate as much as possible.
+				"
+				SPACER(height=12) []
+			]
+			
+			-NODE(label="Prepare custom materials file") [
+				HR[]
+				"
+You want to do this after you've locked your texture work in. If you add new textures afterwards, you would have to run this again to add those new textures.
+
+The idea here is to generate a <mapname>_custommat.txt file for your map. The steps are:
+1. Open the BSP file.
+2. Load a materials.txt file.
+3. Assign materials to textures embedded in the BSP file.
+4. Export the custom materials file.
+				"
+				SPACER(height=12) []
+			]
+			
+			-NODE(label="Set up compilation to run bsptexremap.exe") [
+				HR[]
+				"
+This part is for the map editor JACK. For Valve Hammer Editor 3.x, adapt the steps as necessary. For other map editors not derived from WorldCraft, consult the respective editor's manuals on how to add compilation commands.
+
+This guide assumes you already have an advanced compilation configuration set up.
+For more information, see:
+				"
+				URL(indent=12) [
+"https://twhl.info/wiki/page/VERC%3A_The_Advanced_Compile_Dialogue"
+				]
+				SPACER(height=12) []
+				
+				"
+1. Open the advanced compile dialog. (File > Run..., or press F9). 
+   If the normal compile dialog appears, press the Expert button.
+
+2. Add a new command. The command name should point to the path to BSPTexRemap.exe.
+   i)   Under Compile/Run commands, press the New button.
+   ii)  Under Command Properties, press Cmds > Executable...
+   iii) In the file browse dialog, select BSPTexRemap.exe.
+
+3. The arguments should follow standard arguments for the other compilers e.g.:
+     \"$bspdir/$file\"
+   (Include the quotes)
+
+4. IMPORTANT: Move the command to run AFTER the RAD program (qrad/hlrad).
+   Your RAD compilation would fail if BSPTexRemap.exe is run before it, as the texture names would have changed.
+   i)   Select the list entry for BSPTexRemap.exe.
+   ii)  Press the Up button until it's placed just under the $light_exe entry.
+
+5. IMPORTANT: Check the 'Use Process Window' option, otherwise your compile log won't include output from this tool.
+
+6. Check that the command is checked, if you want to run it. Uncheck if you want to skip it.
+
+7. Run the compile.
+				"
+                SPACER(height=12) []
+			]
+		]
+	]
+	
+    HR[]
+    "Written by kimili"
+]

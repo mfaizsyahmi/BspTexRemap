@@ -1,0 +1,2 @@
+# Windows paths should use literal strings, which uses 'single quotes'.
+7zip_path = 'c:\Program Files\PeaZip\res\bin\7z\7z.exe'

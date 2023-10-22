@@ -93,7 +93,15 @@ class BspFile:
         header = BspFile.HEADER_STRUCT.pack(BspFile.MAGIC, *lump_dirlist)
         fp.seek(0)
         fp.write(header)
-        
+    
+    def clone(self, fp):
+        ''' returns a new instance of the bsp file by way of dumping to a buffer,
+            then loading a new instance off that buffer 
+        '''
+        self.dump(fp)
+        cloned = PakFile().load(fp)
+        return cloned
+    
     @property
     def entities(self): return self.lumps[Lumps.Entities].entries
     @property

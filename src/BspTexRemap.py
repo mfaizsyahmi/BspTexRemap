@@ -3,91 +3,15 @@
 '''
 from bsptexremap import consts
 from bsptexremap.enums import DumpTexInfoParts
-from bsptexremap.materials import MaterialSet, TextureRemapper
+from bsptexremap.materials import MaterialConfig, MaterialSet, TextureRemapper
 from bsptexremap.utils import *
 from bsptexremap.bsputil import *
-from bsptexremap.common import *
-from argparse import ArgumentParser
+from bsptexremap.common import * # parse_arguments etc
 from jankbsp import BspFileBasic as BspFile
 from pathlib import Path
-import logging
+import logging, tomllib
 
-
-def parse_arguments():
-    ''' parse command line arguments and returns the parsed data
-    '''
-    parser = ArgumentParser(add_help=False)
-    
-    # flags and switches (takes no value)
-    parser.add_argument(
-        "-h", "-help", action="help",
-        help="show this help message and exit",
-    )
-    
-#    parser.add_argument(
-#        "-low", action="store_const", dest="priority", const="low",
-#        help="set process priority level to low",
-#    )
-#    parser.add_argument(
-#        "-high", action="store_const", dest="priority", const="high",
-#        help="set process priority level to high",
-#    )
-    parser.add_argument(
-        "-backup", action="store_true",
-        help="makes backup of BSP file",
-    )
-    
-    # arguments that take value
-    loglevels = ["off"]+[l.lower() for l in logging.getLevelNamesMapping().keys()]
-    loglevels.remove("notset")
-    parser.add_argument(
-        "-log", choices=loglevels, default="warning", # metavar="LEVEL",
-        help="set logging level (default: %(default)s)",
-    )
-    # texinfo_type = flag_str_parser(DumpTexInfoParts)
-    texinfo_meta = f"{{{','.join([e.name.lower() for e in DumpTexInfoParts])}}}"
-    parser.add_argument(
-        "-dump_texinfo", metavar=texinfo_meta, default=0,
-        # type=texinfo_type,
-        help="creates a file with names of textures used in the map (you can mix the values with + sign, no spaces)",
-    )
-    parser.add_argument(
-        f"-{consts.CMDLINE_MATPATH_KEY}", # use the const to standardize it
-        help="target game/mod's materials.txt file",
-    )
-    parser.add_argument(
-        f"-{consts.CUSTOMMAT_ARG}", 
-        help="file with custom texture material remappings",
-    )
-    parser.add_argument(
-        f"-custommat_read_all", action="store_true",
-        help=f"""
-combine all given/available custom texture material remappings, otherwise stops when found entries from a source, in this order:\n{consts.TEXREMAP_ENTITY_CLASSNAME} -> bspname{consts.CUSTOMMAT_SUFFIX}{consts.CUSTOMMAT_FMT} -> {consts.CUSTOMMAT_ARG}
-        """.strip(),
-    )
-    parser.add_argument(
-        "-out", metavar="OUTPATH", dest="outpath",
-        # type=texinfo_type,
-        help="outputs the edited BSP file here instead of overwriting",
-    )
-    
-    # bsp path
-    parser.add_argument(
-        "bsppath", 
-        help="BSP file to operate on",
-    )
-    return parser.parse_args()
-
-
-def main():
-    # parse arguments
-    args = parse_arguments()
-    print("----START----")
-    
-    # set log level
-    setup_logger(args.log)
-    log = logging.getLogger(__name__)
-    
+def process_bsp(cfg, args):
     # load bsp
     # with_suffix is required to be compatible with other compilers which omits 
     # the file extension
@@ -95,11 +19,17 @@ def main():
     print(f'Loading bsp file: "{bsppath}"')
     with open(bsppath, "r+b") as f:
         bsp = BspFile(f)
+        
+    # configure MaterialConfig with the entries from the cfg
+    # then setup it for the current game, which sets MaterialSet.MATCHARS appropriately
+    # we need to do this before dump_texinfo which now uses MaterialConfig 
+    # to get the material names
+    MaterialConfig.config(cfg["Materials"])
+    MaterialConfig.setup(bsp_modname_from_path(bsppath))
     
     # texinfo dump zenpen (embedded/external/grouped)
     if args.dump_texinfo:
-        print(flag_str_parser(DumpTexInfoParts)(args.dump_texinfo))
-        texinfo_parts = int(args.dump_texinfo)
+        texinfo_parts = flag_str_parser(DumpTexInfoParts)(args.dump_texinfo)
         dump_texinfo(bsppath, 3072|(texinfo_parts&7), bsp)
     
     # look for materials path
@@ -110,6 +40,9 @@ def main():
         log.critical("No materials.txt to read.")
         return 1 # error
     print(f'Found materials.txt file: "{matpath}"')
+
+    # setup materials for the current game, which sets MaterialSet.MATCHARS appropriately
+    MaterialConfig.setup(bsp_modname_from_path(matpath))
     
     # load THE materials set
     material_set = MaterialSet.from_materials_file(matpath)
@@ -168,9 +101,23 @@ def main():
     # END OF MAIN
     return 0
 
+
+def main():
+    print(consts.APP_HEADER)
+    # load cfg
+    cfgpath = get_base_path().with_name("BspTexRemap.cfg.toml")
+    cfg = tomllib.loads(Path(cfgpath).read_text())
+    # parse arguments
+    args = parse_arguments()
+    
+    # set log level
+    setup_logger(args.log)
+    log = logging.getLogger() ## "__main__" should use the root logger
+    print("----START----")
+    result = process_bsp(cfg,args)
+    print("-----END-----")
+    return result
     
 if __name__=="__main__":
-    print(consts.APP_HEADER)
     result = main()
-    print("-----END-----")
     exit(result)

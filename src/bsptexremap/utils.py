@@ -10,21 +10,30 @@ import re # modpath_fallbacks
 from itertools import product # char_padder
 from jankbsp import BspFile
 from pathlib import Path
+from functools import reduce # filterstring_to_filter
 import logging
 log = logging.getLogger(__name__)
 
 
+def failure_returns_none(func):
+    ''' wraps function so that if it fails, returns none
+        this is to be used for executing get_textures_from_wad concurrently
+    '''
+    def wrap(*args, **kwargs):
+        try:
+            result = func(*args, **kwargs)
+        except:
+            result = None
+        return result
+    return wrap
+    
+    
 def char_padder(len:int) -> str:
     ''' generator of character paddings of given length
     '''
     for result in product(consts.CHARSEQUENCE, repeat=len):
         yield "".join(result)
 
-def bsp_texinfo_path(bsppath:Path) -> Path:
-    return bsppath.with_name(bsppath.stem + consts.TEXINFO_SUFFIX + consts.TEXINFO_FMT)
-    
-def bsp_custommat_path(bsppath:Path) -> Path:
-    return bsppath.with_name(bsppath.stem + consts.CUSTOMMAT_SUFFIX + consts.CUSTOMMAT_FMT)
 
 def infolog_material_set(material_set):
     if log.getEffectiveLevel() > logging.INFO: return
@@ -58,4 +67,12 @@ def flag_str_parser(flagenum):
         log.debug(result)
         return result
     return callfn
+
+def filterstring_to_filter(filter_str):
+    fragments = [x.lower() for x in filter_str.split(" ")]
+    fragfn=lambda name,frag: 1 if frag in name else 0
+    namefn=lambda name,list: True if not len(list) \
+                             else reduce(lambda x,y:x+y, \
+                                         [fragfn(name,frag) for frag in list])
+    return lambda name: namefn(name.lower(), fragments)
 

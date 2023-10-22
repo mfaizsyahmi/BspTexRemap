@@ -17,14 +17,13 @@ class WadFile:
     '''
     header: WadHeader = field(default_factory=WadHeader)
     entries: list[WadDirEntry] = field(default_factory=list)
+    _only_entries: bool        = False
     # miptexes: list[WadMipTex] = field(default_factory=list)
 
     @classmethod
     def load(cls, fp, only_entries=False):
         ''' if only_entries load just the entries (for quick skimming through)
         '''
-        self._only_entries = only_entries
-
         fp.seek(0)
         header = WadHeader.load(fp)
 
@@ -36,15 +35,15 @@ class WadFile:
 
         # miptexes = []
         for item in entries:
-            if self._only_entries:
+            if only_entries:
                 item._no_data = True
                 continue
             fp.seek(item.offset)
             this_miptex = WadMipTex.load(fp,item.sizeondisk)
             # miptexes.append(this_miptex)
-            entries._miptex = this_miptex # reference to the data it's representing
+            item._miptex = this_miptex # reference to the data it's representing
 
-        return cls(header,entries) # ,miptexes)
+        return cls(header,entries,only_entries) # ,miptexes)
 
     def dump(self, fp):
         """ lays out the file in this order: (header, miptex, entries)

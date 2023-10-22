@@ -1,0 +1,90 @@
+# GUI assets
+[assets.fonts]
+regular = "assets/fonts/FiraMono-Regular.ttf"
+italic = "assets/fonts/FiraMono-Medium.ttf"
+bold  = "assets/fonts/FiraMono-Bold.ttf"
+
+[assets.images]
+app_icon = "assets/images/BspTexRemap_64.ico"
+
+# about page list
+[[about_pages]]
+name = "About"
+layout_file = "assets/about.txt"
+help_menu_item = true
+[[about_pages]]
+name = "How to..."
+layout_file = "assets/howto.txt"
+help_menu_item = true
+
+# Material array definition
+# Half-Life
+[[Materials]]
+game = "valve"
+default_material = "C"
+[Materials.names]
+C = "Concrete"
+M = "Metal"
+D = "Dirt"
+V = "Vents"
+G = "Grate"
+T = "Tile"
+S = "Slosh"
+W = "Wood"
+P = "Computer"
+Y = "Glass"
+F = "Flesh"
+[Materials.colors]
+# Each entry has three parts: 1)text color, 2)background, 3)foreground over background
+# Each part consists of RGBA values
+C = [ [255,255,255,255], [255,255,255,255], [  0,  0,  0,255] ]
+M = [ [255,  0,  0,255], [255,  0,  0,255], [255,255,255,255] ]
+D = [ [255,127,  0,255], [255,127,  0,255], [255,255,255,255] ]
+V = [ [255,255,  0,255], [255,255,  0,255], [255,255,255,255] ]
+G = [ [127,255,  0,255], [127,255,  0,255], [255,255,255,255] ]
+T = [ [  0,255,  0,255], [  0,255,  0,255], [255,255,255,255] ]
+S = [ [  0,255,127,255], [  0,255,127,255], [255,255,255,255] ]
+W = [ [  0,255,255,255], [  0,255,255,255], [255,255,255,255] ]
+P = [ [  0,127,255,255], [  0,127,255,255], [255,255,255,255] ]
+Y = [ [127,127,255,255], [  0,  0,255,255], [255,255,255,255] ]
+F = [ [127,  0,255,255], [127,  0,255,255], [255,255,255,255] ]
+
+# Opposing Force
+[[Materials]]
+game = "gearbox"
+base = "valve"
+[Materials.names]
+O = "Snow"
+[Materials.colors]
+O = [ [255,  0,255,255], [255,  0,255,255], [255,255,255,255] ]
+
+# Counter-Strike
+[[Materials]]
+game = "cstrike"
+base = "valve"
+[Materials.names]
+N = "Snow"
+X = "Grass"
+[Materials.colors]
+N = [ [255,  0,255,255], [255,  0,255,255], [255,255,255,255] ]
+X = [ [150,150,150,255], [150,150,150,255], [  0,  0,  0,255] ]
+
+# Condition Zero
+[[Materials]]
+game = "czero"
+base = "cstrike"
+
+# Condition Zero Deleted Scenes
+[[Materials]]
+game = "czeror"
+base = "valve"
+[Materials.names]
+E = "Carpet"
+N = "Snow"
+A = "Grass"
+R = "Gravel"
+[Materials.colors]
+E = [ [150,150,150,255], [150,150,150,255], [  0,  0,  0,255] ]
+N = [ [150,150,150,255], [150,150,150,255], [  0,  0,  0,255] ]
+A = [ [150,150,150,255], [150,150,150,255], [  0,  0,  0,255] ]
+R = [ [150,150,150,255], [150,150,150,255], [  0,  0,  0,255] ]
