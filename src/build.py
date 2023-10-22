@@ -1,5 +1,5 @@
 #import PyInstaller.__main__
-import sys, compileall, subprocess, shutil, argparse, tomllib
+import os, sys, compileall, subprocess, shutil, argparse, tomllib
 from pathlib import Path
 from time import sleep
 try:
@@ -7,10 +7,11 @@ try:
 except:
     APPNAME, VERSION = "BspTexRemap", "_dev"
     
-## check that we're running in a venv
-if sys.prefix == sys.base_prefix:
-    print("This script must be run in a venv!")
-    sys.exit(1)
+## if not on github actions, check that we're running in a venv
+if "CI" not in os.environ or not os.environ["CI"] or "GITHUB_RUN_ID" not in os.environ:
+    if sys.prefix == sys.base_prefix:
+        print("This script must be run in a venv!")
+        sys.exit(1)
 
 ## CONSTS
 CFGPATH = Path(__file__).with_suffix(".cfg.toml")
