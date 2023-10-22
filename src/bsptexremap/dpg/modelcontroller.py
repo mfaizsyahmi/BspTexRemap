@@ -1300,7 +1300,7 @@ class App:
         })
         if not Path(self.cfg["cfgpath"]).exists():
             log.critical('config file "%s" cannot be found.', self.cfg["cfgpath"])
-            exit(1)
+            sys.exit(1)
         self.cfg.update(tomllib.loads(Path(self.cfg["cfgpath"]).read_text()))
 
         self.data = AppModel(self)
