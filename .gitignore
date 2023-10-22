@@ -1,5 +1,6 @@
 src_legacy/compiler/*
 __pycache__
+*/*.spec
 src/venv
 src/build
 src/dist
@@ -10,7 +11,10 @@ wtf.txt
 build
 dist
 src/cmd venv.lnk
-src/cache
 src/BspTexRemap_GUI.cfg.json
 src/tests/gui_integration/fixtures_mod
 src/temp
+src/BspTexRemap_GUI.build
+src/BspTexRemap_GUI.dist
+*.exe
+*.cmd
