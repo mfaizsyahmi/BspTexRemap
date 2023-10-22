@@ -6,7 +6,7 @@ from jankbsp import BspFileBasic, WadFile
 from jankbsp.types import EntityList
 from jankbsp.types.wad import WadMipTex
 
-from .. import utils
+from .. import utils, bsputil
 from ..enums import MaterialEnum, DumpTexInfoParts
 from ..common import * # This inserts consts, so must come before .consts!!!
 from ..utils import failure_returns_none
@@ -107,7 +107,7 @@ class AppModel:
         self.direct_remap = {}
         self.remap_entity_count = 0
 
-        for texremap_ent in iter_texremap_entities(self.bsp.entities):
+        for texremap_ent in bsputil.iter_texremap_entities(self.bsp.entities):
             self.remap_entity_count += 1
             if self.auto_load_wannabes:
                 self.wannabe_set |= MaterialSet.from_entity(texremap_ent)
@@ -131,7 +131,7 @@ class AppModel:
 
     def parse_remap_entities(self):
         if not self.bsp: return
-        for texremap_ent in iter_texremap_entities(self.bsp.entities):
+        for texremap_ent in bsputil.iter_texremap_entities(self.bsp.entities):
             self.wannabe_set |= MaterialSet.from_entity(texremap_ent)
 
     def load_materials(self, matpath):
@@ -642,7 +642,7 @@ class AppView:
 
     def update_wadlist(self):
         WadStatus._parent = self.get_dpg_item(type=BindingType.WadListGroup)
-        wads = list_wads(self.app.data.bsp.entities,True)
+        wads = bsputil.list_wads(self.app.data.bsp.entities,True)
 
         list(x.delete() for x in self.wadstats) # make sure the bound dpg item is deleted
         self.wadstats = [WadStatus(w,i) for i,w in enumerate(wads)]
@@ -886,8 +886,10 @@ class AppView:
                     elif isinstance(data,dict):
                         dpg.add_text("\n".join([f"{x:15s} : {y}" \
                                                 for x,y in data.items()]))
-
-        dpg.show_item(self.get_dpg_item(BindingType.SummaryDialog))
+        
+        dlg = self.get_dpg_item(BindingType.SummaryDialog)
+        dpg.show_item(dlg)
+        gui_utils.center_window(dlg)
 
 
 ###=============================================================================
@@ -1122,7 +1124,10 @@ class AppActions:
         self.view.update_gallery_items(selected=True)
 
     def show_config(self, *_):
-        dpg.show_item(self.view.get_dpg_item(BindingType.ConfigDialog))
+        dlg = self.view.get_dpg_item(BindingType.ConfigDialog)
+        dpg.show_item(dlg)
+        gui_utils.center_window(dlg)
+
 
     def show_about(self, page=None):
         dlg_tag = self.view.get_dpg_item(BindingType.AboutDialog)
