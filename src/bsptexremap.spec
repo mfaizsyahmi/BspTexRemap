@@ -6,7 +6,7 @@ block_cipher = None
 
 a = Analysis(
     ['BspTexRemap.py'],
-    pathex=[],
+    pathex=['venv/lib/site-packages'],
     binaries=[],
     datas=[],
     hiddenimports=[],
@@ -37,7 +37,6 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=['assets\\images\\BspTexRemap_64.ico'],
 )
 coll = COLLECT(
     exe,

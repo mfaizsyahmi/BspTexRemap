@@ -20,7 +20,7 @@ Released under MIT License
 		"  {PROJECT_URL}"
 	]
 	"
-Written in Python 3.11.5
+Written in Python 3.11
 Uses DearPyGui v1.10.0 by hoffstadt under MIT License
 	"
 	URL(indent=12) [ "https://github.com/hoffstadt/DearPyGui" ]

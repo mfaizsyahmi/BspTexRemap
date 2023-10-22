@@ -18,3 +18,4 @@ src/BspTexRemap_GUI.build
 src/BspTexRemap_GUI.dist
 *.exe
 *.cmd
+*.zip

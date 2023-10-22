@@ -13,9 +13,10 @@ import sys
 GUI_APPNAME     = "BspTexRemap GUI"
 GUI_VERSION     = "v0.1"
 GUI_APPDESC     = """
-View textures in GoldSrc BSP files, loads materials.txt, assigns custom materials to the textures in the BSP, renames those textures in a way that applies material sounds without modifying materials.txt.
+View textures in GoldSrc BSP files, including external WAD textures, loads materials.txt, assigns custom materials to the textures in the BSP, renames those textures in a way that applies material sounds without modifying materials.txt.
 """.strip()
 
+## UNUSED
 GUI_ABOUT = f"""
 {GUI_APPNAME} {GUI_VERSION}
 {COPYRIGHT}
@@ -26,7 +27,7 @@ Part of {APPNAME} {VERSION}
 Released under MIT License
 ({PROJECT_URL})
 
-Written in Python 3.11.5
+Written in Python 3.11
 Uses DearPyGui v1.10.0 by hoffstadt under MIT License (https://github.com/hoffstadt/DearPyGui)
 Uses DearPyGui-DragAndDrop by IvanNazaruk under MIT License (https://github.com/IvanNazaruk/DearPyGui-DragAndDrop)
 """.strip()
