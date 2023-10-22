@@ -1,7 +1,7 @@
 ''' materials.py
     classes that deal with materials go here
 '''
-from . import consts, common
+from . import consts #, common
 from .utils import char_padder
 from .enums import MaterialEnum
 #from .common import modpath_fallbacks
@@ -122,7 +122,10 @@ class MaterialConfig:
             return cfgitem["default_material"] \
                 if "default_material" in cfgitem \
                 else _get_def_mat(cls._get_cfg(cfgitem["base"]))
-
+        
+        # load this here to hopefully fix circular import problem
+        from . import common
+        
         if modpath:
             # if given modpath, try to follow the fallbacks until one with entry is found
             for cur_path in common.modpath_fallbacks(modpath):
