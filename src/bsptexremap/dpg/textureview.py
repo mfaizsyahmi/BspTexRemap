@@ -451,31 +451,35 @@ class TextureView:
         
         dpg.configure_item(TextureView._mx_popup, show=True)
 
+    def mx_set(self, value):
+        # check that we are allowed to unembed
+        if not TextureView.app.data.allow_unembed \
+        and not self.is_external and value:
+            log.error("Current settings disallow unembedding textures! Discarding change.")
+            return
+        # check that we know where the source of the external textures are before embedding
+        elif not self.is_external and not value and not self.external_src:
+            log.error("The external WAD source for this texture is unknown. Please load them first.")
+            return
+        
+        log.debug(f"change embed state of {self.matname} to {not value}")
+        # same state as original -> unset
+        if value == self.is_external:
+            self.become_external = None
+        else:
+            self.become_external = value
+        
+        return True # success
+        
+
     def _mx_cb(self, sender, data):
         dpg.configure_item(TextureView._mx_popup, show=False)
 
         val_map = {0:False, 1:True}
         data = val_map[consts.TEXVIEW_MX.index(data)] if isinstance(data,str) else data
 
-        # check that we are allowed to unembed
-        if not TextureView.app.data.allow_unembed \
-        and not self.is_external and data:
-            log.error("Current settings disallow unembedding textures! Discarding change.")
-            return
-        # check that we know where the source of the external textures are before embedding
-        elif not self.is_external and not data and not self.external_src:
-            log.error("The external WAD source for this texture is unknown. Please load them first.")
-            return
-
-        
-        log.info(f"change embed state of {self.matname} to {not data}")
-        # same state as original -> unset
-        if data == self.is_external:
-            self.become_external = None
-        else:
-            self.become_external = data
-
-        self.update_relatives_state()
+        if self.mx_set(data):
+            self.update_relatives_state()
 
 
     ## matslider hovered callback

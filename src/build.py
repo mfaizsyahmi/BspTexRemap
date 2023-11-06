@@ -1,16 +1,20 @@
 #import PyInstaller.__main__
-import sys, compileall, subprocess, shutil, argparse, tomllib
+import os, sys, compileall, subprocess, shutil, argparse, tomllib
 from pathlib import Path
 from time import sleep
 try:
     from bsptexremap.consts import APPNAME, VERSION
 except:
     APPNAME, VERSION = "BspTexRemap", "_dev"
+
+def is_on_github_actions():
+    return "CI" in os.environ and os.environ["CI"] and "GITHUB_RUN_ID" in os.environ
     
-## check that we're running in a venv
-if sys.prefix == sys.base_prefix:
-    print("This script must be run in a venv!")
-    sys.exit(1)
+## if not on github actions, check that we're running in a venv
+if not is_on_github_actions():
+    if sys.prefix == sys.base_prefix:
+        print("This script must be run in a venv!")
+        sys.exit(1)
 
 ## CONSTS
 CFGPATH = Path(__file__).with_suffix(".cfg.toml")
@@ -73,7 +77,7 @@ def run_bundlers():
     while len(done_part) < len(procmap):
         for label, proc in procmap.items():
             proc.poll()
-            if proc.returncode is not None:
+            if proc.returncode is not None and label not in done_part:
                 done_part.add(label)
                 print(f"{label} exited with code: {proc.returncode}")
         sleep(1)

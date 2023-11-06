@@ -186,16 +186,16 @@ class AppModel:
         ###---------------------------------------------------------------------
         ## 1. texture embedding/unembedding
         # dict of name:data
-        things_to_embed  = {item.name: item.external_src \
+        things_to_embed  = {item.name.lower(): item.external_src \
                             for item in self.app.view.textures \
                             if item.become_external==False}
         # get the names of wads with the textures
         wadnames = set((src for src in things_to_embed.values()))
         # fetch the cached miptexes and puts them into the dict
         for wadname in wadnames:
-            for miptex in self.view.wad_cache[wadname]:
-                if miptex.name in things_to_embed:
-                    things_to_embed[miptex.name] = miptex
+            for miptex in self.app.view.wad_cache[wadname].values():
+                if miptex.name.lower() in things_to_embed:
+                    things_to_embed[miptex.name.lower()] = miptex
 
         things_to_unembed=[item.name for item in self.app.view.textures \
                            if item.become_external==True]
@@ -1098,7 +1098,7 @@ class AppActions:
         log.debug(f"selection: {value}")
         for item in self.view.gallery.data: # only the list in gallery data is selectable
             # item._select_cb(sender,value)
-            item.selected = True
+            item.selected = value
         self.view.update_gallery_items()
 
     def select_wannabes(self,*_): # select textures in wannabe set
@@ -1120,7 +1120,7 @@ class AppActions:
     def selection_embed(self, sender, _, embed:bool):
         for item in self.view.gallery.data:
             if item.selected:
-                item.become_external = None if embed != item.is_external else not embed
+                item.mx_set(not embed)
         self.view.update_gallery_items(selected=True)
 
     def show_config(self, *_):
