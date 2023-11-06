@@ -6,9 +6,12 @@ try:
     from bsptexremap.consts import APPNAME, VERSION
 except:
     APPNAME, VERSION = "BspTexRemap", "_dev"
+
+def is_on_github_actions():
+    return "CI" in os.environ and os.environ["CI"] and "GITHUB_RUN_ID" in os.environ
     
 ## if not on github actions, check that we're running in a venv
-if "CI" not in os.environ or not os.environ["CI"] or "GITHUB_RUN_ID" not in os.environ:
+if not is_on_github_actions():
     if sys.prefix == sys.base_prefix:
         print("This script must be run in a venv!")
         sys.exit(1)
@@ -74,7 +77,7 @@ def run_bundlers():
     while len(done_part) < len(procmap):
         for label, proc in procmap.items():
             proc.poll()
-            if proc.returncode is not None:
+            if proc.returncode is not None and label not in done_part:
                 done_part.add(label)
                 print(f"{label} exited with code: {proc.returncode}")
         sleep(1)
