@@ -89,6 +89,13 @@ class MipTex:
         return MipTex.STRUCT.size if self.is_external \
         else MipTex.STRUCT.size + MipTex.PALETTE_PAD + MipTex.PALETTE_SIZE \
                 + int(len(self.mip0) * 1.328125)
+                
+    @property
+    def lname(self):
+        ''' returns name converted to lowercase for the sole purpose of 
+            case-insensitive comparison
+        '''
+        return self.name.lower()
 
     def unembed(self):
         ''' make MipTex entry external. no turning back! '''
