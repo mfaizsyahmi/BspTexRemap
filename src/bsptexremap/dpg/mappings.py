@@ -118,17 +118,17 @@ gallery_sizes = [item.text for item in gallery_size_map]
 
 _galsort = namedtuple("GallerySortEntry", ["text", "short", "key", "reverse"])
 gallery_sort_map = [
-    _galsort("By entry order (no sort)",     "--", lambda x:0,         False),
-    _galsort("By texture name, ascending" ,  "+N", lambda x:x.name,    False),
-    _galsort("By texture name, descending",  "-N", lambda x:x.name,    True ),
-    _galsort("By material name, ascending" , "+M", lambda x:x.matname, False),
-    _galsort("By material name, descending", "-M", lambda x:x.matname, True ),
-    _galsort("By width, ascending" ,         "+W", lambda x:x.width,   False),
-    _galsort("By width, descending",         "-W", lambda x:x.width,   True ),
-    _galsort("By height, ascending" ,        "+H", lambda x:x.height,  False),
-    _galsort("By height, descending",        "-H", lambda x:x.height,  True ),
-    _galsort("By dimensions, ascending" ,    "+S", lambda x:x.width*x.height, False),
-    _galsort("By dimensions, descending",    "-S", lambda x:x.width*x.height, True ),
+    _galsort("By entry order (no sort)",     "--", lambda x:0,                 False),
+    _galsort("By texture name, ascending" ,  "+N", lambda x:x.name.upper(),    False),
+    _galsort("By texture name, descending",  "-N", lambda x:x.name.upper(),    True ),
+    _galsort("By material name, ascending" , "+M", lambda x:x.matname.upper(), False),
+    _galsort("By material name, descending", "-M", lambda x:x.matname.upper(), True ),
+    _galsort("By width, ascending" ,         "+W", lambda x:x.width,           False),
+    _galsort("By width, descending",         "-W", lambda x:x.width,           True ),
+    _galsort("By height, ascending" ,        "+H", lambda x:x.height,          False),
+    _galsort("By height, descending",        "-H", lambda x:x.height,          True ),
+    _galsort("By dimensions, ascending" ,    "+S", lambda x:x.width*x.height,  False),
+    _galsort("By dimensions, descending",    "-S", lambda x:x.width*x.height,  True ),
 ]
 gallery_sortings = [item.text for item in gallery_sort_map]
 gallery_sort_separators = (5,) # where separators at
