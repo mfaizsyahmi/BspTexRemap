@@ -296,15 +296,15 @@ def dump_texinfo(bsppath,
     if not parts: return
 
     def get_unique_grouped(bsp,matset):
-        uniquetexgroups = list_texgroups(bsp.textures_m)
+        uniquetexgroups = bsputil.list_texgroups(bsp.textures_m)
         uniquetexgroups.difference_update(*matset.sets)
         return uniquetexgroups
 
     valuegetter = {
-        1:lambda bsp,matset:list_textures(bsp.textures_m),
-        2:lambda bsp,matset:list_textures(bsp.textures_x),
-        4:lambda bsp,matset:list_texgroups(bsp.textures), # all texgroups in map
-        8:lambda bsp,matset:get_unique_grouped(bsp,matset)
+        1:lambda bsp,matset: bsputil.list_textures(bsp.textures_m),
+        2:lambda bsp,matset: bsputil.list_textures(bsp.textures_x),
+        4:lambda bsp,matset: bsputil.list_texgroups(bsp.textures), # all texgroups in map
+        8:lambda bsp,matset: get_unique_grouped(bsp,matset)
     }
 
     e = DumpTexInfoParts # shorthand
