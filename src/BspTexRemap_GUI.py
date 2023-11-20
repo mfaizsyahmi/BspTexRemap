@@ -625,8 +625,9 @@ def add_viewport_menu(app, dev_mode=False, basepath=None):
                 _mi(label=pg_cfg["name"], callback=cb(pg_cfg["name"]))
 
 
-def main(basepath):
+def main(basepath, start=True):
     ''' basepath is the path to the main script (unbundled) or bundled exe
+        set start to False for test and debug
     '''
     args = parse_arguments(gui=True)
     setup_logger(args.log) # for console log
@@ -698,10 +699,14 @@ def main(basepath):
     dpg.setup_dearpygui()
     dpg.show_viewport()
 
-    dpg.start_dearpygui() # dpg main loop
+    if start:
+        dpg.start_dearpygui() # dpg main loop
 
-    app.save_config()
-    dpg.destroy_context()
+        app.save_config()
+        dpg.destroy_context()
+    
+    else:
+        return app
 
 
 if __name__ == "__main__":
