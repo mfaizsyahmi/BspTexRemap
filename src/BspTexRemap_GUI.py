@@ -681,7 +681,7 @@ def main(basepath, start=True):
     add_wannabe_window(app,remaps_window)
     add_textures_window(app,textures_window)
     add_options_window(app,options_window)
-    add_about_dialog(app,about_dialog)
+    add_about_dialog(app,about_dialog,basepath)
     add_misc_dialogs(app,{
         _BT.AboutDialog: about_dialog,
     })
