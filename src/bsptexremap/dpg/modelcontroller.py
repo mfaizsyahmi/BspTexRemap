@@ -10,7 +10,7 @@ from .. import utils, bsputil
 from ..enums import MaterialEnum, DumpTexInfoParts
 from ..common import * # This inserts consts, so must come before .consts!!!
 from ..utils import failure_returns_none
-from ..bsputil import wadlist, guess_lumpenum, bsp_custommat_path
+from ..bsputil import list_wads, guess_lumpenum, bsp_custommat_path, iter_texremap_entities
 from ..materials import MaterialConfig, MaterialSet, TextureRemapper
 
 from . import consts, mappings, gui_utils
@@ -60,10 +60,12 @@ class AppModel:
     matchars : str    = MaterialSet.MATCHARS # edit if loading OF/CZ/CZ/DS
 
     def __post__init__(self):
-        # configure MaterialConfig with the entries from the cfg
-        # then setup it for the current game, which sets MaterialSet.MATCHARS appropriately
-        # we need to do this before dump_texinfo which now uses MaterialConfig
-        # to get the material names
+        ''' configure MaterialConfig with the entries from the cfg
+            then setup it for the current game, 
+            which sets MaterialSet.MATCHARS appropriately
+            we need to do this before dump_texinfo which now uses MaterialConfig
+            to get the material names
+        '''
         MaterialConfig.config(self.app.cfg["Materials"])
         MaterialConfig.setup()
         self.mat_set      = MaterialSet()
@@ -72,7 +74,7 @@ class AppModel:
 
     def load_bsp(self, bsppath):
         ''' loads given bsp, and kickstarts some post-load operations
-            (has side effects)
+            (has side effects!!)
         '''
         log.info(f"Loading BSP: {bsppath!s}")
         gui_utils.show_loading(True)
@@ -197,7 +199,7 @@ class AppModel:
                 if miptex.name.lower() in things_to_embed:
                     things_to_embed[miptex.name.lower()] = miptex
 
-        things_to_unembed=[item.name for item in self.app.view.textures \
+        things_to_unembed=[item.name.lower() for item in self.app.view.textures \
                            if item.become_external==True]
 
         ## 2. texture renamings
@@ -228,13 +230,13 @@ class AppModel:
             this_miptex = newbsp.textures[i]
 
             ## 1. embed/unembed
-            if this_miptex.name in things_to_embed and this_miptex.is_external:
+            if this_miptex.name.lower() in things_to_embed and this_miptex.is_external:
                 # replace itself with the entry
-                newbsp.textures[i] = things_to_embed[this_miptex.name]
+                newbsp.textures[i] = things_to_embed[this_miptex.name.lower()]
                 list_embedded.append(this_miptex.name)
-            elif this_miptex.name in things_to_unembed and not this_miptex.is_external:
+            elif this_miptex.name.lower() in things_to_unembed and not this_miptex.is_external:
                 this_miptex.unembed()
-                list_unembedded.append(this_miptex.name)
+                list_unembedded.append(this_miptex.name.lower())
 
             ## 2. rename
             if this_miptex.name in remap_dict:
@@ -1288,6 +1290,7 @@ class AppCfg(dict):
         return super().get(attr)
     def __setattr__(self, attr:str, val:str) -> None:
         super().update({attr: val})
+
 
 class App:
     def __init__(self, basepath=None):

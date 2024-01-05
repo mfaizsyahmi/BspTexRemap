@@ -9,7 +9,7 @@ from jankbsp import BspFileBasic as BspFile
 from jankbsp.types import EntityList
 
 ALLTESTS = 0b11111111 # bitflags for tests to run
-CAPTURE_OUTPUT = True # if true, redirect output away from terminal
+CAPTURE_OUTPUT = False # if true, redirect output away from terminal
 LOG_LEVEL = "info"    # log level for app
 
 class TestApp(unittest.TestCase):
@@ -17,18 +17,18 @@ class TestApp(unittest.TestCase):
         # path to script file
         self.scriptpath = Path(__file__).parents[2] / "BspTexRemap.py"
         # path to fixtures path
-        self.fixturepath = Path(__file__).parent / "fixtures"
+        self.fixturepath = Path(__file__).parent / "fixtures_mod"
 
-        self.bsppath = self.fixturepath / "dm_hellhole.bsp"
+        self.bsppath = self.fixturepath / "maps/dm_hellhole.bsp"
         self.bsppath_origin = self.bsppath.with_suffix(".ORIGIN") # MUST EXIST
-        self.bsppath_other = self.fixturepath / "output.bsp"
+        self.bsppath_other = self.fixturepath / "maps/output.bsp"
 
-        self.texinfopath = self.fixturepath / "dm_hellhole_texinfo.txt"
+        self.texinfopath = self.fixturepath / "maps/dm_hellhole_texinfo.txt"
 
-        self.custommatpath = self.fixturepath / "dm_hellhole_custommat.txt"
+        self.custommatpath = self.fixturepath / "maps/dm_hellhole_custommat.txt"
         self.custommatpath_origin = self.custommatpath.with_suffix(".NOPE") # MUST EXIST
 
-        self.entpath = self.fixturepath / "extras.ent" # MUST EXIST
+        self.entpath = self.fixturepath / "maps/extras.ent" # MUST EXIST
 
         self.materials_path = r"D:\SteamLibrary\steamapps\common\Half-Life\valve\sound\materials.txt" # MUST EXIST
 
