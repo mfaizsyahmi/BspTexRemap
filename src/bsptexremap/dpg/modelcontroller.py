@@ -10,7 +10,7 @@ from .. import utils, bsputil
 from ..enums import MaterialEnum, DumpTexInfoParts
 from ..common import * # This inserts consts, so must come before .consts!!!
 from ..utils import failure_returns_none
-from ..bsputil import wadlist, guess_lumpenum, bsp_custommat_path
+from ..bsputil import list_wads, guess_lumpenum, bsp_custommat_path, iter_texremap_entities
 from ..materials import MaterialConfig, MaterialSet, TextureRemapper
 
 from . import consts, mappings, gui_utils
@@ -1290,6 +1290,7 @@ class AppCfg(dict):
         return super().get(attr)
     def __setattr__(self, attr:str, val:str) -> None:
         super().update({attr: val})
+
 
 class App:
     def __init__(self, basepath=None):
