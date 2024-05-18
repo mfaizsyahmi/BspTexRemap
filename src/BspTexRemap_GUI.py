@@ -352,6 +352,10 @@ def add_options_window(app,tag):
         _bind(_BT.Value, _prop(app.data,"allow_unembed"))
         _help(consts.ALLOW_UNEMBED_HELP)
 
+        dpg.add_checkbox(label="Ignore bsp <-> wad texture mismatch")
+        _bind(_BT.Value, _prop(app.data,"ignore_miptex_mismatch"))
+        _help(consts.IGNORE_MIPTEX_MISMATCH_HELP)
+
         dpg.add_separator()
         dpg.add_text("Before save:")
 
