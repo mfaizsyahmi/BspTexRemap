@@ -3,9 +3,8 @@
     basically whatever functionality a command shell program and a compiler
     program would have in common.
 '''
-from . import consts, bsputil
+from . import consts, bsputil, materials
 from .enums import DumpTexInfoParts # , MaterialEnum # dump_texinfo
-from .materials import MaterialConfig, MaterialSet, TextureRemapper
 
 # get_textures_from_wad
 from jankbsp import WadFile
@@ -232,9 +231,9 @@ def search_wads(bsp_path, wadlist):
 
 #def load_wannabe_set_from_bsp_entities(bsp):
 #    ''' unused '''
-#    wannabe_set = MaterialSet()
+#    wannabe_set = materials.MaterialSet()
 #    for texremap_ent in bsputil.iter_texremap_entities(bsp.entities):
-#        wannabe_set |= MaterialSet.from_entity(texremap_ent)
+#        wannabe_set |= materials.MaterialSet.from_entity(texremap_ent)
 #    return wannabe_set
 
 
@@ -245,19 +244,19 @@ def load_wannabe_sets(bsp,bsppath,arg_val,first_found=True):
         3. argparse value
         if first_found, will stop loading as soon as the set has entries
     '''
-    wannabe_set = MaterialSet()
+    wannabe_set = materials.MaterialSet()
 
     for step in range(3):
         if step == 0:
             for texremap_ent in bsputil.iter_texremap_entities(bsp.entities):
-                wannabe_set |= MaterialSet.from_entity(texremap_ent)
+                wannabe_set |= materials.MaterialSet.from_entity(texremap_ent)
         elif step == 1:
             if bsputil.bsp_custommat_path(bsppath).exists():
-                wannabe_set |= MaterialSet\
+                wannabe_set |= materials.MaterialSet\
                 .from_materials_file(bsputil.bsp_custommat_path(bsppath))
         elif step == 2:
             if arg_val and Path(arg_val).exists():
-                wannabe_set |= MaterialSet.from_materials_file(arg_val)
+                wannabe_set |= materials.MaterialSet.from_materials_file(arg_val)
 
         if first_found and len(wannabe_set): break
 
@@ -308,7 +307,7 @@ def dump_texinfo(bsppath,
     }
 
     e = DumpTexInfoParts # shorthand
-    me = MaterialConfig.get_material_names_mapping()
+    me = materials.MaterialConfig.get_material_names_mapping()
     mode = "w" if parts&1024 else "a"
     if not outpath:
         outpath = bsputil.bsp_texinfo_path(bsppath)
@@ -324,7 +323,7 @@ def dump_texinfo(bsppath,
 
         if parts&2048: # list of materials
             f.write("\n// Material types: \n")
-            f.write("\n".join([f"//  {m} - {me[m]}" for m in MaterialSet.MATCHARS]))
+            f.write("\n".join([f"//  {m} - {me[m]}" for m in materials.MaterialSet.MATCHARS]))
             f.write("\n// (this list may not be exhaustive. consult the target mod's materials.txt)\n\n")
 
         if parts&4096: # material set
@@ -352,7 +351,7 @@ def filter_materials(source, matchars, names):
     namefn=lambda name,list:not len(list) or any((l(frag) in l(name) for frag in list))
 
     fragments = [x for x in names.split(" ") if len(x)]
-    result = MaterialSet()
+    result = materials.MaterialSet()
     for mat in source.MATCHARS:
         if not matfn(mat): continue # empty if material not match
         filtered = set(name for name in source[mat] if namefn(name,fragments))
