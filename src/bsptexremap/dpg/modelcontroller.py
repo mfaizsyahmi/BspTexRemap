@@ -51,6 +51,7 @@ class AppModel:
     auto_load_wads      : bool = True # try find wads
     auto_load_wannabes  : bool = True # parse entity
     allow_unembed       : bool = False
+    ignore_miptex_mismatch : bool = False # skip dimensions and precedence check
     remap_entity_action : int  = 0    # RemapEntityActions.Insert
     backup              : bool = True # creates backup file if saving in same file
     show_summary        : bool = False # summary window after edits
@@ -550,7 +551,11 @@ class AppView:
             update_args = [] # tuple of texview,newmiptex,source_location
             for newtex in miptexes:
                 if (oldtex := next(filter(finder,self.textures),None)):
-                    update_args.append((oldtex,newtex,new_source, precedence))
+                    update_args.append((
+                            oldtex, newtex, new_source, precedence, 
+                            self.app.data.ignore_miptex_mismatch,
+                            self.app.data.ignore_miptex_mismatch
+                    ))
 
             if not len(update_args): return
             log.info(f"{len(update_args)} texture entries will be updated with {new_source}")

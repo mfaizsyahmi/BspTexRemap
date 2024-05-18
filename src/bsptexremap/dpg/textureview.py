@@ -98,9 +98,11 @@ class TextureView:
 
 
     @classmethod
-    def static_update(cls, tvitem, miptex, source_name, precedence=999):
+    def static_update(cls, tvitem, miptex, source_name, precedence=999, \
+            ignore_mismatch=False, ignore_precedence=False):
         ''' class method provided for parallel thread processing '''
-        tvitem.update_miptex(miptex,source_name,precedence)
+        tvitem.update_miptex(miptex,source_name,precedence, \
+                             ignore_mismatch, ignore_precedence)
 
     def __post_init__(self):
         self.matname = MaterialSet.strip(self.name).upper()
@@ -154,17 +156,17 @@ class TextureView:
             except: pass
 
 
-    def update_miptex(self, miptex, source_name, precedence=999):
+    def update_miptex(self, miptex, source_name, precedence=999, \
+            ignore_mismatch=False, ignore_precedence=False):
         ''' if found wad that has this texture, update here
             but only if precedence is higher than the last
         '''
         # if self.name != miptex.name # SKIPS NAME CHECK FOR NOW
-        if False \
-        or self.width != miptex.width \
-        or self.height != miptex.height:
+        if not ignore_mismatch and \
+        (self.width != miptex.width or self.height != miptex.height):
             raise ValueError("WAD miptex doesn't match BSP's miptex")
 
-        elif self.precedence <= precedence: return
+        elif not ignore_precedence and self.precedence <= precedence: return
 
         self.external_src = source_name
         self.channels = 4
