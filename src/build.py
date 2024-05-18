@@ -123,30 +123,32 @@ def zip_dist(exe7zip_path):
     print("Zipping up distribution...")
     
     cwd = basepath.parent
-    destzip = cwd / f"{APPNAME}_{VERSION[1:]}_win_x64.zip"
+    dest_paths = [cwd / f"{APPNAME}_{VERSION[1:]}_win_x64.{EXT}" \
+            for EXT in ["zip","7z"]]
     
-    # remove existing zip with same name
-    if destzip.exists():
-        print(f"Removing existing zip file {destzip.name}")
-        destzip.unlink()
-    
-    # run 7zip, adding everything
-    subprocess.run([
-        exe7zip_path,
-        'a',            # add
-        destzip.name,   # target zip file
-        r'.\dist\*',    # everything in dist (but dist will not be included in zip path)
-        r'-x!.\dist\BspTexRemap', # exclude the CLI dir
-#        '-mcp=utf-8',    # use utf8 encoding for file names
-        '-mx9',          # ultra compression
-    ], cwd=cwd)
-    # run 7zip a second time to rename BspTexRemap_GUI folder to just BspTexRemap
-    subprocess.run([
-        exe7zip_path,
-        'rn',           # rename
-        str(destzip),   # target zip file
-        "BspTexRemap_GUI", "BspTexRemap", 
-    ], cwd=cwd)
+    for dest_arcpath in dest_paths:
+        # remove existing zip with same name
+        if dest_arcpath.exists():
+            print(f"Removing existing zip file {dest_arcpath.name}")
+            dest_arcpath.unlink()
+        
+        # run 7zip, adding everything
+        subprocess.run([
+            exe7zip_path,
+            'a',            # add
+            dest_arcpath.name,   # target zip file
+            r'.\dist\*',    # everything in dist (but dist will not be included in zip path)
+            r'-x!.\dist\BspTexRemap', # exclude the CLI dir
+    #        '-mcp=utf-8',    # use utf8 encoding for file names
+            '-mx9',          # ultra compression
+        ], cwd=cwd)
+        # run 7zip a second time to rename BspTexRemap_GUI folder to just BspTexRemap
+        subprocess.run([
+            exe7zip_path,
+            'rn',           # rename
+            str(dest_arcpath),   # target zip file
+            "BspTexRemap_GUI", "BspTexRemap", 
+        ], cwd=cwd)
     
     print("Zipping done.")
 

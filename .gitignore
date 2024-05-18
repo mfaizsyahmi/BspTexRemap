@@ -19,3 +19,5 @@ src/BspTexRemap_GUI.dist
 *.exe
 *.cmd
 *.zip
+*.bsp
+*.7z

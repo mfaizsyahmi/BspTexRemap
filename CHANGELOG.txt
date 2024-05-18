@@ -1,3 +1,7 @@
+v0.3.0-pre3 [2024-01-06]
+========================
++ Fixed more bugs
+
 v0.3.0-pre2 [2023-11-06]
 ========================
 + Fixed bugs enough to get texture embedding to work properly

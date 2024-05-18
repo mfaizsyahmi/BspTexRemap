@@ -30,7 +30,7 @@ class DpgLayoutGrammar(Grammar):
                            !flag (set attribute flag to False)
                            almost always corresponds to the kwargs dpg accepts in add_*
 
-                           the parenthesis can be omitted.
+                           the parenthesis can be omitted if no properties.
 
             [...]        = contains the children (for containers) or content
                            (non-containers).
@@ -41,7 +41,7 @@ class DpgLayoutGrammar(Grammar):
 
                            depending on the element, either the first or all items
                            will be included. NOTE that the items in this bracket
-                           IS NOT COMMA SEPARATED.
+                           ARE NOT COMMA SEPARATED.
 
                            the square brackets CANNOT be omitted.
 
