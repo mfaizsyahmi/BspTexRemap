@@ -48,21 +48,30 @@ S - textures selected
 """.strip()
 
 REMAP_ENTITY_ACTION_HELP = """
-info_texture_remap is an entity that mappers can insert to remap entities.
-It is primarily used with the command line version BspTexRemap as part of the
-post-compilation step.
+info_texture_remap is an entity that mappers can insert to
+remap entities. It is primarily used with the command line
+version BspTexRemap as part of the post-compilation step.
 
 Options:
 - {0}: Inserts this entity, or updates its entries.
-  If you forgo this step, the texture renamings would be irreversible.
+  If you forgo this step, the texture renamings would be
+  irreversible.
 - {1}: Removes all instances of this entity.
 - {2}
 """.strip()
 
 ALLOW_UNEMBED_HELP = """
-A check against unembedding embedded textures without the corresponding WAD.
-It is your responsibility to ensure that the wad list contains a WAD that has
-the textures you're unembedding, or you'll have missing textures.
+A check against unembedding embedded textures without the
+corresponding WAD. It is your responsibility to ensure that
+the wad list contains a WAD that has the textures you're
+unembedding, or you'll have missing textures.
+""".strip()
+
+IGNORE_MIPTEX_MISMATCH_HELP = """
+A check against embedding wad textures that have mismatching
+dimensions than the textures used when compiling the map.
+Mismatched texture dimensions may cause issues with texture
+alignment in game.
 """.strip()
 
 NOTES = """
