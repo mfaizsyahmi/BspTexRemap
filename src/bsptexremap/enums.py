@@ -22,9 +22,9 @@ class MaterialEnum(StrEnum):
     Default  = 'C'
     def __class_getitem__(cls, item):
         ''' support for class[item] (prefered way)'''
-        if item in cls.__dict__: return cls.__dict__[item] 
+        if item in cls.__dict__: return cls.__dict__[item]
         return None
-    
+
 
 class DumpTexInfoParts(IntFlag):
     Embedded        = 1

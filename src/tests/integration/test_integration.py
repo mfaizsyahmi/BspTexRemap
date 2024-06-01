@@ -67,6 +67,12 @@ class TestApp(unittest.TestCase):
         ]
         result = subprocess.run(cmdspec, capture_output=CAPTURE_OUTPUT)
         self.assertEqual(result.returncode, 0)
+        
+        # run again but with named value
+        cmdspec[7] = "embedded+external+grouped+uniquegrouped"
+        result = subprocess.run(cmdspec, capture_output=CAPTURE_OUTPUT)
+        self.assertEqual(result.returncode, 0)
+        
 
     # @unittest.skip
     @unittest.skipIf(not ALLTESTS & 2, "skip flag")

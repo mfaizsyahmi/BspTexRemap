@@ -4,4 +4,4 @@ copy "D:\SteamLibrary\steamapps\common\Half-Life\valve_addon\maps\dm_hellhole.bs
 python tests\integration\test_integration.py
 set RESULT=%ERRORLEVEL%
 
-msg %username% Integration Test Result: %RESULT%
+msg %username% Integration Test Result (0=OK): %RESULT%
