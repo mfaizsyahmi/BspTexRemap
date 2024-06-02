@@ -10,6 +10,7 @@ from bsptexremap.common import * # parse_arguments etc
 from jankbsp import BspFileBasic as BspFile
 from pathlib import Path
 import logging, tomllib
+import sys
 
 def process_bsp(cfg, args):
     # load bsp
@@ -120,4 +121,4 @@ def main():
     
 if __name__=="__main__":
     result = main()
-    exit(result)
+    sys.exit(result)
